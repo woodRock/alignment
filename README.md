@@ -1,4 +1,4 @@
-# cow-dcnn
+# alignment
 
 ![](meme.png)
 
@@ -77,8 +77,11 @@ e.g. `--study-a fish_oil/batch_sep2015 --study-b fish_oil/batch_jul2016`.
 
 Fish oil GC-MS samples were collected across four independent batches (Sep 2015,
 Jan 2016, Apr 2016, Jul 2016), each with distinct instrument conditions and retention
-time calibration — making each batch pair a realistic cross-study alignment task with
-RT drifts of 2–3 min. All four classical and learned methods are compared.
+time calibration. All six pairwise batch combinations are evaluated below. Four pairs
+(batches separated by several collection cycles) show substantial RT drift of 2–3 min;
+the remaining two pairs are temporally adjacent batches (Sep 2015 × Jan 2016, Apr 2016 ×
+Jul 2016) with little drift to correct, included for completeness. All four classical
+and learned methods are compared on every pair.
 
 **Metrics**
 - **TIC r** — mean pairwise Pearson r across all A×B sample pairs (higher = better)
@@ -126,11 +129,43 @@ RT drifts of 2–3 min. All four classical and learned methods are compared.
 | COW-TIC | 0.567 | +0.449 | 0.107 |
 | **WarpTransformer + anchor calib** | **0.620** | **+0.502** | **0.112** |
 
+**Sep 2015 × Jan 2016** (24 × 26 = 624 pairs, temporally adjacent batches)
+
+| Method | TIC r | Δ unaligned | Study sil |
+|---|---|---|---|
+| Unaligned | 0.815 | — | 0.081 |
+| icoshift | 0.765 | -0.049 | 0.125 |
+| Raw cosine PCHIP | 0.621 | -0.194 | 0.121 |
+| **COW-TIC** | **0.827** | **+0.013** | 0.114 |
+| WarpTransformer + anchor calib | 0.699 | -0.116 | **0.062** |
+
+**Apr 2016 × Jul 2016** (10 × 14 = 140 pairs, temporally adjacent batches)
+
+| Method | TIC r | Δ unaligned | Study sil |
+|---|---|---|---|
+| Unaligned | 0.900 | — | **0.144** |
+| icoshift | 0.900 | +0.000 | 0.201 |
+| Raw cosine PCHIP | 0.856 | -0.044 | 0.203 |
+| **COW-TIC** | **0.903** | **+0.003** | 0.206 |
+| WarpTransformer + anchor calib | 0.879 | -0.020 | 0.151 |
+
 **Key observations:**
 
-- *WarpTransformer + anchor calib achieves the highest TIC r in every batch pair*,
-  outperforming COW-TIC by +0.053 to +0.092 despite using no more than 4–8 spectral
-  anchor pairs for calibration (raw cosine RANSAC — no TIC r used during training).
+- *WarpTransformer + anchor calib achieves the highest TIC r on every high-drift batch
+  pair* (Sep 2015 × Jul 2016, Jan 2016 × Apr 2016, Sep 2015 × Apr 2016, Jan 2016 × Jul
+  2016), outperforming COW-TIC by +0.053 to +0.092 despite using no more than 4–8
+  spectral anchor pairs for calibration (raw cosine RANSAC — no TIC r used during
+  training).
+
+- *On the two temporally-adjacent, low-drift batch pairs, calibration is not worth
+  applying.* Sep 2015 × Jan 2016 and Apr 2016 × Jul 2016 already start from a high
+  unaligned TIC r (0.815, 0.900), so there is little genuine drift left to correct.
+  Every alignment method is flat or regresses TIC r on these pairs; COW-TIC's direct
+  TIC-r optimisation lets it eke out a marginal +0.013/+0.003 gain, while
+  WarpTransformer trades TIC r for the best (lowest) study silhouette of any method on
+  both pairs (0.062, 0.151) — consistent with the anchor-calibration objective
+  prioritising peak-level consistency over the TIC-shape metric when batches are
+  already well matched.
 
 - *COW-TIC is competitive on TIC r but does not improve batch separation.* Because
   COW-TIC directly maximises the evaluation metric (Pearson TIC r) during optimisation,

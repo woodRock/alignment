@@ -1,0 +1,30 @@
+Loading chromatograms and labels …
+  batch_sep2015: 24 samples  4-class
+  batch_jul2016: 14 samples  5-class
+
+Reference: batch_jul2016 sample[0]
+Features : per-m/z max projection → PCA-50
+k-NN k   : 5  (leave-one-out within each dataset)
+
+Loaded  Drift encoder  from drift_simclr.pt
+Loaded  Cross-study encoder  from cross_study_simclr.pt
+
+Evaluating: Unaligned … wheat acc=0.500  rice acc=0.143  xdist=32.338  study_sil=0.297
+Evaluating: Raw cosine … wheat acc=0.333  rice acc=0.000  xdist=32.735  study_sil=0.306
+Evaluating: Drift encoder … wheat acc=0.458  rice acc=0.143  xdist=32.835  study_sil=0.310
+Evaluating: Cross-study encoder … wheat acc=0.458  rice acc=0.143  xdist=32.356  study_sil=0.292
+
+=====================================================================================
+Method                      batch_sep2015 acc  batch_jul2016 acc   X-dist   Study sil   Bio sil
+-------------------------------------------------------------------------------------
+Unaligned                        0.500      0.143   32.338       0.297    -0.067
+Raw cosine                       0.333      0.000   32.735       0.306    -0.080
+Drift encoder                    0.458      0.143   32.835       0.310    -0.078
+Cross-study encoder              0.458      0.143   32.356       0.292    -0.083
+=====================================================================================
+batch_sep2015/batch_jul2016 acc: LOO k=5 accuracy on class labels within each study
+X-dist        : mean PCA distance from each batch_sep2015 sample to k=5 nearest batch_jul2016
+               (lower = more metabolome overlap after alignment)
+Study sil     : silhouette for study label  (lower = less batch effect)
+Bio sil       : silhouette for biological label across both datasets
+               (higher = cleaner separation of shared biological variation)

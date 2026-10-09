@@ -1,6 +1,6 @@
 """
 Preprocess raw fish oil GC-MS .txt files into batch-grouped chromatograms
-for cross-study retention-shift analysis in cow-dcnn.
+for cross-study retention-shift analysis in alignment.
 
 Reads the raw-subsetted-CVSs directory, which contains one .txt file per GC-MS
 run. Acquisition date is encoded in the comment1 header field as YYMMDD.
@@ -13,7 +13,7 @@ Samples are grouped into four acquisition batches:
 
 Instrument blanks (comment1 contains 'BLANK') are skipped automatically.
 
-Each batch directory written to data/fish_oil/ follows the cow-dcnn convention:
+Each batch directory written to data/fish_oil/ follows the alignment convention:
   chroma/        per-sample [N_BINS, MZ_MAX] float32 chromatogram .npz files
   X.npy          [N, MZ_MAX] sqrt+L2-normalised sum spectra (for baselines)
   y.npy          [N] int64 tissue-type labels
@@ -48,7 +48,7 @@ from tqdm import tqdm
 # ── Constants ─────────────────────────────────────────────────────────────────
 
 MZ_MAX   = 1000   # m/z bins 0–999, 1 Da resolution
-N_BINS   = 200    # RT bins (matches cow-dcnn convention)
+N_BINS   = 200    # RT bins (matches alignment convention)
 
 # Map 6-digit date strings to batch names
 DATE_TO_BATCH: dict[str, str] = {
