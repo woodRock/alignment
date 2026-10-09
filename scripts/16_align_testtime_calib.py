@@ -42,6 +42,8 @@ Flow
 from __future__ import annotations
 
 import sys
+import time
+import random
 import argparse
 import numpy as np
 import torch
@@ -54,7 +56,7 @@ from sklearn.metrics import silhouette_score
 
 sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
 from warp_transformer import ChromaWarpTransformer, warp_smoothness_loss
-from alignment import load_chromas, align_pair, warp_chroma_2d
+from alignment import load_chromas, align_pair, warp_chroma_2d, TIME_AXIS
 
 DATA_DIR    = Path(__file__).parent.parent / 'data'
 CKPT_DIR    = Path(__file__).parent.parent / 'checkpoints'
@@ -156,10 +158,20 @@ def anchor_loss(warps: torch.Tensor, study_ids: torch.Tensor,
 
 # ── Metrics ───────────────────────────────────────────────────────────────────
 
+def set_seed(seed: int) -> None:
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+
+
+def tic_r_per_pair(chromas_a: list, chromas_b: list) -> np.ndarray:
+    """Pearson TIC r for every (A_i, B_j), i-major: index i * n_b + j (same order as script 17)."""
+    return np.array([float(pearsonr(a.sum(1), b.sum(1))[0])
+                     for a in chromas_a for b in chromas_b])
+
+
 def tic_correlations(chromas_a: list, chromas_b: list) -> float:
-    corrs = [float(pearsonr(a.sum(1), b.sum(1))[0])
-             for a in chromas_a for b in chromas_b]
-    return float(np.mean(corrs))
+    return float(np.mean(tic_r_per_pair(chromas_a, chromas_b)))
 
 
 def study_silhouette(chromas_a: list, chromas_b: list) -> float:
@@ -170,24 +182,107 @@ def study_silhouette(chromas_a: list, chromas_b: list) -> float:
     return float(silhouette_score(pca, labels))
 
 
-def align_pairwise_cosine(chromas_a: list, chromas_b: list) -> list:
+def pchip_warp_magnitude(warp_fn) -> float:
+    """Mean |w(t) − t| in minutes for a PCHIP warp (reference time → query time)."""
+    if warp_fn is None:
+        return 0.0
+    return float(np.mean(np.abs(warp_fn(TIME_AXIS) - TIME_AXIS)))
+
+
+def align_pairwise_cosine(chromas_a: list, chromas_b: list) -> tuple[list, list[float]]:
+    """Align every A_i to B[0]. Returns aligned A and per-sample warp magnitudes (min)."""
     ref = chromas_b[0]
-    out = []
+    out, mags = [], []
     for c in chromas_a:
         _, _, _, _, wfn, _ = align_pair(c, ref, encode_fn=None, return_anchors=True)
         out.append(warp_chroma_2d(c, wfn) if wfn is not None else c.copy())
-    return out
+        mags.append(pchip_warp_magnitude(wfn))
+    return out, mags
+
+
+def pchip_all_pairs(chromas_a: list, chromas_b: list) -> tuple[np.ndarray, np.ndarray]:
+    """Align each A_i to each B_j separately. Per-pair TIC r against B_j and warp magnitude (min)."""
+    rs, mags = [], []
+    for c in chromas_a:
+        for b in chromas_b:
+            _, _, _, _, wfn, _ = align_pair(c, b, encode_fn=None, return_anchors=True)
+            aligned = warp_chroma_2d(c, wfn) if wfn is not None else c
+            rs.append(float(pearsonr(aligned.sum(1), b.sum(1))[0]))
+            mags.append(pchip_warp_magnitude(wfn))
+    return np.array(rs), np.array(mags)
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
-def main(study_a_dir: Path, study_b_dir: Path, label_a: str, label_b: str):
+def calibrate(model: ChromaWarpTransformer, chromas_t: torch.Tensor, study_ids: torch.Tensor,
+              anchors: list[tuple[int, int]], device: torch.device, seed: int | None = None,
+              log_labels: tuple[str, str] | None = None) -> float:
+    """
+    Anchor-supervised calibration in place (N_CALIB_STEPS of Adam, best-loss state kept).
+    Seeded immediately before the loop, so any caller using the same seed and device
+    consumes an identical dropout RNG stream. Logs every 50 steps if log_labels is given.
+    Returns wall-clock seconds.
+    """
+    if seed is not None:
+        set_seed(seed)
+    t_start = time.perf_counter()
+    n_a   = int((study_ids == 0).sum())
+    model.train()
+    opt   = optim.Adam(model.parameters(), lr=LR_CALIB)
+    sched = optim.lr_scheduler.CosineAnnealingLR(opt, T_max=N_CALIB_STEPS)
+
+    id_t       = torch.arange(N_BINS, dtype=torch.float32, device=device)
+    best_loss  = float('inf')
+    best_state = {k: v.clone() for k, v in model.state_dict().items()}
+
+    for step in range(1, N_CALIB_STEPS + 1):
+        aligned, warps = model(chromas_t, study_ids)
+        a_loss  = anchor_loss(warps, study_ids, anchors, device)
+        s_loss  = warp_smoothness_loss(warps)
+        loss    = LAMBDA_ANCHOR * a_loss + LAMBDA_SMOOTH * s_loss
+
+        opt.zero_grad()
+        loss.backward()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+        opt.step()
+        sched.step()
+
+        if float(loss) < best_loss:
+            best_loss  = float(loss)
+            best_state = {k: v.clone() for k, v in model.state_dict().items()}
+
+        if log_labels and (step % 50 == 0 or step == N_CALIB_STEPS):
+            with torch.no_grad():
+                al_np = aligned.detach().cpu().numpy()
+                tic_r = tic_correlations(list(al_np[:n_a]), list(al_np[n_a:]))
+                wa = float((warps[:n_a] - id_t).abs().mean()) * BIN_MIN
+                wb = float((warps[n_a:] - id_t).abs().mean()) * BIN_MIN
+            print(f"  step {step:>4d}/{N_CALIB_STEPS}  "
+                  f"loss={float(loss):.4f}  anchor={float(a_loss):.4f}  "
+                  f"TIC_r={tic_r:.4f}  "
+                  f"warp {log_labels[0]}={wa:.3f}m  {log_labels[1]}={wb:.3f}m")
+
+    model.load_state_dict(best_state)
+    model.eval()
+    if device.type == 'mps':
+        torch.mps.synchronize()
+    return time.perf_counter() - t_start
+
+
+def pick_device(name: str = 'auto') -> torch.device:
+    if name != 'auto':
+        return torch.device(name)
     if torch.cuda.is_available():
-        device = torch.device('cuda')
-    elif torch.backends.mps.is_available():
-        device = torch.device('mps')
-    else:
-        device = torch.device('cpu')
+        return torch.device('cuda')
+    if torch.backends.mps.is_available():
+        return torch.device('mps')
+    return torch.device('cpu')
+
+
+def main(study_a_dir: Path, study_b_dir: Path, label_a: str, label_b: str,
+         seed: int | None = None, ckpt: Path = CKPT_DIR / 'warp_transformer.pt',
+         device_name: str = 'auto'):
+    device = pick_device(device_name)
     print(f"Device: {device}\n")
 
     # Load chromatograms
@@ -217,7 +312,6 @@ def main(study_a_dir: Path, study_b_dir: Path, label_a: str, label_b: str):
     # that the sparse anchor supervision cannot correct in a small number of steps.
     # The base model starts near-identity (~0.25m) and the anchor signal is
     # sufficient to move it to the correct magnitude and direction.
-    ckpt = CKPT_DIR / 'warp_transformer.pt'
     model = ChromaWarpTransformer()
     model.load_state_dict(torch.load(ckpt, map_location=device))
     model.to(device)
@@ -235,48 +329,12 @@ def main(study_a_dir: Path, study_b_dir: Path, label_a: str, label_b: str):
     print(f"Pre-calibration : TIC r={tic_pre:.4f}  "
           f"warp {label_a}={warp_a_pre:.3f}m  {label_b}={warp_b_pre:.3f}m")
 
-    # Calibration
+    calib_seconds = 0.0
     if anchors:
         print(f"\nCalibrating: {N_CALIB_STEPS} steps  "
-              f"lr={LR_CALIB}  λ_anchor={LAMBDA_ANCHOR}  λ_smooth={LAMBDA_SMOOTH}\n")
-        model.train()
-        opt   = optim.Adam(model.parameters(), lr=LR_CALIB)
-        sched = optim.lr_scheduler.CosineAnnealingLR(opt, T_max=N_CALIB_STEPS)
-
-        id_t       = torch.arange(N_BINS, dtype=torch.float32, device=device)
-        best_loss  = float('inf')
-        best_state = {k: v.clone() for k, v in model.state_dict().items()}
-
-        for step in range(1, N_CALIB_STEPS + 1):
-            aligned, warps = model(chromas_t, study_ids)
-            a_loss  = anchor_loss(warps, study_ids, anchors, device)
-            s_loss  = warp_smoothness_loss(warps)
-            loss    = LAMBDA_ANCHOR * a_loss + LAMBDA_SMOOTH * s_loss
-
-            opt.zero_grad()
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-            opt.step()
-            sched.step()
-
-            if float(loss) < best_loss:
-                best_loss  = float(loss)
-                best_state = {k: v.clone() for k, v in model.state_dict().items()}
-
-            if step % 50 == 0 or step == N_CALIB_STEPS:
-                with torch.no_grad():
-                    tic_r  = tic_correlations(
-                        [aligned[i].detach().cpu().numpy() for i in range(n_a)],
-                        [aligned[i].detach().cpu().numpy() for i in range(n_a, n_a+n_b)]
-                    )
-                    wa = float((warps[:n_a] - id_t).abs().mean()) * BIN_MIN
-                    wb = float((warps[n_a:] - id_t).abs().mean()) * BIN_MIN
-                print(f"  step {step:>4d}/{N_CALIB_STEPS}  "
-                      f"loss={float(loss):.4f}  anchor={float(a_loss):.4f}  "
-                      f"TIC_r={tic_r:.4f}  "
-                      f"warp {label_a}={wa:.3f}m  {label_b}={wb:.3f}m")
-
-        model.load_state_dict(best_state)
+              f"lr={LR_CALIB}  λ_anchor={LAMBDA_ANCHOR}  λ_smooth={LAMBDA_SMOOTH}  seed={seed}\n")
+        calib_seconds = calibrate(model, chromas_t, study_ids, anchors, device,
+                                  seed=seed, log_labels=(label_a, label_b))
 
     # Final evaluation
     model.eval()
@@ -289,35 +347,53 @@ def main(study_a_dir: Path, study_b_dir: Path, label_a: str, label_b: str):
     al_b = [aligned_np[i] for i in range(n_a, n_a+n_b)]
     id_np = np.arange(N_BINS, dtype=np.float32)[None, :]
 
-    tic_unaligned = tic_correlations(chromas_a, chromas_b)
+    r_unaligned   = tic_r_per_pair(chromas_a, chromas_b)
+    tic_unaligned = float(r_unaligned.mean())
     sil_unaligned = study_silhouette(chromas_a, chromas_b)
 
-    print("\nAligning with raw cosine PCHIP (pairwise) …")
-    al_a_cos = align_pairwise_cosine(chromas_a, chromas_b)
-    tic_cos  = tic_correlations(al_a_cos, chromas_b)
+    print("\nAligning with raw cosine PCHIP (each A_i → B[0]) …")
+    al_a_cos, mags_cos_b0 = align_pairwise_cosine(chromas_a, chromas_b)
+    r_cos_b0 = tic_r_per_pair(al_a_cos, chromas_b)
     sil_cos  = study_silhouette(al_a_cos, chromas_b)
 
-    tic_wt  = tic_correlations(al_a, al_b)
-    sil_wt  = study_silhouette(al_a, al_b)
+    print("Aligning with raw cosine PCHIP (each A_i → each B_j) …")
+    r_cos_pw, mags_cos_pw = pchip_all_pairs(chromas_a, chromas_b)
+
+    r_wt     = tic_r_per_pair(al_a, al_b)
+    tic_wt   = float(r_wt.mean())
+    sil_wt   = study_silhouette(al_a, al_b)
     warp_all = float(np.abs(warps_np - id_np).mean()) * BIN_MIN
     warp_a   = float(np.abs(warps_np[:n_a] - id_np).mean()) * BIN_MIN
     warp_b   = float(np.abs(warps_np[n_a:] - id_np).mean()) * BIN_MIN
 
-    w = 72
+    def row(name, r, sil, mag):
+        mag_s = f"{mag:>8.3f}m" if mag is not None else f"{'—':>9}"
+        return (f"{name:<40} {r:>7.3f}  {r - tic_unaligned:>+12.3f}  "
+                f"{sil:>10.3f}  {mag_s}")
+
+    w = 86
     n_anchors = len(anchors)
     lines = [
         f"\n{'=' * w}",
-        f"{'Method':<34} {'TIC r':>7}  {'Δ unaligned':>12}  {'Study sil':>10}",
+        f"{'Method':<40} {'TIC r':>7}  {'Δ unaligned':>12}  {'Study sil':>10}  {'Warp mag':>9}",
         f"{'-' * w}",
-        f"{'Unaligned':<34} {tic_unaligned:>7.3f}  {'—':>12}  {sil_unaligned:>10.3f}",
-        f"{'Raw cosine PCHIP (pairwise)':<34} {tic_cos:>7.3f}  "
-        f"{tic_cos - tic_unaligned:>+12.3f}  {sil_cos:>10.3f}",
-        f"{'WarpTransformer + anchor calib':<34} {tic_wt:>7.3f}  "
-        f"{tic_wt - tic_unaligned:>+12.3f}  {sil_wt:>10.3f}",
+        f"{'Unaligned':<40} {tic_unaligned:>7.3f}  {'—':>12}  {sil_unaligned:>10.3f}  {'—':>9}",
+        row('Raw cosine PCHIP (A_i → B[0])', float(r_cos_b0.mean()), sil_cos,
+            float(np.mean(mags_cos_b0))),
+        row('Raw cosine PCHIP (A_i → each B_j)', float(r_cos_pw.mean()), sil_cos,
+            float(np.mean(mags_cos_pw))),
+        row('WarpTransformer + anchor calib', tic_wt, sil_wt, warp_b),
         f"{'=' * w}",
+        f"TIC r: mean Pearson r over all {n_a}×{n_b} = {n_a * n_b} (A_i, B_j) pairs.",
+        f"Study sil for both PCHIP rows uses A aligned to B[0] (the silhouette protocol of all baselines).",
+        f"Warp mag: PCHIP = mean |w(t) − t| over its A_i warps; WarpTransformer = batch-B samples only.",
         f"",
+        f"Seed                         : {seed}",
+        f"Checkpoint                   : {ckpt}",
         f"Anchors used for calibration : {n_anchors} RANSAC pairs (raw cosine — no TIC leakage)",
+        f"Anchors (ref_bin, query_bin) : {anchors}",
         f"Calibration steps            : {N_CALIB_STEPS} (λ_anchor={LAMBDA_ANCHOR}, λ_smooth={LAMBDA_SMOOTH})",
+        f"Calibration wall time        : {calib_seconds:.1f} s on {device}",
         f"",
         f"WarpTransformer warp magnitudes (mean |warp(t)−t| in minutes):",
         f"  All samples : {warp_all:.3f} min",
@@ -327,8 +403,20 @@ def main(study_a_dir: Path, study_b_dir: Path, label_a: str, label_b: str):
     report = '\n'.join(lines)
     print(report)
 
-    out = RESULTS_DIR / f'warp_transformer_calib_{label_a}_{label_b}.txt'
+    suffix = f'_seed{seed}' if seed is not None else ''
+    out = RESULTS_DIR / f'warp_transformer_calib_{label_a}_{label_b}{suffix}.txt'
     out.write_text(report + '\n')
+
+    per_pair_dir = RESULTS_DIR / 'per_pair'
+    per_pair_dir.mkdir(exist_ok=True)
+    np.savez(per_pair_dir / f'tic_r_calib_{label_a}_{label_b}{suffix}.npz',
+             unaligned=r_unaligned, pchip_b0=r_cos_b0, pchip_pairwise=r_cos_pw,
+             warptransformer=r_wt, pchip_b0_warp_mag=np.array(mags_cos_b0),
+             pchip_pairwise_warp_mag=mags_cos_pw, anchors=np.array(anchors),
+             n_a=n_a, n_b=n_b, seed=-1 if seed is None else seed,
+             sil=np.array([sil_unaligned, sil_cos, sil_wt]),
+             wt_warp_mag=np.array([warp_all, warp_a, warp_b]),
+             calib_seconds=calib_seconds)
     print(f"\n  results → {out}")
 
 
@@ -336,7 +424,14 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--study-a', default='fish_oil/batch_sep2015')
     parser.add_argument('--study-b', default='fish_oil/batch_jul2016')
+    parser.add_argument('--seed', type=int, default=None,
+                        help='seed torch, numpy and random before calibration')
+    parser.add_argument('--ckpt', type=Path, default=CKPT_DIR / 'warp_transformer.pt')
+    parser.add_argument('--device', default='auto',
+                        help="auto | cpu | mps | cuda. MPS is not bit-reproducible under a fixed "
+                             "seed; use cpu for exactly repeatable runs.")
     args = parser.parse_args()
     label_a = Path(args.study_a).name
     label_b = Path(args.study_b).name
-    main(DATA_DIR / args.study_a, DATA_DIR / args.study_b, label_a, label_b)
+    main(DATA_DIR / args.study_a, DATA_DIR / args.study_b, label_a, label_b,
+         seed=args.seed, ckpt=args.ckpt, device_name=args.device)

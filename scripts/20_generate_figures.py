@@ -20,6 +20,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import random
 import sys
 import numpy as np
 import torch
@@ -67,6 +68,12 @@ BATCH_PAIRS = [
     ('fish_oil/batch_jan2016', 'fish_oil/batch_jul2016'),
 ]
 PAIR_LABELS = ['Sep15×Jul16', 'Sep15×Apr16', 'Jan16×Apr16', 'Jan16×Jul16']
+
+
+def _set_seed(seed: int) -> None:
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
 
 # ── Classical alignment ───────────────────────────────────────────────────────
 
@@ -185,10 +192,12 @@ def anchor_loss_fn(warps, study_ids, anchors, device):
     return loss / len(anchors)
 
 
-def calibrate(chromas_a, chromas_b, device, pretrained=True, log_every=5):
+def calibrate(chromas_a, chromas_b, device, pretrained=True, log_every=5, seed=None,
+              ckpt=None):
     """
     Returns (aligned_a, aligned_b, warp_np, anchors, log) where log is a list
-    of dicts {step, loss, tic_r} recorded every log_every steps.
+    of dicts {step, loss, tic_r} recorded every log_every steps. With a seed, the
+    random init (if any) and the calibration loop are seeded as in scripts 16 and 18.
     """
     n_a, n_b = len(chromas_a), len(chromas_b)
     study_ids = torch.tensor([0]*n_a + [1]*n_b, dtype=torch.long, device=device)
@@ -196,14 +205,18 @@ def calibrate(chromas_a, chromas_b, device, pretrained=True, log_every=5):
 
     anchors = extract_anchors(chromas_a, chromas_b)
 
+    if seed is not None and not pretrained:
+        _set_seed(seed)
     model = ChromaWarpTransformer()
     if pretrained:
-        model.load_state_dict(torch.load(CKPT_DIR / 'warp_transformer.pt',
+        model.load_state_dict(torch.load(ckpt or CKPT_DIR / 'warp_transformer.pt',
                                           map_location=device))
     model.to(device)
 
     log = []
     if anchors:
+        if seed is not None:
+            _set_seed(seed)
         model.train()
         opt   = optim.Adam(model.parameters(), lr=LR_CALIB)
         sched = optim.lr_scheduler.CosineAnnealingLR(opt, T_max=N_CALIB_STEPS)
@@ -275,9 +288,10 @@ def pchip_fn(qa, ra):
 
 # ── Figure 1: Warp function comparison ────────────────────────────────────────
 
-def fig1_warp_functions(chromas_a, chromas_b, warp_np, n_a, anchors, out):
-    """Single-panel plot of all four warp functions on one representative pair."""
-    ref_chroma, qry_chroma = chromas_a[0], chromas_b[0]
+def fig1_warp_functions(chromas_a, chromas_b, warp_np, n_a, anchors, out, ai=0):
+    """Single-panel plot of all four warp functions on one representative pair (A[ai], B[0]).
+    The WarpTransformer curve is B[0]'s warp into the shared frame, independent of ai."""
+    ref_chroma, qry_chroma = chromas_a[ai], chromas_b[0]
     ref_tic = ref_chroma.sum(axis=1)
     qry_tic = qry_chroma.sum(axis=1)
 
@@ -599,15 +613,26 @@ def main():
     ap.add_argument('--study-b', default='fish_oil/batch_jul2016')
     ap.add_argument('--figs', nargs='+', type=int, default=[1,2,3,4,5],
                     metavar='N', help='Which figures to generate (default: all)')
+    ap.add_argument('--select', choices=['best', 'median'], default='best',
+                    help="Batch-A sample shown in Figs 1-2: largest ('best') or median "
+                         "WarpTransformer TIC r improvement over unaligned")
+    ap.add_argument('--seed', type=int, default=None,
+                    help='seed calibration as in scripts 16/18 (with --device cpu, repeatable)')
+    ap.add_argument('--device', default='auto', help='auto | cpu | mps | cuda')
+    ap.add_argument('--ckpt', type=Path, default=CKPT_DIR / 'warp_transformer.pt')
     args = ap.parse_args()
 
     want = set(args.figs)
     label_a, label_b = Path(args.study_a).name, Path(args.study_b).name
+    seed, ckpt = args.seed, args.ckpt
 
-    device = (torch.device('cuda') if torch.cuda.is_available()
-              else torch.device('mps') if torch.backends.mps.is_available()
-              else torch.device('cpu'))
-    print(f"Device: {device}")
+    if args.device != 'auto':
+        device = torch.device(args.device)
+    else:
+        device = (torch.device('cuda') if torch.cuda.is_available()
+                  else torch.device('mps') if torch.backends.mps.is_available()
+                  else torch.device('cpu'))
+    print(f"Device: {device}   seed: {seed}   checkpoint: {ckpt}")
 
     # Load primary dataset
     print(f"\nLoading {label_a} × {label_b} …")
@@ -622,7 +647,7 @@ def main():
     if need_calib:
         print("\nCalibrating (pretrained) …")
         aligned_a, aligned_b, warp_full, anchors, log_pre = calibrate(
-            chromas_a, chromas_b, device, pretrained=True, log_every=5)
+            chromas_a, chromas_b, device, pretrained=True, log_every=5, seed=seed, ckpt=ckpt)
         r_unaligned = float(np.mean([
             float(pearsonr(a.sum(1), b.sum(1))[0])
             for a in chromas_a for b in chromas_b
@@ -635,28 +660,41 @@ def main():
     if 3 in want:
         print("\nCalibrating (random init) …")
         _, _, _, _, log_rand = calibrate(
-            chromas_a, chromas_b, device, pretrained=False, log_every=5)
+            chromas_a, chromas_b, device, pretrained=False, log_every=5, seed=seed)
 
-    # Find representative query sample (highest Δ TIC r from WT)
+    # Representative query sample: largest or median Δ TIC r (WT vs unaligned, against B[0])
     qi = 0
+    tag = '' if args.select == 'best' else '_median'
     if need_calib:
         ref_orig   = chromas_b[0].sum(axis=1).astype(np.float64)
         ref_warped = aligned_b[0].sum(axis=1).astype(np.float64)
-        best_delta, best_qi = -np.inf, 0
-        for i in range(n_a):
-            r_un = float(pearsonr(chromas_a[i].sum(1).astype(np.float64), ref_orig)[0])
-            r_wt = float(pearsonr(aligned_a[i].sum(1).astype(np.float64), ref_warped)[0])
-            if r_wt - r_un > best_delta:
-                best_delta, best_qi = r_wt - r_un, i
-        qi = best_qi
-        print(f"\nRepresentative query: {label_a}[{qi}]  Δ TIC r = {best_delta:+.3f}")
+        deltas = np.array([
+            float(pearsonr(aligned_a[i].sum(1).astype(np.float64), ref_warped)[0])
+            - float(pearsonr(chromas_a[i].sum(1).astype(np.float64), ref_orig)[0])
+            for i in range(n_a)])
+        order = np.argsort(deltas)
+        qi = int(order[-1]) if args.select == 'best' else int(order[(n_a - 1) // 2])
+        ids = [p.stem for p in sorted((DATA_DIR / args.study_a / 'chroma').glob('*.npz'))]
+        print(f"\nRepresentative query ({args.select}): {label_a}[{qi}] = {ids[qi]}  "
+              f"Δ TIC r = {deltas[qi]:+.3f}  (rank {int(np.where(order == qi)[0][0]) + 1} of {n_a} "
+              f"from lowest; median Δ = {np.median(deltas):+.3f}, max Δ = {deltas.max():+.3f})")
+        sel_lines = [f"Figs 1-2 sample selection ({args.select}) for {label_a} × {label_b}, "
+                     f"seed {seed}, device {device}",
+                     f"chosen: index {qi}  id {ids[qi]}  Δ TIC r {deltas[qi]:+.4f}",
+                     f"median Δ {np.median(deltas):+.4f}   max Δ {deltas.max():+.4f}   "
+                     f"min Δ {deltas.min():+.4f}", "",
+                     "all samples (index, id, Δ TIC r = r(WT A_i, WT B0) − r(A_i, B0)):"]
+        sel_lines += [f"  {i:>3}  {ids[i]:<36} {deltas[i]:+.4f}" for i in order[::-1]]
+        (RESULTS_DIR / f'fig_selection_{label_a}_{label_b}_{args.select}.txt').write_text(
+            '\n'.join(sel_lines) + '\n')
 
     # ── Figure 1
     if 1 in want:
         print("\nGenerating Figure 1 (warp functions) …")
         fig1_warp_functions(
             chromas_a, chromas_b, warp_full, n_a, anchors,
-            out=RESULTS_DIR / f'fig1_warp_functions_{label_a}_{label_b}.pdf'
+            out=RESULTS_DIR / f'fig1_warp_functions_{label_a}_{label_b}{tag}.pdf',
+            ai=qi if args.select == 'median' else 0,
         )
 
     # ── Figure 2
@@ -673,7 +711,7 @@ def main():
             aligned_a,  # shape: list of [200,1000]
             aligned_b[0],
             n_a, anchors, qi,
-            out=RESULTS_DIR / f'fig2_tic_overlays_{label_a}_{label_b}.pdf'
+            out=RESULTS_DIR / f'fig2_tic_overlays_{label_a}_{label_b}{tag}.pdf'
         )
 
     # ── Figure 3

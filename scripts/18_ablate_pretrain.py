@@ -13,6 +13,7 @@ contribute beyond the anchor supervision signal itself.
 from __future__ import annotations
 
 import sys
+import random
 import numpy as np
 import torch
 import torch.optim as optim
@@ -26,6 +27,7 @@ from alignment import load_chromas, align_pair
 
 DATA_DIR    = Path(__file__).parent.parent / 'data'
 CKPT_DIR    = Path(__file__).parent.parent / 'checkpoints'
+RESULTS_DIR = Path(__file__).parent.parent / 'results'
 
 N_BINS        = 200
 BIN_MIN       = 45.0 / N_BINS
@@ -73,14 +75,24 @@ def anchor_loss(warps, study_ids, anchor_pairs, device):
     return loss / len(anchor_pairs)
 
 
+def set_seed(seed: int) -> None:
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+
+
+def tic_r_per_pair(chromas_a, chromas_b) -> np.ndarray:
+    """Pearson TIC r for every (A_i, B_j), i-major (same order as scripts 16 and 17)."""
+    return np.array([float(pearsonr(a.sum(1), b.sum(1))[0])
+                     for a in chromas_a for b in chromas_b])
+
+
 def tic_r(chromas_a, chromas_b):
-    return float(np.mean([
-        pearsonr(a.sum(1), b.sum(1))[0]
-        for a in chromas_a for b in chromas_b
-    ]))
+    return float(tic_r_per_pair(chromas_a, chromas_b).mean())
 
 
-def run_calibration(model, chromas_t, study_ids, anchors, device, label):
+def run_calibration(model, chromas_t, study_ids, anchors, device, label, seed=None):
+    """Returns (mean TIC r, warp mag all samples, warp mag batch B, per-pair TIC r)."""
     model.eval()
     with torch.no_grad():
         _, w0 = model(chromas_t, study_ids)
@@ -88,6 +100,10 @@ def run_calibration(model, chromas_t, study_ids, anchors, device, label):
     print(f"  [{label}] initial warp mag = {warp_init:.3f} min")
 
     if anchors:
+        # Seeded immediately before the loop, exactly as in script 16, so the pretrained
+        # arm reproduces script 16's calibration for the same seed and device.
+        if seed is not None:
+            set_seed(seed)
         model.train()
         opt   = optim.Adam(model.parameters(), lr=LR_CALIB)
         sched = optim.lr_scheduler.CosineAnnealingLR(opt, T_max=N_CALIB_STEPS)
@@ -119,17 +135,27 @@ def run_calibration(model, chromas_t, study_ids, anchors, device, label):
     warp_np  = warps_t.cpu().numpy()
     id_np    = np.arange(N_BINS, dtype=np.float32)[None, :]
     warp_mag = float(np.abs(warp_np - id_np).mean()) * BIN_MIN
-    r        = tic_r(al_a, al_b)
-    print(f"  [{label}] TIC r = {r:.4f}  warp_mag = {warp_mag:.3f} min")
-    return r, warp_mag
+    warp_b   = float(np.abs(warp_np[n_a:] - id_np).mean()) * BIN_MIN
+    r_pairs  = tic_r_per_pair(al_a, al_b)
+    r        = float(r_pairs.mean())
+    print(f"  [{label}] TIC r = {r:.4f}  warp_mag = {warp_mag:.3f} min  (batch B {warp_b:.3f} min)")
+    return r, warp_mag, warp_b, r_pairs
 
 
-def main(study_a: str = STUDY_A_DEFAULT, study_b: str = STUDY_B_DEFAULT):
-    device = (torch.device('cuda') if torch.cuda.is_available()
-              else torch.device('mps') if torch.backends.mps.is_available()
-              else torch.device('cpu'))
+def pick_device(name: str = 'auto') -> torch.device:
+    if name != 'auto':
+        return torch.device(name)
+    return (torch.device('cuda') if torch.cuda.is_available()
+            else torch.device('mps') if torch.backends.mps.is_available()
+            else torch.device('cpu'))
+
+
+def main(study_a: str = STUDY_A_DEFAULT, study_b: str = STUDY_B_DEFAULT,
+         seed: int | None = None, ckpt: Path = CKPT_DIR / 'warp_transformer.pt',
+         device_name: str = 'auto'):
+    device = pick_device(device_name)
     print(f"Device: {device}")
-    print(f"Dataset: {study_a}  vs  {study_b}\n")
+    print(f"Dataset: {study_a}  vs  {study_b}   seed={seed}\n")
 
     chromas_a = load_chromas(DATA_DIR / study_a / 'chroma')
     chromas_b = load_chromas(DATA_DIR / study_b / 'chroma')
@@ -155,33 +181,52 @@ def main(study_a: str = STUDY_A_DEFAULT, study_b: str = STUDY_B_DEFAULT):
     print(f"Unaligned TIC r = {r_unaligned:.4f}\n")
 
     # (a) Pretrained model
-    ckpt = CKPT_DIR / 'warp_transformer.pt'
     model_pre = ChromaWarpTransformer()
     model_pre.load_state_dict(torch.load(ckpt, map_location=device))
     model_pre.to(device)
-    print(f"Running calibration from pretrained checkpoint ({ckpt.name}) …")
-    r_pre, mag_pre = run_calibration(
-        model_pre, chromas_t, study_ids, anchors, device, 'pretrained')
+    print(f"Running calibration from pretrained checkpoint ({ckpt}) …")
+    r_pre, mag_pre, mag_pre_b, pairs_pre = run_calibration(
+        model_pre, chromas_t, study_ids, anchors, device, 'pretrained', seed)
 
-    # (b) Random-init model (same architecture, no checkpoint)
+    # (b) Random-init model (same architecture, no checkpoint). The init itself is
+    # seeded so that the random-init arm is repeatable too.
+    if seed is not None:
+        set_seed(seed)
     model_rand = ChromaWarpTransformer()
     model_rand.to(device)
     print(f"\nRunning calibration from random initialisation …")
-    r_rand, mag_rand = run_calibration(
-        model_rand, chromas_t, study_ids, anchors, device, 'random-init')
+    r_rand, mag_rand, mag_rand_b, pairs_rand = run_calibration(
+        model_rand, chromas_t, study_ids, anchors, device, 'random-init', seed)
 
     # Summary
-    print(f"\n{'=' * 62}")
-    print(f"{'Method':<30}  {'TIC r':>7}  {'Δ unaligned':>12}  {'Warp mag':>9}")
-    print(f"{'-' * 62}")
-    print(f"{'Unaligned':<30}  {r_unaligned:>7.4f}  {'—':>12}  {'—':>9}")
-    print(f"{'WarpTransformer (pretrained)':<30}  {r_pre:>7.4f}  "
-          f"{r_pre - r_unaligned:>+12.4f}  {mag_pre:>8.3f}m")
-    print(f"{'WarpTransformer (random init)':<30}  {r_rand:>7.4f}  "
-          f"{r_rand - r_unaligned:>+12.4f}  {mag_rand:>8.3f}m")
-    print(f"{'=' * 62}")
+    lines = [
+        f"{'=' * 74}",
+        f"{'Method':<30}  {'TIC r':>7}  {'Δ unaligned':>12}  {'Warp mag':>9}  {'Warp B':>9}",
+        f"{'-' * 74}",
+        f"{'Unaligned':<30}  {r_unaligned:>7.4f}  {'—':>12}  {'—':>9}  {'—':>9}",
+        f"{'WarpTransformer (pretrained)':<30}  {r_pre:>7.4f}  "
+        f"{r_pre - r_unaligned:>+12.4f}  {mag_pre:>8.3f}m  {mag_pre_b:>8.3f}m",
+        f"{'WarpTransformer (random init)':<30}  {r_rand:>7.4f}  "
+        f"{r_rand - r_unaligned:>+12.4f}  {mag_rand:>8.3f}m  {mag_rand_b:>8.3f}m",
+        f"{'=' * 74}",
+        f"Warp mag: mean |w(t) − t| over all samples of both batches. Warp B: batch-B samples only.",
+        f"Seed {seed}   device {device}   checkpoint {ckpt}",
+        f"Anchors ({len(anchors)}): {anchors}",
+    ]
+    print('\n' + '\n'.join(lines))
     gap = r_pre - r_rand
     print(f"\nPretraining advantage: {gap:+.4f} TIC r")
+
+    a_lbl, b_lbl = Path(study_a).name, Path(study_b).name
+    suffix = f'_seed{seed}' if seed is not None else ''
+    RESULTS_DIR.mkdir(exist_ok=True)
+    (RESULTS_DIR / f'ablate_pretrain_{a_lbl}_{b_lbl}{suffix}.txt').write_text(
+        '\n'.join(lines) + f"\nPretraining advantage: {gap:+.4f} TIC r\n")
+    (RESULTS_DIR / 'per_pair').mkdir(exist_ok=True)
+    np.savez(RESULTS_DIR / 'per_pair' / f'tic_r_ablate_{a_lbl}_{b_lbl}{suffix}.npz',
+             pretrained=pairs_pre, random_init=pairs_rand,
+             warp_mag=np.array([mag_pre, mag_rand]), warp_mag_b=np.array([mag_pre_b, mag_rand_b]),
+             anchors=np.array(anchors), seed=-1 if seed is None else seed)
     if abs(gap) < 0.01:
         print("→ calibration alone accounts for nearly all the improvement; "
               "pretraining adds negligible benefit on this task.")
@@ -198,5 +243,10 @@ if __name__ == '__main__':
     ap = argparse.ArgumentParser()
     ap.add_argument('--study-a', default=STUDY_A_DEFAULT)
     ap.add_argument('--study-b', default=STUDY_B_DEFAULT)
+    ap.add_argument('--seed', type=int, default=None,
+                    help='seed torch, numpy and random (random init and calibration)')
+    ap.add_argument('--ckpt', type=Path, default=CKPT_DIR / 'warp_transformer.pt')
+    ap.add_argument('--device', default='auto',
+                    help='auto | cpu | mps | cuda. Use cpu for exactly repeatable runs.')
     args = ap.parse_args()
-    main(args.study_a, args.study_b)
+    main(args.study_a, args.study_b, args.seed, args.ckpt, args.device)

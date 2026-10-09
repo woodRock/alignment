@@ -434,6 +434,14 @@ def main(study_a_dir: Path, study_b_dir: Path,
     print(f"{'=' * 70}")
     print("Significance: *** p<0.001  ** p<0.01  * p<0.05  ns not significant")
 
+    per_pair_dir = RESULTS_DIR / 'per_pair'
+    per_pair_dir.mkdir(parents=True, exist_ok=True)
+    np.savez(per_pair_dir / f'tic_r_baselines_{label_a}_{label_b}.npz',
+             unaligned=np.array(all_cors['Unaligned']),
+             cow_tic=np.array(all_cors['COW-TIC']),
+             icoshift=np.array(all_cors['icoshift']),
+             n_a=len(chromas_a), n_b=len(chromas_b))
+
 
 if __name__ == '__main__':
     ap = argparse.ArgumentParser(description=__doc__,
