@@ -1,0 +1,38 @@
+Loading chromatograms …
+  batch_sep2015: 24 samples
+  batch_jan2016: 26 samples
+  Total pairs  : 624
+  COW-TIC      : n_segs=4  slack=±22 bins (±5.0 min)
+  icoshift     : n_intervals=10  max_shift=±20 bins (±4.5 min)
+
+Unaligned baseline  TIC r = 0.815
+
+Evaluating: COW-TIC …
+    500/624 pairs …
+  TIC r=0.827  warp_mag=0.038 min  study_sil=0.114
+
+Evaluating: icoshift …
+    500/624 pairs …
+  TIC r=0.765  warp_mag=0.204 min  study_sil=0.125
+
+========================================================================
+Method                               TIC r   Δ unaligned   Study sil
+------------------------------------------------------------------------
+Unaligned                            0.815             —       0.081
+COW-TIC                              0.827        +0.013       0.114
+icoshift                             0.765        -0.049       0.125
+========================================================================
+TIC r     : mean Pearson r across all batch_sep2015↔batch_jan2016 pairs  (n=624)
+Δ unaligned: improvement over unaligned baseline
+Study sil : study-label silhouette in PCA-50  (lower = less batch effect)
+
+======================================================================
+Paired Wilcoxon signed-rank tests (n=624 pairs, two-sided)
+----------------------------------------------------------------------
+Comparison                                      stat       p-value    sig
+----------------------------------------------------------------------
+  COW-TIC              vs Unaligned                6.0     8.450e-66    ***
+  icoshift             vs Unaligned            25013.0     1.325e-37    ***
+  icoshift             vs COW-TIC                315.0     5.778e-97    ***
+======================================================================
+Significance: *** p<0.001  ** p<0.01  * p<0.05  ns not significant

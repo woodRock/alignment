@@ -1,0 +1,29 @@
+Loading chromatograms …
+  batch_sep2015: 24 samples
+  batch_jul2016: 14 samples
+
+Reference: batch_jul2016 sample[0]
+k-NN mixing  random expectation: 0.368  (higher = better cross-study mixing)
+Study accuracy: lower is better (less batch effect)
+
+Loaded  Drift encoder  from drift_simclr.pt
+Loaded  Cross-study encoder  from cross_study_simclr.pt
+
+Evaluating: Unaligned … mixing=0.008  study_acc=1.000  silhouette=0.297
+Evaluating: Raw cosine … mixing=0.000  study_acc=1.000  silhouette=0.306
+Evaluating: Drift encoder … mixing=0.000  study_acc=1.000  silhouette=0.310
+Evaluating: Cross-study encoder … mixing=0.000  study_acc=1.000  silhouette=0.292
+
+======================================================================
+Method                       k-NN mixing   Study acc   Silhouette
+----------------------------------------------------------------------
+Unaligned                          0.008       1.000        0.297
+Raw cosine                         0.000       1.000        0.306
+Drift encoder                      0.000       1.000        0.310
+Cross-study encoder                0.000       1.000        0.292
+======================================================================
+k-NN mixing  : fraction of k=10 neighbours from opposite study  (random ≈ 0.37)
+Study acc    : k=5 LOO accuracy for study label  (lower = less batch effect)
+Silhouette   : study-label silhouette in PCA-50 space  (lower = less batch effect)
+Features     : per-m/z max projection → PCA-50
+Studies      : batch_sep2015 (study 0) vs batch_jul2016 (study 1)

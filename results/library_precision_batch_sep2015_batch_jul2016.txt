@@ -1,0 +1,29 @@
+Loading chromatograms …
+  batch_sep2015: 24 samples
+  batch_jul2016: 14 samples
+Loading MoNA library …
+  9553 reference spectra  (cosine threshold: 0.6)
+
+Loaded  Drift encoder  from drift_simclr.pt
+Loaded  Cross-study encoder  from cross_study_simclr.pt
+
+Evaluating: Raw cosine …
+  library precision=0.581  coverage=1.000  compound precision=0.581  (n proposed=2688)
+
+Evaluating: Drift encoder …
+  library precision=0.494  coverage=1.000  compound precision=0.494  (n proposed=2679)
+
+Evaluating: Cross-study encoder …
+  library precision=0.345  coverage=1.000  compound precision=0.345  (n proposed=2998)
+
+===========================================================================
+Method                       Lib precision   Coverage   Cmpd precision
+---------------------------------------------------------------------------
+Raw cosine                           0.581      1.000            0.581
+Drift encoder                        0.494      1.000            0.494
+Cross-study encoder                  0.345      1.000            0.345
+===========================================================================
+Lib precision : fraction of all proposed anchors mapping to same compound
+Coverage      : fraction of proposed anchors where both peaks have a library hit
+Cmpd precision: lib precision conditioned on both peaks having a hit
+Library match: MoNA top-1 cosine ≥ 0.6, InChIKey prefix (14 chars)

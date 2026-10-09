@@ -1,0 +1,48 @@
+Fish oil sample accounting: ChromaDCNN 103 samples vs the four evaluated batches
+
+Source of the 103: chroma-dcnn/data/fish_oil/sample_ids.txt (per-sample CSV export, no acquisition dates).
+Source of the batches: data/fish_oil/batch_*/sample_ids.txt (raw-subsetted-CVSs .txt export, dated by comment1).
+
+  103 total
+   74 in the four evaluated batches (sep2015 24, jan2016 26, apr2016 10, jul2016 14)
+    2 in batch_aug2015 (acquired 2015-08-07; too few samples to form an evaluated batch)
+   27 not assigned to any batch
+
+batch_aug2015 (2):
+  4___BCO4_Head_A
+  4___BCO4_Head_B
+
+Not assigned to any batch (27), by species: {'SNA1': 3, 'TAR3': 17, 'BCO4': 3, 'BCO5': 4}
+  1___SNA1_Frame_A
+  1___SNA1_Frame_B
+  1___SNA1_Frame_C
+  3___TAR3_Frame_A
+  3___TAR3_Frame_B
+  3___TAR3_Frame_C
+  3___TAR3_Gonad_Female_A
+  3___TAR3_Gonad_Female_B
+  3___TAR3_Gonad_Male_A
+  3___TAR3_Gonad_Male_B
+  3___TAR3_Head_A
+  3___TAR3_Head_B
+  3___TAR3_Liver_Female_A
+  3___TAR3_Liver_Female_B
+  3___TAR3_Liver_Male_A
+  3___TAR3_Liver_Male_B
+  3___TAR3_Rest_of_Guts_A
+  3___TAR3_Rest_of_Guts_B
+  3___TAR3_Skin_A
+  3___TAR3_Skin_B
+  4___BCO4_Frame_A
+  4___BCO4_Frame_B
+  4___BCO4_Frame_C
+  5___BCO5_Gonad_Male_A
+  5___BCO5_Rest_of_Guts_A
+  5___BCO5_Rest_of_Guts_B
+  5___BCO5_Rest_of_Guts_C
+
+Reason for the 27: NOT DETERMINED. The raw .txt files (raw-subsetted-CVSs) are not on this machine,
+so it cannot be checked whether each file is absent from the raw subset, has an acquisition date outside
+DATE_TO_BATCH, is flagged BLANK, or has an unparseable filename. All 17 TAR3 samples are among them, and
+TAR3 appears in none of the five batches, which suggests a whole acquisition run or export is missing.
+Run:  python scripts/audit_fish_oil_samples.py --raw-dir <raw-subsetted-CVSs>  -> results/fish_oil_sample_audit.txt

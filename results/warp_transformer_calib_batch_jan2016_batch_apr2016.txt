@@ -1,0 +1,16 @@
+
+========================================================================
+Method                               TIC r   Δ unaligned   Study sil
+------------------------------------------------------------------------
+Unaligned                            0.128             —       0.025
+Raw cosine PCHIP (pairwise)          0.522        +0.395       0.016
+WarpTransformer + anchor calib       0.665        +0.538       0.048
+========================================================================
+
+Anchors used for calibration : 4 RANSAC pairs (raw cosine — no TIC leakage)
+Calibration steps            : 500 (λ_anchor=1.0, λ_smooth=0.05)
+
+WarpTransformer warp magnitudes (mean |warp(t)−t| in minutes):
+  All samples : 0.949 min
+  batch_jan2016         : 0.121 min
+  batch_apr2016         : 3.103 min

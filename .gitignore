@@ -14,7 +14,6 @@ data/**
 *.mzXML
 
 # Outputs
-results/
 checkpoints/
 *.log
 

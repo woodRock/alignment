@@ -1,0 +1,38 @@
+Which warp_smoothness_loss produced the reported results?
+
+The "cow-dcnn" and "alignment" repositories are the same git repository
+(remote git@github.com:woodRock/cow-dcnn.git, renamed locally to alignment).
+
+History of src/warp_transformer.py::warp_smoothness_loss
+  f2d24c9  2026-06-16 17:55  introduced:  velocity.var(dim=-1).mean()
+  e6fdb6a  2026-06-22 23:38  changed to:  ((velocity - 1.0) ** 2).mean(dim=-1).mean()
+
+Artefacts behind the paper's current numbers
+  checkpoints/warp_transformer.pt (original)   saved 2026-06-16 23:04  -> variance version
+  results/warp_transformer_calib_*.txt         written 2026-06-17      -> variance version
+  results-old/ is a copy of those files made 2026-06-22 23:47 (byte-identical; the copy's
+  mtime postdates the fix but its contents do not).
+  Calibration (scripts 16, 18) imports warp_smoothness_loss from src, so calibration also
+  used the variance version.
+Conclusion: every WarpTransformer number currently in the paper was produced with
+velocity.var(), for both pretraining and calibration.
+
+The two losses are effectively equivalent
+  Because make_monotone_warp normalises the warp so that w(T-1) = T-1, the mean velocity is
+  pinned to v_bar = 1 - delta_0 / sum(delta), and the following identity holds exactly:
+
+      mean((v - 1)^2) = ((T - 2) / (T - 1)) * var_unbiased(v) + (delta_0 / sum(delta))^2
+
+  With T = 200 the scale factor is 198/199 = 0.995. The extra term is about (1/T)^2 = 2.5e-5
+  near identity and only penalises w(0) drifting away from 0. Verified numerically on 1,000
+  random monotone warps at four raw-logit scales: ratio (v-1)^2 / var = 0.9950-0.9952, and the
+  identity matches to 5e-7.
+
+Status of the original checkpoint
+  The original variance-trained checkpoint no longer exists (it was overwritten on 2026-10-09).
+  The replacement, checkpoints/warp_transformer_baseline.pt, was retrained with the current
+  (v - 1)^2 loss, the same architecture, seed and 10,000 iterations. All new numbers produced
+  for the paper (significance tests, seeded calibration, ablation, held-out anchors, anchor
+  count) come from this checkpoint with the (v - 1)^2 loss in calibration, so the paper's
+  (v - 1)^2 equation is exactly correct for them. No change to the equation is needed,
+  provided the Table IV-VIII values are replaced by the new seeded runs (task 6).
