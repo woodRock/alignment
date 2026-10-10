@@ -1,36 +1,36 @@
 Loading chromatograms …
   batch_jan2016: 26 samples
-  batch_jul2016: 14 samples
-  Total pairs  : 364
+  batch_jul2016: 16 samples
+  Total pairs  : 416
   COW-TIC      : n_segs=4  slack=±22 bins (±5.0 min)
   icoshift     : n_intervals=10  max_shift=±20 bins (±4.5 min)
 
-Unaligned baseline  TIC r = 0.118
+Unaligned baseline  TIC r = 0.112
 
 Evaluating: COW-TIC …
-  TIC r=0.567  warp_mag=2.282 min  study_sil=0.107
+  TIC r=0.566  warp_mag=2.313 min  study_sil=0.133
 
 Evaluating: icoshift …
-  TIC r=0.251  warp_mag=0.255 min  study_sil=0.104
+  TIC r=0.246  warp_mag=0.256 min  study_sil=0.130
 
 ========================================================================
 Method                               TIC r   Δ unaligned   Study sil
 ------------------------------------------------------------------------
-Unaligned                            0.118             —       0.108
-COW-TIC                              0.567        +0.449       0.107
-icoshift                             0.251        +0.132       0.104
+Unaligned                            0.112             —       0.137
+COW-TIC                              0.566        +0.453       0.133
+icoshift                             0.246        +0.133       0.130
 ========================================================================
-TIC r     : mean Pearson r across all batch_jan2016↔batch_jul2016 pairs  (n=364)
+TIC r     : mean Pearson r across all batch_jan2016↔batch_jul2016 pairs  (n=416)
 Δ unaligned: improvement over unaligned baseline
 Study sil : study-label silhouette in PCA-50  (lower = less batch effect)
 
 ======================================================================
-Paired Wilcoxon signed-rank tests (n=364 pairs, two-sided)
+Paired Wilcoxon signed-rank tests (n=416 pairs, two-sided)
 ----------------------------------------------------------------------
 Comparison                                      stat       p-value    sig
 ----------------------------------------------------------------------
-  COW-TIC              vs Unaligned                0.0     2.087e-61    ***
-  icoshift             vs Unaligned                0.0     2.087e-61    ***
-  icoshift             vs COW-TIC                  0.0     2.087e-61    ***
+  COW-TIC              vs Unaligned                0.0     6.637e-70    ***
+  icoshift             vs Unaligned                0.0     6.637e-70    ***
+  icoshift             vs COW-TIC                  0.0     6.637e-70    ***
 ======================================================================
 Significance: *** p<0.001  ** p<0.01  * p<0.05  ns not significant

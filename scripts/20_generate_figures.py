@@ -35,7 +35,7 @@ from scipy.signal import correlate
 from scipy.stats import pearsonr
 
 sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
-from warp_transformer import ChromaWarpTransformer, warp_smoothness_loss
+from warp_transformer import ChromaWarpTransformer, warp_smoothness_loss, enable_cuda_determinism
 from alignment import (
     load_chromas, align_pair, detect_peaks, fingerprints,
     N_BINS, RUN_MIN, BIN_MIN, TIME_AXIS, PRECISION_CUTOFF,
@@ -74,6 +74,7 @@ def _set_seed(seed: int) -> None:
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
+    enable_cuda_determinism()
 
 # ── Classical alignment ───────────────────────────────────────────────────────
 
@@ -538,31 +539,47 @@ def fig4_violin(all_data, out):
 
 # ── Figure 5: Silhouette vs TIC r scatter ────────────────────────────────────
 
-def fig5_scatter(out):
-    """Hardcoded from result files. x = Δ TIC r, y = Δ Study sil."""
+def _per_pair_files(sa, sb, fig_seed):
+    """Saved per-pair arrays for one batch pair: (baselines from 17, calibration from 16)."""
+    la, lb = Path(sa).name, Path(sb).name
+    d = RESULTS_DIR / 'per_pair'
+    base  = np.load(d / f'tic_r_baselines_{la}_{lb}.npz')
+    calib = np.load(d / f'tic_r_calib_{la}_{lb}_seed{fig_seed}.npz')
+    if not np.allclose(base['unaligned'], calib['unaligned'], atol=1e-6):
+        raise ValueError(f'Unaligned arrays differ between scripts 16 and 17 for {la} × {lb}')
+    return base, calib
+
+
+def load_per_pair_r(fig_seed):
+    """method → pair_label → per-pair TIC r array, from saved results (scripts 16, 17)."""
+    all_data = {m: {} for m in
+                ['Unaligned', 'icoshift', 'COW-TIC', 'Raw cosine PCHIP', 'WarpTransformer']}
+    for (sa, sb), pl in zip(BATCH_PAIRS, PAIR_LABELS):
+        base, calib = _per_pair_files(sa, sb, fig_seed)
+        all_data['Unaligned'][pl]        = base['unaligned']
+        all_data['icoshift'][pl]         = base['icoshift']
+        all_data['COW-TIC'][pl]          = base['cow_tic']
+        all_data['Raw cosine PCHIP'][pl] = calib['pchip_b0']
+        all_data['WarpTransformer'][pl]  = calib['warptransformer']
+    return all_data
+
+
+def fig5_scatter(out, fig_seed=0):
+    """Read from saved results. x = Δ TIC r, y = Δ Study sil (both vs unaligned)."""
     # (method, pair_label, tic_r, study_sil, unaligned_r, unaligned_sil)
-    data = [
-        # Sep15×Jul16  (unaligned r=0.066, sil=0.230)
-        ('icoshift',         'Sep15×Jul16', 0.154, 0.240, 0.066, 0.230),
-        ('Raw cosine PCHIP', 'Sep15×Jul16', 0.551, 0.245, 0.066, 0.230),
-        ('COW-TIC',          'Sep15×Jul16', 0.606, 0.243, 0.066, 0.230),
-        ('WarpTransformer',  'Sep15×Jul16', 0.698, 0.231, 0.066, 0.230),
-        # Sep15×Apr16  (unaligned r=0.072, sil=0.157)
-        ('icoshift',         'Sep15×Apr16', 0.160, 0.181, 0.072, 0.157),
-        ('Raw cosine PCHIP', 'Sep15×Apr16', 0.477, 0.170, 0.072, 0.157),
-        ('COW-TIC',          'Sep15×Apr16', 0.634, 0.178, 0.072, 0.157),
-        ('WarpTransformer',  'Sep15×Apr16', 0.681, 0.178, 0.072, 0.157),
-        # Jan16×Apr16  (unaligned r=0.128, sil=0.025)
-        ('icoshift',         'Jan16×Apr16', 0.249, 0.030, 0.128, 0.025),
-        ('Raw cosine PCHIP', 'Jan16×Apr16', 0.522, 0.016, 0.128, 0.025),
-        ('COW-TIC',          'Jan16×Apr16', 0.558, 0.020, 0.128, 0.025),
-        ('WarpTransformer',  'Jan16×Apr16', 0.629, 0.055, 0.128, 0.025),
-        # Jan16×Jul16  (unaligned r=0.118, sil=0.108)
-        ('icoshift',         'Jan16×Jul16', 0.251, 0.104, 0.118, 0.108),
-        ('Raw cosine PCHIP', 'Jan16×Jul16', 0.546, 0.104, 0.118, 0.108),
-        ('COW-TIC',          'Jan16×Jul16', 0.567, 0.107, 0.118, 0.108),
-        ('WarpTransformer',  'Jan16×Jul16', 0.620, 0.112, 0.118, 0.108),
-    ]
+    data = []
+    for (sa, sb), pl in zip(BATCH_PAIRS, PAIR_LABELS):
+        base, calib = _per_pair_files(sa, sb, fig_seed)
+        r0 = float(np.mean(calib['unaligned']))
+        sil0, sil_pchip, sil_wt = (float(v) for v in calib['sil'])
+        _, sil_cow, sil_ico     = (float(v) for v in base['sil'])
+        data += [
+            ('icoshift',         pl, float(np.mean(base['icoshift'])),           sil_ico,   r0, sil0),
+            ('Raw cosine PCHIP', pl, float(np.mean(calib['pchip_b0'])),        sil_pchip, r0, sil0),
+            ('COW-TIC',          pl, float(np.mean(base['cow_tic'])),            sil_cow,   r0, sil0),
+            ('WarpTransformer',  pl, float(np.mean(calib['warptransformer'])), sil_wt,    r0, sil0),
+        ]
+        print(f"    {pl}: unaligned r={r0:.3f} sil={sil0:.3f}")
     markers = {'Sep15×Jul16': 'o', 'Sep15×Apr16': 'D', 'Jan16×Apr16': 's', 'Jan16×Jul16': '^'}
 
     fig, ax = plt.subplots(figsize=(6, 5))
@@ -620,6 +637,8 @@ def main():
                     help='seed calibration as in scripts 16/18 (with --device cpu, repeatable)')
     ap.add_argument('--device', default='auto', help='auto | cpu | mps | cuda')
     ap.add_argument('--ckpt', type=Path, default=CKPT_DIR / 'warp_transformer.pt')
+    ap.add_argument('--fig-seed', type=int, default=0,
+                    help='calibration seed whose saved per-pair arrays Figs 4-5 use')
     args = ap.parse_args()
 
     want = set(args.figs)
@@ -724,38 +743,8 @@ def main():
 
     # ── Figure 4: pairwise TIC r distributions across all 3 batch pairs
     if 4 in want:
-        print("\nGenerating Figure 4 (violin plots) …")
-        all_data = {m: {} for m in
-                    ['Unaligned','icoshift','COW-TIC','Raw cosine PCHIP','WarpTransformer']}
-
-        for (sa, sb), pl in zip(BATCH_PAIRS, PAIR_LABELS):
-            print(f"  Evaluating {pl} …")
-            ca = load_chromas(DATA_DIR / sa / 'chroma')
-            cb = load_chromas(DATA_DIR / sb / 'chroma')
-
-            all_data['Unaligned'][pl] = pairwise_r(ca, cb, None)
-            print(f"    icoshift …")
-            all_data['icoshift'][pl]  = pairwise_r(
-                ca, cb, lambda q, r: icoshift_align_detail(q, r)[0])
-            print(f"    COW-TIC …")
-            all_data['COW-TIC'][pl]   = pairwise_r(
-                ca, cb, lambda q, r: cow_tic_align_detail(q, r)[0])
-            print(f"    PCHIP …")
-            all_data['Raw cosine PCHIP'][pl] = [
-                float(pearsonr(
-                    cb[j].sum(1).astype(np.float64),
-                    align_pair(ca[i], cb[j], encode_fn=None)[0].astype(np.float64)
-                )[0])
-                for i in range(len(ca)) for j in range(len(cb))
-            ]
-            print(f"    WarpTransformer …")
-            al_a_wt, al_b_wt, _, _, _ = calibrate(ca, cb, device,
-                                                    pretrained=True, log_every=500)
-            all_data['WarpTransformer'][pl] = [
-                float(pearsonr(al_a_wt[i].sum(1).astype(np.float64),
-                               al_b_wt[j].sum(1).astype(np.float64))[0])
-                for i in range(len(ca)) for j in range(len(cb))
-            ]
+        print(f"\nGenerating Figure 4 (violin plots, seed {args.fig_seed} arrays) …")
+        all_data = load_per_pair_r(args.fig_seed)
 
         fig4_violin(all_data,
                     out=RESULTS_DIR / 'fig4_per_pair_distributions.pdf')
@@ -763,7 +752,7 @@ def main():
     # ── Figure 5
     if 5 in want:
         print("\nGenerating Figure 5 (silhouette scatter) …")
-        fig5_scatter(out=RESULTS_DIR / 'fig5_silhouette_scatter.pdf')
+        fig5_scatter(out=RESULTS_DIR / 'fig5_silhouette_scatter.pdf', fig_seed=args.fig_seed)
 
     print("\nDone.")
 

@@ -2,23 +2,23 @@
 ======================================================================================
 Method                                     TIC r   Δ unaligned   Study sil   Warp mag
 --------------------------------------------------------------------------------------
-Unaligned                                  0.066             —       0.230          —
-Raw cosine PCHIP (A_i → B[0])              0.551        +0.485       0.245     3.273m
-Raw cosine PCHIP (A_i → each B_j)          0.490        +0.424       0.245     3.404m
-WarpTransformer + anchor calib             0.685        +0.620       0.244     2.872m
+Unaligned                                  0.076             —       0.209          —
+Raw cosine PCHIP (A_i → B[0])              0.498        +0.422       0.238     3.741m
+Raw cosine PCHIP (A_i → each B_j)          0.484        +0.408       0.238     3.457m
+WarpTransformer + anchor calib             0.628        +0.552       0.215     2.191m
 ======================================================================================
-TIC r: mean Pearson r over all 24×14 = 336 (A_i, B_j) pairs.
+TIC r: mean Pearson r over all 36×16 = 576 (A_i, B_j) pairs.
 Study sil for both PCHIP rows uses A aligned to B[0] (the silhouette protocol of all baselines).
 Warp mag: PCHIP = mean |w(t) − t| over its A_i warps; WarpTransformer = batch-B samples only.
 
 Seed                         : 0
 Checkpoint                   : checkpoints/warp_transformer_baseline.pt
-Anchors used for calibration : 8 RANSAC pairs (raw cosine — no TIC leakage)
-Anchors (ref_bin, query_bin) : [(44, 34), (108, 90), (115, 97), (161, 141), (162, 140), (177, 176), (194, 189), (199, 196)]
+Anchors used for calibration : 7 RANSAC pairs (raw cosine — no TIC leakage)
+Anchors (ref_bin, query_bin) : [(53, 45), (108, 90), (162, 140), (177, 157), (184, 178), (194, 188), (199, 195)]
 Calibration steps            : 500 (λ_anchor=1.0, λ_smooth=0.05)
-Calibration wall time        : 270.7 s on cpu
+Calibration wall time        : 117.0 s on mps
 
 WarpTransformer warp magnitudes (mean |warp(t)−t| in minutes):
-  All samples : 1.289 min
-  batch_sep2015         : 0.366 min
-  batch_jul2016         : 2.872 min
+  All samples : 1.151 min
+  batch_sep2015         : 0.689 min
+  batch_jul2016         : 2.191 min

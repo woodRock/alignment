@@ -22,7 +22,7 @@ from pathlib import Path
 from scipy.stats import pearsonr
 
 sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
-from warp_transformer import ChromaWarpTransformer, warp_smoothness_loss
+from warp_transformer import ChromaWarpTransformer, warp_smoothness_loss, enable_cuda_determinism
 from alignment import load_chromas, align_pair
 
 DATA_DIR    = Path(__file__).parent.parent / 'data'
@@ -79,6 +79,7 @@ def set_seed(seed: int) -> None:
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
+    enable_cuda_determinism()
 
 
 def tic_r_per_pair(chromas_a, chromas_b) -> np.ndarray:

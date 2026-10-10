@@ -22,3 +22,6 @@ checkpoints/
 
 # OS
 .DS_Store
+
+# Local run logs, runner scripts and result archives
+logs/

@@ -392,7 +392,7 @@ if __name__ == "__main__":
     ap.add_argument(
         "--raw-dir",
         default=str(Path(__file__).resolve().parents[1].parent
-                    / "fish-data-analysis" / "src" / "data" / "raw-subsetted-CVSs"),
+                    / "fish-data-analysis" / "engr489" / "src" / "data" / "raw-subsetted-CVSs"),
         type=Path,
         help="Path to raw-subsetted-CVSs directory",
     )

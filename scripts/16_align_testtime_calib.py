@@ -55,7 +55,7 @@ from sklearn.decomposition import PCA
 from sklearn.metrics import silhouette_score
 
 sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
-from warp_transformer import ChromaWarpTransformer, warp_smoothness_loss
+from warp_transformer import ChromaWarpTransformer, warp_smoothness_loss, enable_cuda_determinism
 from alignment import load_chromas, align_pair, warp_chroma_2d, TIME_AXIS
 
 DATA_DIR    = Path(__file__).parent.parent / 'data'
@@ -162,6 +162,7 @@ def set_seed(seed: int) -> None:
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
+    enable_cuda_determinism()
 
 
 def tic_r_per_pair(chromas_a: list, chromas_b: list) -> np.ndarray:

@@ -24,10 +24,30 @@ Output: aligned [N, T, M],  warps [N, T]  (monotone, range [0, T-1])
 
 from __future__ import annotations
 import math
+import os
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
+
+
+# ── Reproducibility ───────────────────────────────────────────────────────────
+
+def enable_cuda_determinism() -> None:
+    """
+    Make seeded CUDA runs bit-reproducible (same GPU model and software stack).
+
+    CPU runs are already deterministic, so nothing changes without CUDA. On CUDA, any op
+    without a deterministic kernel raises instead of silently varying between reruns.
+    CUBLAS_WORKSPACE_CONFIG must be set before cuBLAS initialises; the GPU run script
+    also exports it.
+    """
+    if not torch.cuda.is_available():
+        return
+    os.environ.setdefault('CUBLAS_WORKSPACE_CONFIG', ':4096:8')
+    torch.backends.cudnn.benchmark     = False
+    torch.backends.cudnn.deterministic = True
+    torch.use_deterministic_algorithms(True)
 
 
 # ── Warp primitives ───────────────────────────────────────────────────────────

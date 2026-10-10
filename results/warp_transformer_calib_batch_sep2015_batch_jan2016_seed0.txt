@@ -1,0 +1,24 @@
+
+======================================================================================
+Method                                     TIC r   Δ unaligned   Study sil   Warp mag
+--------------------------------------------------------------------------------------
+Unaligned                                  0.823             —       0.159          —
+Raw cosine PCHIP (A_i → B[0])              0.626        -0.197       0.208     0.340m
+Raw cosine PCHIP (A_i → each B_j)          0.702        -0.121       0.208     0.195m
+WarpTransformer + anchor calib             0.689        -0.134       0.139     0.088m
+======================================================================================
+TIC r: mean Pearson r over all 36×26 = 936 (A_i, B_j) pairs.
+Study sil for both PCHIP rows uses A aligned to B[0] (the silhouette protocol of all baselines).
+Warp mag: PCHIP = mean |w(t) − t| over its A_i warps; WarpTransformer = batch-B samples only.
+
+Seed                         : 0
+Checkpoint                   : checkpoints/warp_transformer_baseline.pt
+Anchors used for calibration : 6 RANSAC pairs (raw cosine — no TIC leakage)
+Anchors (ref_bin, query_bin) : [(44, 45), (72, 71), (108, 108), (115, 113), (162, 161), (194, 195)]
+Calibration steps            : 500 (λ_anchor=1.0, λ_smooth=0.05)
+Calibration wall time        : 135.4 s on mps
+
+WarpTransformer warp magnitudes (mean |warp(t)−t| in minutes):
+  All samples : 0.140 min
+  batch_sep2015         : 0.178 min
+  batch_jan2016         : 0.088 min

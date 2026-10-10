@@ -440,7 +440,12 @@ def main(study_a_dir: Path, study_b_dir: Path,
              unaligned=np.array(all_cors['Unaligned']),
              cow_tic=np.array(all_cors['COW-TIC']),
              icoshift=np.array(all_cors['icoshift']),
-             n_a=len(chromas_a), n_b=len(chromas_b))
+             n_a=len(chromas_a), n_b=len(chromas_b),
+             sil=np.array([sil_unaligned,
+                           results['COW-TIC']['study_sil'],
+                           results['icoshift']['study_sil']]),
+             warp_mag=np.array([results['COW-TIC']['warp_mag'],
+                                results['icoshift']['warp_mag']]))
 
 
 if __name__ == '__main__':

@@ -1,0 +1,11 @@
+==========================================================================
+Method                            TIC r   Δ unaligned   Warp mag     Warp B
+--------------------------------------------------------------------------
+Unaligned                        0.0858             —          —          —
+WarpTransformer (pretrained)     0.6588       +0.5730     0.817m     3.109m
+WarpTransformer (random init)    0.6281       +0.5423     1.374m     2.058m
+==========================================================================
+Warp mag: mean |w(t) − t| over all samples of both batches. Warp B: batch-B samples only.
+Seed 0   device mps   checkpoint checkpoints/warp_transformer_baseline.pt
+Anchors (5): [(44, 34), (108, 90), (161, 139), (162, 140), (194, 187)]
+Pretraining advantage: +0.0307 TIC r
