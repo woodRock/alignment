@@ -8,7 +8,7 @@ turn and every method predicts its drift without it:
   WarpTransformer  recalibrated from the pretrained checkpoint on the remaining anchors
                    (500 steps, same settings and seed as script 16), then
                    error = |(mean_j w_Bj(r) − mean_i w_Ai(r)) − d|
-  Raw cosine PCHIP PCHIP spline through the remaining anchors with the same end points as
+  PCHIP (pooled anchors) PCHIP spline through the remaining pooled anchors with the same end points as
                    align_pair ((0, 0) and (45, 45) min), evaluated at r: error = |q̂ − q|
   COW-TIC          uses no anchors, so nothing is held out. COW aligns each of the A samples
                    used for anchor extraction (A_0..A_2) to B[0]; its inverse warp at r is
@@ -55,7 +55,7 @@ BIN_MIN = calib16.BIN_MIN
 RUN_MIN = 45.0
 PAIRS = [('batch_sep2015', 'batch_jul2016'), ('batch_sep2015', 'batch_apr2016'),
          ('batch_jan2016', 'batch_apr2016'), ('batch_jan2016', 'batch_jul2016')]
-METHODS = ['No alignment', 'Constant shift', 'Raw cosine PCHIP', 'COW-TIC', 'WarpTransformer']
+METHODS = ['No alignment', 'Constant shift', 'PCHIP (pooled anchors)', 'COW-TIC', 'WarpTransformer']
 
 
 def wt_offset_at(model, chromas_t, study_ids, r_bins: list[int]) -> np.ndarray:
@@ -123,7 +123,7 @@ def main(ckpt: Path, seed: int, device_name: str) -> None:
             d = q - r
             err['No alignment'].append(abs(d) * BIN_MIN)
             err['Constant shift'].append(abs(np.median([qq - rr for rr, qq in rest]) - d) * BIN_MIN)
-            err['Raw cosine PCHIP'].append(abs(pchip_predict(rest, r) - q) * BIN_MIN)
+            err['PCHIP (pooled anchors)'].append(abs(pchip_predict(rest, r) - q) * BIN_MIN)
             err['COW-TIC'].append(abs(cow_q[k] - q) * BIN_MIN)
             model = calibrated_model(rest, chromas_t, study_ids, device, ckpt, seed)
             pred = wt_offset_at(model, chromas_t, study_ids, [r])[0]

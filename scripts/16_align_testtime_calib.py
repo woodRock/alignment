@@ -56,7 +56,7 @@ from sklearn.metrics import silhouette_score
 
 sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
 from warp_transformer import ChromaWarpTransformer, warp_smoothness_loss, enable_cuda_determinism
-from alignment import load_chromas, align_pair, warp_chroma_2d, TIME_AXIS
+from alignment import load_chromas, align_pair, warp_chroma_2d, pooled_anchor_pchip, TIME_AXIS
 
 DATA_DIR    = Path(__file__).parent.parent / 'data'
 CKPT_DIR    = Path(__file__).parent.parent / 'checkpoints'
@@ -190,27 +190,11 @@ def pchip_warp_magnitude(warp_fn) -> float:
     return float(np.mean(np.abs(warp_fn(TIME_AXIS) - TIME_AXIS)))
 
 
-def align_pairwise_cosine(chromas_a: list, chromas_b: list) -> tuple[list, list[float]]:
-    """Align every A_i to B[0]. Returns aligned A and per-sample warp magnitudes (min)."""
-    ref = chromas_b[0]
-    out, mags = [], []
-    for c in chromas_a:
-        _, _, _, _, wfn, _ = align_pair(c, ref, encode_fn=None, return_anchors=True)
-        out.append(warp_chroma_2d(c, wfn) if wfn is not None else c.copy())
-        mags.append(pchip_warp_magnitude(wfn))
-    return out, mags
-
-
-def pchip_all_pairs(chromas_a: list, chromas_b: list) -> tuple[np.ndarray, np.ndarray]:
-    """Align each A_i to each B_j separately. Per-pair TIC r against B_j and warp magnitude (min)."""
-    rs, mags = [], []
-    for c in chromas_a:
-        for b in chromas_b:
-            _, _, _, _, wfn, _ = align_pair(c, b, encode_fn=None, return_anchors=True)
-            aligned = warp_chroma_2d(c, wfn) if wfn is not None else c
-            rs.append(float(pearsonr(aligned.sum(1), b.sum(1))[0]))
-            mags.append(pchip_warp_magnitude(wfn))
-    return np.array(rs), np.array(mags)
+def align_pooled_pchip(chromas_a: list, anchors: list) -> tuple[list, float, list]:
+    """PCHIP through the pooled calibration anchors, one warp applied to every A_i (→ B frame).
+    Returns aligned A, warp magnitude (min) and the anchors the spline used."""
+    wfn, used = pooled_anchor_pchip(anchors)
+    return [warp_chroma_2d(c, wfn) for c in chromas_a], pchip_warp_magnitude(wfn), used
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -352,13 +336,10 @@ def main(study_a_dir: Path, study_b_dir: Path, label_a: str, label_b: str,
     tic_unaligned = float(r_unaligned.mean())
     sil_unaligned = study_silhouette(chromas_a, chromas_b)
 
-    print("\nAligning with raw cosine PCHIP (each A_i → B[0]) …")
-    al_a_cos, mags_cos_b0 = align_pairwise_cosine(chromas_a, chromas_b)
-    r_cos_b0 = tic_r_per_pair(al_a_cos, chromas_b)
-    sil_cos  = study_silhouette(al_a_cos, chromas_b)
-
-    print("Aligning with raw cosine PCHIP (each A_i → each B_j) …")
-    r_cos_pw, mags_cos_pw = pchip_all_pairs(chromas_a, chromas_b)
+    print("\nAligning with PCHIP through the pooled calibration anchors (A → B frame) …")
+    al_a_pc, mag_pc, used_pc = align_pooled_pchip(chromas_a, anchors)
+    r_pc   = tic_r_per_pair(al_a_pc, chromas_b)
+    sil_pc = study_silhouette(al_a_pc, chromas_b)
 
     r_wt     = tic_r_per_pair(al_a, al_b)
     tic_wt   = float(r_wt.mean())
@@ -379,15 +360,13 @@ def main(study_a_dir: Path, study_b_dir: Path, label_a: str, label_b: str,
         f"{'Method':<40} {'TIC r':>7}  {'Δ unaligned':>12}  {'Study sil':>10}  {'Warp mag':>9}",
         f"{'-' * w}",
         f"{'Unaligned':<40} {tic_unaligned:>7.3f}  {'—':>12}  {sil_unaligned:>10.3f}  {'—':>9}",
-        row('Raw cosine PCHIP (A_i → B[0])', float(r_cos_b0.mean()), sil_cos,
-            float(np.mean(mags_cos_b0))),
-        row('Raw cosine PCHIP (A_i → each B_j)', float(r_cos_pw.mean()), sil_cos,
-            float(np.mean(mags_cos_pw))),
+        row('PCHIP (pooled anchors)', float(r_pc.mean()), sil_pc, mag_pc),
         row('WarpTransformer + anchor calib', tic_wt, sil_wt, warp_b),
         f"{'=' * w}",
         f"TIC r: mean Pearson r over all {n_a}×{n_b} = {n_a * n_b} (A_i, B_j) pairs.",
-        f"Study sil for both PCHIP rows uses A aligned to B[0] (the silhouette protocol of all baselines).",
-        f"Warp mag: PCHIP = mean |w(t) − t| over its A_i warps; WarpTransformer = batch-B samples only.",
+        f"PCHIP: one spline through the WarpTransformer's pooled anchors ({len(used_pc)} used), applied to "
+        f"every A_i; B unwarped.",
+        f"Warp mag: PCHIP = mean |w(t) − t| of that spline; WarpTransformer = batch-B samples only.",
         f"",
         f"Seed                         : {seed}",
         f"Checkpoint                   : {ckpt}",
@@ -411,11 +390,10 @@ def main(study_a_dir: Path, study_b_dir: Path, label_a: str, label_b: str,
     per_pair_dir = RESULTS_DIR / 'per_pair'
     per_pair_dir.mkdir(exist_ok=True)
     np.savez(per_pair_dir / f'tic_r_calib_{label_a}_{label_b}{suffix}.npz',
-             unaligned=r_unaligned, pchip_b0=r_cos_b0, pchip_pairwise=r_cos_pw,
-             warptransformer=r_wt, pchip_b0_warp_mag=np.array(mags_cos_b0),
-             pchip_pairwise_warp_mag=mags_cos_pw, anchors=np.array(anchors),
+             unaligned=r_unaligned, pchip_pooled=r_pc, warptransformer=r_wt,
+             pchip_warp_mag=mag_pc, anchors=np.array(anchors),
              n_a=n_a, n_b=n_b, seed=-1 if seed is None else seed,
-             sil=np.array([sil_unaligned, sil_cos, sil_wt]),
+             sil=np.array([sil_unaligned, sil_pc, sil_wt]),         # unaligned, PCHIP, WT
              wt_warp_mag=np.array([warp_all, warp_a, warp_b]),
              calib_seconds=calib_seconds)
     print(f"\n  results → {out}")

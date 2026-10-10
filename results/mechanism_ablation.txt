@@ -1,0 +1,65 @@
+25_mechanism_ablation.py — Where does the WarpTransformer's gain over a spline come from?
+
+Seed 0   device cpu   checkpoint checkpoints/warp_transformer_baseline.pt   COW refinement 8 segments ±4 bins
+
+================================================================================================
+batch_jan2016 × batch_apr2016   n = 26×10 = 260   anchors 4
+  WT within-batch warp spread (mean |w_i − batch mean|): A 0.004 min, B 0.004 min
+  Final anchor / smoothness loss: WT 168.0779 / 0.00181; free lr 0.0005 261.6238 / 0.00003; free lr 0.05 101.4994 / 0.00287
+  Variant                                    TIC r A×B   Δ unal  within A  within B
+  Unaligned                                      0.128   +0.000     0.944     0.937
+  WT original                                    0.235   +0.108     0.951     0.942
+  WT batch-shared                                0.235   +0.107     0.951     0.942
+  WT residual only                               0.129   +0.001     0.945     0.938
+  Free warp (lr 0.0005)                          0.150   +0.022     0.954     0.944
+  Free warp (lr 0.05)                            0.196   +0.069     0.954     0.944
+  Pooled PCHIP                                   0.517   +0.390     0.953     0.937
+  Pooled PCHIP + COW refine                      0.643   +0.516     0.874     0.937
+  Control: unaligned, both ½-bin shifted         0.156   +0.029     0.959     0.949
+  Control: pooled PCHIP, B ½-bin shifted         0.558   +0.430     0.953     0.949
+================================================================================================
+batch_sep2015 × batch_jul2016   n = 36×16 = 576   anchors 7
+  WT within-batch warp spread (mean |w_i − batch mean|): A 0.005 min, B 0.005 min
+  Final anchor / smoothness loss: WT 58.3690 / 0.00904; free lr 0.0005 193.1576 / 0.00003; free lr 0.05 105.6261 / 0.00280
+  Variant                                    TIC r A×B   Δ unal  within A  within B
+  Unaligned                                      0.076   +0.000     0.934     0.941
+  WT original                                    0.234   +0.158     0.941     0.950
+  WT batch-shared                                0.234   +0.158     0.942     0.950
+  WT residual only                               0.077   +0.001     0.935     0.942
+  Free warp (lr 0.0005)                          0.097   +0.021     0.940     0.951
+  Free warp (lr 0.05)                            0.199   +0.123     0.941     0.951
+  Pooled PCHIP                                   0.476   +0.401     0.936     0.941
+  Pooled PCHIP + COW refine                      0.671   +0.595     0.918     0.941
+  Control: unaligned, both ½-bin shifted         0.096   +0.021     0.946     0.958
+  Control: pooled PCHIP, B ½-bin shifted         0.539   +0.464     0.936     0.958
+
+================================================================================================
+Summary: mean between-batch TIC r
+  Variant                                     jan2016×apr2016  sep2015×jul2016
+  Unaligned                                             0.128            0.076
+  WT original                                           0.235            0.234
+  WT batch-shared                                       0.235            0.234
+  WT residual only                                      0.129            0.077
+  Free warp (lr 0.0005)                                 0.150            0.097
+  Free warp (lr 0.05)                                   0.196            0.199
+  Pooled PCHIP                                          0.517            0.476
+  Pooled PCHIP + COW refine                             0.643            0.671
+  Control: unaligned, both ½-bin shifted                0.156            0.096
+  Control: pooled PCHIP, B ½-bin shifted                0.558            0.539
+
+Paired two-sided Wilcoxon per A sample (r averaged over B_j), Holm across the 4 pairs per comparison:
+  WT original  vs  WT batch-shared:
+    batch_jan2016 × batch_apr2016 Holm p=2.38e-01  median Δr +0.0000
+    batch_sep2015 × batch_jul2016 Holm p=2.38e-01  median Δr +0.0008
+  WT batch-shared  vs  Free warp (lr 0.05):
+    batch_jan2016 × batch_apr2016 Holm p=2.98e-08  median Δr +0.0421
+    batch_sep2015 × batch_jul2016 Holm p=5.82e-11  median Δr +0.0322
+  Free warp (lr 0.05)  vs  Pooled PCHIP:
+    batch_jan2016 × batch_apr2016 Holm p=2.98e-08  median Δr -0.3162
+    batch_sep2015 × batch_jul2016 Holm p=5.82e-11  median Δr -0.2713
+  WT original  vs  Pooled PCHIP + COW refine:
+    batch_jan2016 × batch_apr2016 Holm p=2.98e-08  median Δr -0.4079
+    batch_sep2015 × batch_jul2016 Holm p=5.82e-11  median Δr -0.4417
+  Control: unaligned, both ½-bin shifted  vs  Unaligned:
+    batch_jan2016 × batch_apr2016 Holm p=2.98e-08  median Δr +0.0281
+    batch_sep2015 × batch_jul2016 Holm p=5.82e-11  median Δr +0.0202

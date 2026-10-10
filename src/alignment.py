@@ -187,6 +187,31 @@ def align_pair(query: np.ndarray, ref: np.ndarray,
     return warped, len(ra), precision
 
 
+def pooled_anchor_pchip(anchors: list[tuple[int, int]]):
+    """
+    PCHIP through pooled batch-level anchors — the paper's PCHIP baseline.
+
+    anchors are (r, q) bins: r in batch A, q the same compound in batch B (the WarpTransformer's
+    calibration anchors). Builds the spline exactly as align_pair does (end points fixed at 0 and
+    RUN_MIN; anchors that would break monotonicity dropped, sorted by r, q must increase).
+
+    Returns (warp_fn, used): warp_fn maps B time → A time (minutes), so
+    warp_chroma_2d(a_sample, warp_fn) puts a batch-A sample on batch B's time axis.
+    warp_fn is None when fewer than two anchors survive.
+    """
+    anchors = sorted(anchors)
+    used = [anchors[0]] if anchors else []
+    for r, q in anchors[1:]:
+        if q > used[-1][1]:
+            used.append((r, q))
+    if len(used) < 2:
+        return None, used
+    ra = np.array([r for r, _ in used], dtype=float) * BIN_MIN
+    qa = np.array([q for _, q in used], dtype=float) * BIN_MIN
+    return PchipInterpolator(np.concatenate([[0.0], qa, [RUN_MIN]]),
+                             np.concatenate([[0.0], ra, [RUN_MIN]])), used
+
+
 def warp_chroma_2d(query: np.ndarray, warp_fn) -> np.ndarray:
     """Apply a time warp to a full 2-D chromatogram [N_BINS, 1000]."""
     if warp_fn is None:

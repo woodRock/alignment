@@ -1,143 +1,145 @@
-21_significance_tests.py — Paired Wilcoxon signed-rank tests between all five methods.
+21_significance_tests.py — Paired Wilcoxon signed-rank tests between all methods.
 
+Methods (5): Unaligned, icoshift, PCHIP (pooled anchors), COW-TIC, WarpTransformer.
+Holm family: all 10 pairwise method comparisons, corrected separately within each batch pair and test level.
 WarpTransformer seed tested: 0.  '*' = significant at α=0.05 after Holm.
 W = Wilcoxon signed-rank statistic (smaller of the two rank sums); median Δr = median of B − A.
 
 ================================================================================================
 sep2015 × jul2016   n_A=36  n_B=16
-  mean TIC r: Unaligned=0.076  icoshift=0.160  Raw cosine PCHIP=0.498  COW-TIC=0.605  WarpTransformer=0.628
+  mean TIC r: Unaligned=0.076  icoshift=0.160  PCHIP (pooled anchors)=0.476  COW-TIC=0.605  WarpTransformer=0.628
 
-  Per sample pair (n = 36×16 = 576; not independent):
+  Per sample pair (n = 36×16 = 576; not independent; Holm over 10):
   Comparison (B vs A)                           n         W           p    p (Holm)  median Δr
-  icoshift vs Unaligned                       576     884.0   1.045e-93   3.136e-93*    +0.0843
-  Raw cosine PCHIP vs Unaligned               576       0.0   4.944e-96   4.944e-95*    +0.4572
+  icoshift vs Unaligned                       576     884.0   1.045e-93   2.090e-93*    +0.0843
+  PCHIP (pooled anchors) vs Unaligned         576       0.0   4.944e-96   4.944e-95*    +0.4046
   COW-TIC vs Unaligned                        576       0.0   4.944e-96   4.944e-95*    +0.5348
   WarpTransformer vs Unaligned                576       0.0   4.944e-96   4.944e-95*    +0.5618
-  Raw cosine PCHIP vs icoshift                576     112.0   8.863e-96   4.944e-95*    +0.3568
+  PCHIP (pooled anchors) vs icoshift          576       0.0   4.944e-96   4.944e-95*    +0.3143
   COW-TIC vs icoshift                         576       0.0   4.944e-96   4.944e-95*    +0.4452
   WarpTransformer vs icoshift                 576       0.0   4.944e-96   4.944e-95*    +0.4655
-  COW-TIC vs Raw cosine PCHIP                 576    2470.0   1.608e-90   3.216e-90*    +0.0849
-  WarpTransformer vs Raw cosine PCHIP         576       0.0   4.944e-96   4.944e-95*    +0.1080
+  COW-TIC vs PCHIP (pooled anchors)           576       0.0   4.944e-96   4.944e-95*    +0.1340
+  WarpTransformer vs PCHIP (pooled anchors)   576       0.0   4.944e-96   4.944e-95*    +0.1531
   WarpTransformer vs COW-TIC                  576   16067.0   3.866e-63   3.866e-63*    +0.0187
 
-  Per A sample (r averaged over B_j, n = 36; recommended):
+  Per A sample (r averaged over B_j, n = 36; recommended; Holm over 10):
   Comparison (B vs A)                           n         W           p    p (Holm)  median Δr
   icoshift vs Unaligned                        36       0.0   2.910e-11   2.910e-10*    +0.0825
-  Raw cosine PCHIP vs Unaligned                36       0.0   2.910e-11   2.910e-10*    +0.4561
+  PCHIP (pooled anchors) vs Unaligned          36       0.0   2.910e-11   2.910e-10*    +0.3922
   COW-TIC vs Unaligned                         36       0.0   2.910e-11   2.910e-10*    +0.5314
   WarpTransformer vs Unaligned                 36       0.0   2.910e-11   2.910e-10*    +0.5532
-  Raw cosine PCHIP vs icoshift                 36       0.0   2.910e-11   2.910e-10*    +0.3572
+  PCHIP (pooled anchors) vs icoshift           36       0.0   2.910e-11   2.910e-10*    +0.3059
   COW-TIC vs icoshift                          36       0.0   2.910e-11   2.910e-10*    +0.4424
   WarpTransformer vs icoshift                  36       0.0   2.910e-11   2.910e-10*    +0.4656
-  COW-TIC vs Raw cosine PCHIP                  36       6.0   4.075e-10   8.149e-10*    +0.0853
-  WarpTransformer vs Raw cosine PCHIP          36       0.0   2.910e-11   2.910e-10*    +0.1046
+  COW-TIC vs PCHIP (pooled anchors)            36       0.0   2.910e-11   2.910e-10*    +0.1352
+  WarpTransformer vs PCHIP (pooled anchors)    36       0.0   2.910e-11   2.910e-10*    +0.1516
   WarpTransformer vs COW-TIC                   36      37.0   1.670e-07   1.670e-07*    +0.0197
 
   Seeds available: [0]. Per-A-sample WarpTransformer comparisons significant after Holm, out of 1 seeds:
-    vs Unaligned: 1/1  vs icoshift: 1/1  vs Raw cosine PCHIP: 1/1  vs COW-TIC: 1/1
+    vs Unaligned: 1/1  vs icoshift: 1/1  vs PCHIP (pooled anchors): 1/1  vs COW-TIC: 1/1
 
 ================================================================================================
 sep2015 × apr2016   n_A=36  n_B=10
-  mean TIC r: Unaligned=0.086  icoshift=0.172  Raw cosine PCHIP=0.477  COW-TIC=0.634  WarpTransformer=0.673
+  mean TIC r: Unaligned=0.086  icoshift=0.172  PCHIP (pooled anchors)=0.510  COW-TIC=0.634  WarpTransformer=0.673
 
-  Per sample pair (n = 36×10 = 360; not independent):
+  Per sample pair (n = 36×10 = 360; not independent; Holm over 10):
   Comparison (B vs A)                           n         W           p    p (Holm)  median Δr
-  icoshift vs Unaligned                       360     218.0   5.773e-60   2.839e-59*    +0.0861
-  Raw cosine PCHIP vs Unaligned               360     216.0   5.678e-60   2.839e-59*    +0.4627
+  icoshift vs Unaligned                       360     218.0   5.773e-60   1.155e-59*    +0.0861
+  PCHIP (pooled anchors) vs Unaligned         360       0.0   9.404e-61   9.404e-60*    +0.4316
   COW-TIC vs Unaligned                        360       0.0   9.404e-61   9.404e-60*    +0.5561
   WarpTransformer vs Unaligned                360       0.0   9.404e-61   9.404e-60*    +0.5973
-  Raw cosine PCHIP vs icoshift                360    1360.0   6.368e-56   1.274e-55*    +0.3650
+  PCHIP (pooled anchors) vs icoshift          360       0.0   9.404e-61   9.404e-60*    +0.3362
   COW-TIC vs icoshift                         360       0.0   9.404e-61   9.404e-60*    +0.4587
   WarpTransformer vs icoshift                 360       0.0   9.404e-61   9.404e-60*    +0.4998
-  COW-TIC vs Raw cosine PCHIP                 360     346.0   1.666e-59   4.999e-59*    +0.0793
-  WarpTransformer vs Raw cosine PCHIP         360       0.0   9.404e-61   9.404e-60*    +0.1307
+  COW-TIC vs PCHIP (pooled anchors)           360       2.0   9.562e-61   9.404e-60*    +0.1242
+  WarpTransformer vs PCHIP (pooled anchors)   360       0.0   9.404e-61   9.404e-60*    +0.1686
   WarpTransformer vs COW-TIC                  360    2269.0   8.290e-53   8.290e-53*    +0.0395
 
-  Per A sample (r averaged over B_j, n = 36; recommended):
+  Per A sample (r averaged over B_j, n = 36; recommended; Holm over 10):
   Comparison (B vs A)                           n         W           p    p (Holm)  median Δr
   icoshift vs Unaligned                        36       0.0   2.910e-11   2.910e-10*    +0.0868
-  Raw cosine PCHIP vs Unaligned                36       2.0   8.731e-11   2.910e-10*    +0.4656
+  PCHIP (pooled anchors) vs Unaligned          36       0.0   2.910e-11   2.910e-10*    +0.4322
   COW-TIC vs Unaligned                         36       0.0   2.910e-11   2.910e-10*    +0.5469
   WarpTransformer vs Unaligned                 36       0.0   2.910e-11   2.910e-10*    +0.5927
-  Raw cosine PCHIP vs icoshift                 36      16.0   4.919e-09   9.837e-09*    +0.3774
+  PCHIP (pooled anchors) vs icoshift           36       0.0   2.910e-11   2.910e-10*    +0.3451
   COW-TIC vs icoshift                          36       0.0   2.910e-11   2.910e-10*    +0.4569
   WarpTransformer vs icoshift                  36       0.0   2.910e-11   2.910e-10*    +0.4919
-  COW-TIC vs Raw cosine PCHIP                  36       0.0   2.910e-11   2.910e-10*    +0.0761
-  WarpTransformer vs Raw cosine PCHIP          36       0.0   2.910e-11   2.910e-10*    +0.1291
-  WarpTransformer vs COW-TIC                   36      18.0   7.363e-09   9.837e-09*    +0.0418
+  COW-TIC vs PCHIP (pooled anchors)            36       0.0   2.910e-11   2.910e-10*    +0.1214
+  WarpTransformer vs PCHIP (pooled anchors)    36       0.0   2.910e-11   2.910e-10*    +0.1709
+  WarpTransformer vs COW-TIC                   36      18.0   7.363e-09   7.363e-09*    +0.0418
 
   Seeds available: [0]. Per-A-sample WarpTransformer comparisons significant after Holm, out of 1 seeds:
-    vs Unaligned: 1/1  vs icoshift: 1/1  vs Raw cosine PCHIP: 1/1  vs COW-TIC: 1/1
+    vs Unaligned: 1/1  vs icoshift: 1/1  vs PCHIP (pooled anchors): 1/1  vs COW-TIC: 1/1
 
 ================================================================================================
 jan2016 × apr2016   n_A=26  n_B=10
-  mean TIC r: Unaligned=0.128  icoshift=0.249  Raw cosine PCHIP=0.522  COW-TIC=0.558  WarpTransformer=0.642
+  mean TIC r: Unaligned=0.128  icoshift=0.249  PCHIP (pooled anchors)=0.517  COW-TIC=0.558  WarpTransformer=0.642
 
-  Per sample pair (n = 26×10 = 260; not independent):
+  Per sample pair (n = 26×10 = 260; not independent; Holm over 10):
   Comparison (B vs A)                           n         W           p    p (Holm)  median Δr
   icoshift vs Unaligned                       260       0.0   2.135e-44   2.135e-43*    +0.1152
-  Raw cosine PCHIP vs Unaligned               260      44.0   3.550e-44   2.135e-43*    +0.4247
+  PCHIP (pooled anchors) vs Unaligned         260       0.0   2.135e-44   2.135e-43*    +0.3954
   COW-TIC vs Unaligned                        260       0.0   2.135e-44   2.135e-43*    +0.4119
   WarpTransformer vs Unaligned                260       0.0   2.135e-44   2.135e-43*    +0.5253
-  Raw cosine PCHIP vs icoshift                260     233.0   3.109e-43   6.218e-43*    +0.3111
+  PCHIP (pooled anchors) vs icoshift          260       0.0   2.135e-44   2.135e-43*    +0.2831
   COW-TIC vs icoshift                         260       0.0   2.135e-44   2.135e-43*    +0.2954
   WarpTransformer vs icoshift                 260       0.0   2.135e-44   2.135e-43*    +0.4103
-  COW-TIC vs Raw cosine PCHIP                 260   10108.0   1.609e-08   1.609e-08*    +0.0251
-  WarpTransformer vs Raw cosine PCHIP         260       0.0   2.135e-44   2.135e-43*    +0.0992
+  COW-TIC vs PCHIP (pooled anchors)           260    3750.0   1.315e-27   1.315e-27*    +0.0410
+  WarpTransformer vs PCHIP (pooled anchors)   260       0.0   2.135e-44   2.135e-43*    +0.1302
   WarpTransformer vs COW-TIC                  260       8.0   2.342e-44   2.135e-43*    +0.0783
 
-  Per A sample (r averaged over B_j, n = 26; recommended):
+  Per A sample (r averaged over B_j, n = 26; recommended; Holm over 10):
   Comparison (B vs A)                           n         W           p    p (Holm)  median Δr
   icoshift vs Unaligned                        26       0.0   2.980e-08   2.980e-07*    +0.1170
-  Raw cosine PCHIP vs Unaligned                26       1.0   5.960e-08   2.980e-07*    +0.4220
+  PCHIP (pooled anchors) vs Unaligned          26       0.0   2.980e-08   2.980e-07*    +0.3894
   COW-TIC vs Unaligned                         26       0.0   2.980e-08   2.980e-07*    +0.4114
   WarpTransformer vs Unaligned                 26       0.0   2.980e-08   2.980e-07*    +0.5220
-  Raw cosine PCHIP vs icoshift                 26       3.0   1.490e-07   2.980e-07*    +0.2990
+  PCHIP (pooled anchors) vs icoshift           26       0.0   2.980e-08   2.980e-07*    +0.2702
   COW-TIC vs icoshift                          26       0.0   2.980e-08   2.980e-07*    +0.2902
   WarpTransformer vs icoshift                  26       0.0   2.980e-08   2.980e-07*    +0.4075
-  COW-TIC vs Raw cosine PCHIP                  26      86.0   2.197e-02   2.197e-02*    +0.0128
-  WarpTransformer vs Raw cosine PCHIP          26       0.0   2.980e-08   2.980e-07*    +0.1007
+  COW-TIC vs PCHIP (pooled anchors)            26      16.0   5.037e-06   5.037e-06*    +0.0437
+  WarpTransformer vs PCHIP (pooled anchors)    26       0.0   2.980e-08   2.980e-07*    +0.1384
   WarpTransformer vs COW-TIC                   26       0.0   2.980e-08   2.980e-07*    +0.0933
 
   Seeds available: [0]. Per-A-sample WarpTransformer comparisons significant after Holm, out of 1 seeds:
-    vs Unaligned: 1/1  vs icoshift: 1/1  vs Raw cosine PCHIP: 1/1  vs COW-TIC: 1/1
+    vs Unaligned: 1/1  vs icoshift: 1/1  vs PCHIP (pooled anchors): 1/1  vs COW-TIC: 1/1
 
 ================================================================================================
 jan2016 × jul2016   n_A=26  n_B=16
-  mean TIC r: Unaligned=0.112  icoshift=0.246  Raw cosine PCHIP=0.498  COW-TIC=0.566  WarpTransformer=0.647
+  mean TIC r: Unaligned=0.112  icoshift=0.246  PCHIP (pooled anchors)=0.503  COW-TIC=0.566  WarpTransformer=0.647
 
-  Per sample pair (n = 26×16 = 416; not independent):
+  Per sample pair (n = 26×16 = 416; not independent; Holm over 10):
   Comparison (B vs A)                           n         W           p    p (Holm)  median Δr
   icoshift vs Unaligned                       416       0.0   6.637e-70   6.637e-69*    +0.1320
-  Raw cosine PCHIP vs Unaligned               416      42.0   8.989e-70   6.637e-69*    +0.4059
+  PCHIP (pooled anchors) vs Unaligned         416       0.0   6.637e-70   6.637e-69*    +0.3999
   COW-TIC vs Unaligned                        416       0.0   6.637e-70   6.637e-69*    +0.4289
   WarpTransformer vs Unaligned                416       0.0   6.637e-70   6.637e-69*    +0.5444
-  Raw cosine PCHIP vs icoshift                416     417.0   1.331e-68   2.663e-68*    +0.2666
+  PCHIP (pooled anchors) vs icoshift          416       0.0   6.637e-70   6.637e-69*    +0.2671
   COW-TIC vs icoshift                         416       0.0   6.637e-70   6.637e-69*    +0.3012
   WarpTransformer vs icoshift                 416       0.0   6.637e-70   6.637e-69*    +0.4065
-  COW-TIC vs Raw cosine PCHIP                 416    7857.0   1.819e-47   1.819e-47*    +0.0520
-  WarpTransformer vs Raw cosine PCHIP         416       0.0   6.637e-70   6.637e-69*    +0.1293
+  COW-TIC vs PCHIP (pooled anchors)           416    2111.0   1.933e-63   1.933e-63*    +0.0657
+  WarpTransformer vs PCHIP (pooled anchors)   416       0.0   6.637e-70   6.637e-69*    +0.1468
   WarpTransformer vs COW-TIC                  416      38.0   8.733e-70   6.637e-69*    +0.0744
 
-  Per A sample (r averaged over B_j, n = 26; recommended):
+  Per A sample (r averaged over B_j, n = 26; recommended; Holm over 10):
   Comparison (B vs A)                           n         W           p    p (Holm)  median Δr
   icoshift vs Unaligned                        26       0.0   2.980e-08   2.980e-07*    +0.1319
-  Raw cosine PCHIP vs Unaligned                26       0.0   2.980e-08   2.980e-07*    +0.3999
+  PCHIP (pooled anchors) vs Unaligned          26       0.0   2.980e-08   2.980e-07*    +0.3891
   COW-TIC vs Unaligned                         26       0.0   2.980e-08   2.980e-07*    +0.4352
   WarpTransformer vs Unaligned                 26       0.0   2.980e-08   2.980e-07*    +0.5380
-  Raw cosine PCHIP vs icoshift                 26       1.0   5.960e-08   2.980e-07*    +0.2773
+  PCHIP (pooled anchors) vs icoshift           26       0.0   2.980e-08   2.980e-07*    +0.2602
   COW-TIC vs icoshift                          26       0.0   2.980e-08   2.980e-07*    +0.3055
   WarpTransformer vs icoshift                  26       0.0   2.980e-08   2.980e-07*    +0.4097
-  COW-TIC vs Raw cosine PCHIP                  26      11.0   1.639e-06   1.639e-06*    +0.0384
-  WarpTransformer vs Raw cosine PCHIP          26       0.0   2.980e-08   2.980e-07*    +0.1303
+  COW-TIC vs PCHIP (pooled anchors)            26       0.0   2.980e-08   2.980e-07*    +0.0643
+  WarpTransformer vs PCHIP (pooled anchors)    26       0.0   2.980e-08   2.980e-07*    +0.1560
   WarpTransformer vs COW-TIC                   26       0.0   2.980e-08   2.980e-07*    +0.0858
 
   Seeds available: [0]. Per-A-sample WarpTransformer comparisons significant after Holm, out of 1 seeds:
-    vs Unaligned: 1/1  vs icoshift: 1/1  vs Raw cosine PCHIP: 1/1  vs COW-TIC: 1/1
+    vs Unaligned: 1/1  vs icoshift: 1/1  vs PCHIP (pooled anchors): 1/1  vs COW-TIC: 1/1
 
 ================================================================================================
-Summary (per A sample, Holm-adjusted p, WarpTransformer vs each method):
-  sep2015 × jul2016    Unaligned: 2.91e-10   icoshift: 2.91e-10   Raw cosine PCHIP: 2.91e-10   COW-TIC: 1.67e-07
-  sep2015 × apr2016    Unaligned: 2.91e-10   icoshift: 2.91e-10   Raw cosine PCHIP: 2.91e-10   COW-TIC: 9.84e-09
-  jan2016 × apr2016    Unaligned: 2.98e-07   icoshift: 2.98e-07   Raw cosine PCHIP: 2.98e-07   COW-TIC: 2.98e-07
-  jan2016 × jul2016    Unaligned: 2.98e-07   icoshift: 2.98e-07   Raw cosine PCHIP: 2.98e-07   COW-TIC: 2.98e-07
+Summary (per A sample, Holm-adjusted p over 10, WarpTransformer vs each method):
+  sep2015 × jul2016    Unaligned: 2.91e-10   icoshift: 2.91e-10   PCHIP (pooled anchors): 2.91e-10   COW-TIC: 1.67e-07
+  sep2015 × apr2016    Unaligned: 2.91e-10   icoshift: 2.91e-10   PCHIP (pooled anchors): 2.91e-10   COW-TIC: 7.36e-09
+  jan2016 × apr2016    Unaligned: 2.98e-07   icoshift: 2.98e-07   PCHIP (pooled anchors): 2.98e-07   COW-TIC: 2.98e-07
+  jan2016 × jul2016    Unaligned: 2.98e-07   icoshift: 2.98e-07   PCHIP (pooled anchors): 2.98e-07   COW-TIC: 2.98e-07

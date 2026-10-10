@@ -32,12 +32,13 @@ import matplotlib.gridspec as gridspec
 from collections import defaultdict
 from pathlib import Path
 from scipy.signal import correlate
+from scipy.interpolate import PchipInterpolator
 from scipy.stats import pearsonr
 
 sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
 from warp_transformer import ChromaWarpTransformer, warp_smoothness_loss, enable_cuda_determinism
 from alignment import (
-    load_chromas, align_pair, detect_peaks, fingerprints,
+    load_chromas, align_pair, detect_peaks, fingerprints, pooled_anchor_pchip, warp_chroma_2d,
     N_BINS, RUN_MIN, BIN_MIN, TIME_AXIS, PRECISION_CUTOFF,
 )
 
@@ -58,7 +59,7 @@ COLORS = {
     'Unaligned':         '#888888',
     'icoshift':          '#4477AA',
     'COW-TIC':           '#EE7733',
-    'Raw cosine PCHIP':  '#228833',
+    'PCHIP (pooled anchors)': '#228833',
     'WarpTransformer':   '#CC3311',
 }
 BATCH_PAIRS = [
@@ -281,12 +282,6 @@ def cow_fn(q, r):
     return warped
 
 
-def pchip_fn(qa, ra):
-    """Takes full 2D chromas for peak matching."""
-    warped, *_ = align_pair(qa, ra, encode_fn=None, return_anchors=True)
-    return warped.astype(np.float32)
-
-
 # ── Figure 1: Warp function comparison ────────────────────────────────────────
 
 def fig1_warp_functions(chromas_a, chromas_b, warp_np, n_a, anchors, out, ai=0):
@@ -306,17 +301,17 @@ def fig1_warp_functions(chromas_a, chromas_b, warp_np, n_a, anchors, out, ai=0):
     _, cow_fn_w, cow_r, cow_q = cow_tic_align_detail(qry_tic, ref_tic)
     cow_curve = cow_fn_w(TIME_AXIS)
 
-    # --- PCHIP ---
-    _, _, _, _, pchip_fn_w, ransac_ancs = align_pair(
-        qry_chroma, ref_chroma, encode_fn=None, return_anchors=True
-    )
-    if pchip_fn_w is not None:
-        pchip_curve = pchip_fn_w(TIME_AXIS)
-        pchip_dots_r = np.array([r * BIN_MIN for r, _ in ransac_ancs])
-        pchip_dots_q = np.array([q * BIN_MIN for _, q in ransac_ancs])
+    # --- PCHIP through the pooled calibration anchors (the WarpTransformer's anchors) ---
+    # pooled_anchor_pchip maps B time → A time; this plot is A (reference) → B (query), so
+    # the same monotone spline is fitted through the same anchors in that direction.
+    pchip_fn_ba, used = pooled_anchor_pchip(anchors)
+    if pchip_fn_ba is not None:
+        r_t = np.array([r for r, _ in used], dtype=float) * BIN_MIN
+        q_t = np.array([q for _, q in used], dtype=float) * BIN_MIN
+        pchip_curve = PchipInterpolator(np.concatenate([[0.0], r_t, [RUN_MIN]]),
+                                        np.concatenate([[0.0], q_t, [RUN_MIN]]))(TIME_AXIS)
     else:
         pchip_curve = TIME_AXIS.copy()
-        pchip_dots_r = pchip_dots_q = np.array([])
 
     # --- WarpTransformer: use warp for B[0] (study_ids=1, index n_a) ---
     wt_curve = warp_np[n_a, :] * BIN_MIN   # B[0]'s warp → consensus ≈ A frame
@@ -339,20 +334,17 @@ def fig1_warp_functions(chromas_a, chromas_b, warp_np, n_a, anchors, out, ai=0):
     ax.scatter(cow_r, cow_q, color=COLORS['COW-TIC'],
                s=50, zorder=5, linewidths=0)
 
-    # PCHIP smooth cubic
+    # PCHIP smooth cubic through the pooled anchors (drawn below with the WarpTransformer's)
     ax.plot(TIME_AXIS, pchip_curve,
-            color=COLORS['Raw cosine PCHIP'], lw=1.6, label='Raw cosine PCHIP', zorder=3)
-    if len(pchip_dots_r):
-        ax.scatter(pchip_dots_r, pchip_dots_q,
-                   color=COLORS['Raw cosine PCHIP'], s=50, zorder=5, linewidths=0)
+            color=COLORS['PCHIP (pooled anchors)'], lw=1.6, label='PCHIP (pooled anchors)', zorder=3)
 
     # WarpTransformer smooth monotone
     ax.plot(TIME_AXIS, wt_curve,
             color=COLORS['WarpTransformer'], lw=2.0,
             label='WarpTransformer', zorder=4)
     if len(anc_r):
-        ax.scatter(anc_r, anc_q, color=COLORS['WarpTransformer'],
-                   s=50, zorder=6, linewidths=0)
+        ax.scatter(anc_r, anc_q, color='#222222', s=50, zorder=6, linewidths=0,
+                   label='Pooled anchors (PCHIP and WarpTransformer)')
 
     ax.set_xlabel('Reference retention time (min)', fontsize=10)
     ax.set_ylabel('Source retention time in query (min)', fontsize=10)
@@ -383,9 +375,8 @@ def fig2_tic_overlays(chromas_a, chromas_b, warp_np, warp_np_b, n_a, anchors,
     # Run classical methods
     ico_warped, _, _, _ = icoshift_align_detail(qry_tic, ref_tic)
     cow_warped, _, _, _ = cow_tic_align_detail(qry_tic, ref_tic)
-    pchip_warped, _, _, proposed, _, ransac_ancs = align_pair(
-        query_raw, ref_raw, encode_fn=None, return_anchors=True
-    )
+    pchip_fn_ba, _ = pooled_anchor_pchip(anchors)            # B time → A time
+    pchip_warped    = warp_chroma_2d(query_raw, pchip_fn_ba).sum(axis=1)
 
     wt_qry = warp_np[qi].sum() if False else None   # unused
     wt_qry_tic = warp_np[qi:qi+1][0].sum(1)   # placeholder; use aligned chromas
@@ -400,17 +391,16 @@ def fig2_tic_overlays(chromas_a, chromas_b, warp_np, warp_np_b, n_a, anchors,
     r_pchip = pearsonr(pchip_warped.astype(np.float64), ref_tic.astype(np.float64))[0]
     r_wt    = pearsonr(wt_qry_tic2.astype(np.float64), wt_ref_tic.astype(np.float64))[0]
 
-    # Anchor tick data for PCHIP and WT panels
-    # proposed_anchors = list of (q_bin, r_bin, cosine)
-    pchip_ticks_r = [r * BIN_MIN for _, r, _ in proposed]
-    pchip_ticks_c = [c for _, _, c in proposed]
+    # Anchor ticks: the same pooled anchors in both panels, at their position on each panel's
+    # time axis (PCHIP panel = batch-B frame → q; WarpTransformer panel = consensus ≈ A frame → r)
+    pchip_ticks_r = [q * BIN_MIN for _, q in anchors]
     calib_ticks_r = [r * BIN_MIN for r, _ in anchors]
 
     panels = [
         ('Unaligned',         norm(qry_tic),     norm(ref_tic),    float(r_un),    [],               [],     None),
         ('icoshift',          norm(ico_warped),   norm(ref_tic),    float(r_ico),   [],               [],     None),
         ('COW-TIC',           norm(cow_warped),   norm(ref_tic),    float(r_cow),   [],               [],     None),
-        ('Raw cosine PCHIP',  norm(pchip_warped), norm(ref_tic),    float(r_pchip), pchip_ticks_r,    pchip_ticks_c, 0.7),
+        ('PCHIP (pooled anchors)', norm(pchip_warped), norm(ref_tic),  float(r_pchip), pchip_ticks_r,    None,   None),
         ('WarpTransformer',   norm(wt_qry_tic2),  norm(wt_ref_tic), float(r_wt),    calib_ticks_r,    None,   None),
     ]
 
@@ -444,13 +434,14 @@ def fig2_tic_overlays(chromas_a, chromas_b, warp_np, warp_np_b, n_a, anchors,
     fig.legend(handles=[
         Line2D([0],[0], color='#555555', lw=1.4, label='Reference (batch_jul2016[0])'),
         Line2D([0],[0], color='#333333', lw=1.4, label=f'Query (batch_sep2015[{qi}], aligned)'),
-        Line2D([0],[0], color='#2ca02c', lw=1.4, label='Anchor cosine ≥ 0.70'),
-        Line2D([0],[0], color='#d62728', lw=1.4, label='Anchor cosine < 0.70'),
-    ], fontsize=7.5, loc='lower center', ncol=4, bbox_to_anchor=(0.5, 0.0), framealpha=0.8)
+        Line2D([0],[0], color='#333333', lw=1.4, label='Ticks: pooled calibration anchors'),
+    ], fontsize=7.5, loc='lower center', ncol=3, bbox_to_anchor=(0.5, 0.0), framealpha=0.8)
 
     fig.suptitle('Cross-batch TIC alignment — Sep 2015 × Jul 2016', fontsize=10, y=0.97)
     fig.savefig(out, dpi=300, bbox_inches='tight')
     plt.close(fig)
+    print(f"  fig2 per-panel r (batch_sep2015[{qi}] vs batch_jul2016[0]): " + ', '.join(
+        f"{m} {r:.3f}" for m, _, _, r, *_ in panels))
     print(f"  fig2 → {out}")
 
 
@@ -504,7 +495,7 @@ def fig4_violin(all_data, out):
     """
     all_data: dict of method_name → dict of pair_label → list of TIC r values
     """
-    methods = ['Unaligned', 'icoshift', 'COW-TIC', 'Raw cosine PCHIP', 'WarpTransformer']
+    methods = ['Unaligned', 'icoshift', 'COW-TIC', 'PCHIP (pooled anchors)', 'WarpTransformer']
     n_pairs = len(PAIR_LABELS)
 
     fig, axes = plt.subplots(1, n_pairs, figsize=(5 * n_pairs, 4.5), sharey=True)
@@ -540,26 +531,29 @@ def fig4_violin(all_data, out):
 # ── Figure 5: Silhouette vs TIC r scatter ────────────────────────────────────
 
 def _per_pair_files(sa, sb, fig_seed):
-    """Saved per-pair arrays for one batch pair: (baselines from 17, calibration from 16)."""
+    """Saved per-pair arrays for one batch pair: baselines (17), calibration (16), PCHIP (24)."""
     la, lb = Path(sa).name, Path(sb).name
     d = RESULTS_DIR / 'per_pair'
     base  = np.load(d / f'tic_r_baselines_{la}_{lb}.npz')
     calib = np.load(d / f'tic_r_calib_{la}_{lb}_seed{fig_seed}.npz')
+    pchip = np.load(d / f'tic_r_pchip_pooled_{la}_{lb}.npz')
     if not np.allclose(base['unaligned'], calib['unaligned'], atol=1e-6):
         raise ValueError(f'Unaligned arrays differ between scripts 16 and 17 for {la} × {lb}')
-    return base, calib
+    if pchip['pchip_pooled'].shape != calib['warptransformer'].shape:
+        raise ValueError(f'PCHIP arrays (script 24) do not match the calibration run for {la} × {lb}')
+    return base, calib, pchip
 
 
 def load_per_pair_r(fig_seed):
     """method → pair_label → per-pair TIC r array, from saved results (scripts 16, 17)."""
     all_data = {m: {} for m in
-                ['Unaligned', 'icoshift', 'COW-TIC', 'Raw cosine PCHIP', 'WarpTransformer']}
+                ['Unaligned', 'icoshift', 'COW-TIC', 'PCHIP (pooled anchors)', 'WarpTransformer']}
     for (sa, sb), pl in zip(BATCH_PAIRS, PAIR_LABELS):
-        base, calib = _per_pair_files(sa, sb, fig_seed)
+        base, calib, pchip = _per_pair_files(sa, sb, fig_seed)
         all_data['Unaligned'][pl]        = base['unaligned']
         all_data['icoshift'][pl]         = base['icoshift']
         all_data['COW-TIC'][pl]          = base['cow_tic']
-        all_data['Raw cosine PCHIP'][pl] = calib['pchip_b0']
+        all_data['PCHIP (pooled anchors)'][pl] = pchip['pchip_pooled']
         all_data['WarpTransformer'][pl]  = calib['warptransformer']
     return all_data
 
@@ -569,13 +563,14 @@ def fig5_scatter(out, fig_seed=0):
     # (method, pair_label, tic_r, study_sil, unaligned_r, unaligned_sil)
     data = []
     for (sa, sb), pl in zip(BATCH_PAIRS, PAIR_LABELS):
-        base, calib = _per_pair_files(sa, sb, fig_seed)
+        base, calib, pchip = _per_pair_files(sa, sb, fig_seed)
         r0 = float(np.mean(calib['unaligned']))
-        sil0, sil_pchip, sil_wt = (float(v) for v in calib['sil'])
+        sil0, _, sil_wt = (float(v) for v in calib['sil'])
+        sil_pchip       = float(pchip['sil'])
         _, sil_cow, sil_ico     = (float(v) for v in base['sil'])
         data += [
             ('icoshift',         pl, float(np.mean(base['icoshift'])),           sil_ico,   r0, sil0),
-            ('Raw cosine PCHIP', pl, float(np.mean(calib['pchip_b0'])),        sil_pchip, r0, sil0),
+            ('PCHIP (pooled anchors)', pl, float(np.mean(pchip['pchip_pooled'])), sil_pchip, r0, sil0),
             ('COW-TIC',          pl, float(np.mean(base['cow_tic'])),            sil_cow,   r0, sil0),
             ('WarpTransformer',  pl, float(np.mean(calib['warptransformer'])), sil_wt,    r0, sil0),
         ]
@@ -600,7 +595,7 @@ def fig5_scatter(out, fig_seed=0):
 
     method_handles = [Line2D([0],[0], marker='o', color='w', markerfacecolor=COLORS[m],
                              markersize=9, label=m) for m in
-                      ['icoshift','Raw cosine PCHIP','COW-TIC','WarpTransformer']]
+                      ['icoshift','PCHIP (pooled anchors)','COW-TIC','WarpTransformer']]
     pair_handles   = [Line2D([0],[0], marker=markers[p], color='w', markerfacecolor='#555555',
                              markersize=9, label=p) for p in PAIR_LABELS]
     leg1 = ax.legend(handles=method_handles, fontsize=8, loc='upper left',
