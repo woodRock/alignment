@@ -405,7 +405,7 @@ def fig2_tic_overlays(chromas_a, chromas_b, warp_np, warp_np_b, n_a, anchors,
     ]
 
     fig, axes = plt.subplots(1, 5, figsize=(18, 4.0), sharey=True, sharex=True)
-    fig.subplots_adjust(wspace=0.06, left=0.05, right=0.99, top=0.88, bottom=0.16)
+    fig.subplots_adjust(wspace=0.06, left=0.05, right=0.99, top=0.80, bottom=0.16)
 
     for ax, (method, qry, ref, r, ticks_r, ticks_c, cutoff) in zip(axes, panels):
         color = COLORS.get(method, '#333333')
@@ -437,7 +437,7 @@ def fig2_tic_overlays(chromas_a, chromas_b, warp_np, warp_np_b, n_a, anchors,
         Line2D([0],[0], color='#333333', lw=1.4, label='Ticks: pooled calibration anchors'),
     ], fontsize=7.5, loc='lower center', ncol=3, bbox_to_anchor=(0.5, 0.0), framealpha=0.8)
 
-    fig.suptitle('Cross-batch TIC alignment — Sep 2015 × Jul 2016', fontsize=10, y=0.97)
+    fig.suptitle('Cross-batch TIC alignment — Sep 2015 × Jul 2016', fontsize=10, y=0.98)
     fig.savefig(out, dpi=300, bbox_inches='tight')
     plt.close(fig)
     print(f"  fig2 per-panel r (batch_sep2015[{qi}] vs batch_jul2016[0]): " + ', '.join(
@@ -577,7 +577,7 @@ def fig5_scatter(out, fig_seed=0):
         print(f"    {pl}: unaligned r={r0:.3f} sil={sil0:.3f}")
     markers = {'Sep15×Jul16': 'o', 'Sep15×Apr16': 'D', 'Jan16×Apr16': 's', 'Jan16×Jul16': '^'}
 
-    fig, ax = plt.subplots(figsize=(6, 5))
+    fig, ax = plt.subplots(figsize=(7.6, 5))
     from matplotlib.lines import Line2D
 
     plotted_methods = set(); plotted_pairs = set()
@@ -598,10 +598,10 @@ def fig5_scatter(out, fig_seed=0):
                       ['icoshift','PCHIP (pooled anchors)','COW-TIC','WarpTransformer']]
     pair_handles   = [Line2D([0],[0], marker=markers[p], color='w', markerfacecolor='#555555',
                              markersize=9, label=p) for p in PAIR_LABELS]
-    leg1 = ax.legend(handles=method_handles, fontsize=8, loc='upper left',
+    leg1 = ax.legend(handles=method_handles, fontsize=8, loc='upper left', bbox_to_anchor=(1.02, 1.0),
                      title='Method', title_fontsize=8, framealpha=0.85)
     ax.add_artist(leg1)
-    ax.legend(handles=pair_handles, fontsize=8, loc='lower right',
+    ax.legend(handles=pair_handles, fontsize=8, loc='upper left', bbox_to_anchor=(1.02, 0.55),
               title='Batch pair', title_fontsize=8, framealpha=0.85)
 
     ax.set_xlabel('Δ TIC r  (vs unaligned)', fontsize=10)
@@ -611,7 +611,7 @@ def fig5_scatter(out, fig_seed=0):
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
     fig.tight_layout()
-    fig.savefig(out, dpi=300, bbox_inches='tight')
+    fig.savefig(out, dpi=300, bbox_inches='tight', bbox_extra_artists=[leg1])
     plt.close(fig)
     print(f"  fig5 → {out}")
 

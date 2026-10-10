@@ -1,41 +1,41 @@
-Figs 1-2 sample selection (best) for batch_sep2015 × batch_jul2016, seed 0, device mps
-chosen: index 15  id 2___GUR2_ROG_B  Δ TIC r +0.6376
-median Δ +0.5869   max Δ +0.6376   min Δ +0.5105
+Figs 1-2 sample selection (best) for batch_sep2015 × batch_jul2016, seed 0, device cpu
+chosen: index 8  id 2___GUR2_Gonad_A  Δ TIC r +0.6163
+median Δ +0.5612   max Δ +0.6163   min Δ +0.4968
 
 all samples (index, id, Δ TIC r = r(WT A_i, WT B0) − r(A_i, B0)):
-   15  2___GUR2_ROG_B                       +0.6376
-    8  2___GUR2_Gonad_A                     +0.6335
-    4  1___SNA1_Liver_Male_A                +0.6328
-   34  4___BCO4_Rest_of_Guts_A              +0.6241
-   35  4___BCO4_Rest_of_Guts_B              +0.6195
-   14  2___GUR2_ROG_A                       +0.6130
-    9  2___GUR2_Gonad_B                     +0.6110
-   10  2___GUR2_Head_A                      +0.6039
-    3  1___SNA1_Liver_Female_B              +0.6024
-    7  1___SNA1_Rest_of_Guts_B              +0.6015
-   29  4___BCO4_Gonad_B                     +0.6015
-   28  4___BCO4_Gonad_A                     +0.5962
-    6  1___SNA1_Rest_of_Guts_A              +0.5961
-   13  2___GUR2_Liver_B                     +0.5957
-    5  1___SNA1_Liver_Male_B                +0.5946
-   11  2___GUR2_Head_B                      +0.5944
-   21  3___TAR3_Head_B                      +0.5940
-   20  3___TAR3_Head_A                      +0.5869
-   31  4___BCO4_Liver_Female_B              +0.5869
-   26  3___TAR3_Rest_of_Guts_A              +0.5854
-   12  2___GUR2_Liver_A                     +0.5847
-   32  4___BCO4_Liver_Male_A                +0.5827
-   18  3___TAR3_Gonad_Male_A                +0.5813
-    2  1___SNA1_Liver_Female_A              +0.5809
-   27  3___TAR3_Rest_of_Guts_B              +0.5807
-   33  4___BCO4_Liver_Male_B                +0.5803
-   24  3___TAR3_Liver_Male_A                +0.5694
-    0  1___SNA1_Gonad_A                     +0.5684
-   30  4___BCO4_Liver_Female_A              +0.5683
-   19  3___TAR3_Gonad_Male_B                +0.5576
-   25  3___TAR3_Liver_Male_B                +0.5534
-   17  3___TAR3_Gonad_Female_B              +0.5333
-   16  3___TAR3_Gonad_Female_A              +0.5292
-   23  3___TAR3_Liver_Female_B              +0.5226
-   22  3___TAR3_Liver_Female_A              +0.5181
-    1  1___SNA1_Gonad_B                     +0.5105
+    8  2___GUR2_Gonad_A                     +0.6163
+   15  2___GUR2_ROG_B                       +0.6098
+    4  1___SNA1_Liver_Male_A                +0.6066
+   34  4___BCO4_Rest_of_Guts_A              +0.5976
+    9  2___GUR2_Gonad_B                     +0.5969
+   35  4___BCO4_Rest_of_Guts_B              +0.5915
+   29  4___BCO4_Gonad_B                     +0.5832
+   14  2___GUR2_ROG_A                       +0.5825
+   10  2___GUR2_Head_A                      +0.5808
+   31  4___BCO4_Liver_Female_B              +0.5796
+   13  2___GUR2_Liver_B                     +0.5760
+    3  1___SNA1_Liver_Female_B              +0.5751
+   28  4___BCO4_Gonad_A                     +0.5744
+   11  2___GUR2_Head_B                      +0.5712
+    5  1___SNA1_Liver_Male_B                +0.5703
+   32  4___BCO4_Liver_Male_A                +0.5653
+    7  1___SNA1_Rest_of_Guts_B              +0.5619
+   21  3___TAR3_Head_B                      +0.5613
+   30  4___BCO4_Liver_Female_A              +0.5612
+   12  2___GUR2_Liver_A                     +0.5607
+    2  1___SNA1_Liver_Female_A              +0.5602
+   33  4___BCO4_Liver_Male_B                +0.5595
+    6  1___SNA1_Rest_of_Guts_A              +0.5594
+   24  3___TAR3_Liver_Male_A                +0.5577
+   26  3___TAR3_Rest_of_Guts_A              +0.5545
+   18  3___TAR3_Gonad_Male_A                +0.5541
+   20  3___TAR3_Head_A                      +0.5511
+   27  3___TAR3_Rest_of_Guts_B              +0.5511
+   25  3___TAR3_Liver_Male_B                +0.5488
+    0  1___SNA1_Gonad_A                     +0.5440
+   19  3___TAR3_Gonad_Male_B                +0.5346
+   17  3___TAR3_Gonad_Female_B              +0.5192
+   16  3___TAR3_Gonad_Female_A              +0.5161
+   23  3___TAR3_Liver_Female_B              +0.5086
+   22  3___TAR3_Liver_Female_A              +0.5078
+    1  1___SNA1_Gonad_B                     +0.4968
