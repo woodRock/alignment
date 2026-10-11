@@ -1,0 +1,30 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "gcmsalign: Test-time calibrated WarpTransformer for cross-batch GC-MS retention-time alignment"
+type: software
+version: 2.0.0
+date-released: 2026-10-11
+license: MIT
+repository-code: "https://github.com/woodRock/alignment"
+authors:
+  - family-names: Wood
+    given-names: Jesse
+  - family-names: Nguyen
+    given-names: Bach
+  - family-names: Xue
+    given-names: Bing
+  - family-names: Zhang
+    given-names: Mengjie
+  - family-names: Shedlock
+    given-names: Kevin
+  - family-names: Ross
+    given-names: Alastair B.
+  - family-names: Killeen
+    given-names: Daniel
+keywords:
+  - GC-MS
+  - retention time alignment
+  - batch effects
+  - transformer
+  - test-time calibration
+  - chemometrics

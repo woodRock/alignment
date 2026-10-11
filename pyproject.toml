@@ -7,6 +7,10 @@ name = "gcmsalign"
 version = "2.0.0"
 description = "Cross-batch GC-MS retention-time alignment: WarpTransformer and baselines"
 requires-python = ">=3.11"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Jesse Wood" }]
 dependencies = [
     "numpy>=1.26",
     "scipy>=1.11",
