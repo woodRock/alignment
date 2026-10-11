@@ -1,4 +1,4 @@
-21_significance_tests.py — Paired Wilcoxon signed-rank tests between all methods.
+12_significance_tests.py — Paired Wilcoxon signed-rank tests between all methods.
 
 Methods (5): Unaligned, icoshift, PCHIP (pooled anchors), COW-TIC, WarpTransformer.
 Holm family: all 10 pairwise method comparisons, corrected separately within each batch pair and test level.

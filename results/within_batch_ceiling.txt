@@ -1,4 +1,4 @@
-27_within_batch_ceiling.py — An upper reference for between-batch TIC r: within-batch TIC r.
+11_within_batch_ceiling.py — An upper reference for between-batch TIC r: within-batch TIC r.
 
 Per batch: mean (s.d.) Pearson r over all pairs of distinct samples, unaligned.
   Batch              n  pairs     normalised TIC            raw TIC

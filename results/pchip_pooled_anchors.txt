@@ -1,7 +1,7 @@
-24_pchip_pooled_anchors.py — The paper's PCHIP baseline: one spline through the pooled anchors.
+07_pchip_pooled_anchors.py — The paper's PCHIP baseline: one spline through the pooled anchors.
 
-Anchors: calib16.extract_anchors (A[0..2] vs B[0]), the WarpTransformer's calibration anchors.
-Comparison arrays: tic_r_calib_*_seed0.npz (script 16) and tic_r_baselines_*.npz (script 17).
+Anchors: calib06.extract_anchors (A[0..2] vs B[0]), the WarpTransformer's calibration anchors.
+Comparison arrays: tic_r_calib_*_seed0.npz (script 06) and tic_r_baselines_*.npz (script 05).
 
 ========================================================================================
 batch_sep2015 × batch_jul2016   n = 36×16 = 576   pooled anchors 7 (used in spline 7): [(53, 45), (108, 90), (162, 140), (177, 157), (184, 178), (194, 188), (199, 195)]
@@ -96,7 +96,7 @@ Summary, raw TIC (same warps applied to the raw TIC; nan = not saved yet)
   batch_apr2016 × batch_jul2016  0.862  0.254  0.715  0.635    +0.381  (excluded pair)
 
 Paired two-sided Wilcoxon, per A sample (r averaged over B_j). Holm family: the 4 evaluated batch pairs, corrected separately for each comparison below (family size 4).
-The paper's significance table (all 10 method pairs within a batch pair) is significance_tests.txt (script 21).
+The paper's significance table (all 10 method pairs within a batch pair) is significance_tests.txt (script 12).
   WarpTransformer vs PCHIP (pooled anchors):
     batch_sep2015 × batch_jul2016 n=36  p=2.91e-11  Holm p=1.16e-10  median Δr +0.1389
     batch_sep2015 × batch_apr2016 n=36  p=2.91e-11  Holm p=1.16e-10  median Δr +0.1619

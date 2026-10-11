@@ -103,7 +103,7 @@ def main(seeds: list[int]) -> None:
                 all(same(cal[s]['pchip_pooled'], pool['pchip_pooled']) for s in cs),
             'pooled PCHIP raw (06) identical across seeds and = (07)':
                 all(same(cal[s]['pchip_pooled_raw'], pool['pchip_pooled_raw']) for s in cs),
-            'anchors identical across seeds (16, 18) and = (07)':
+            'anchors identical across seeds (06, 08) and = (07)':
                 all(same(cal[s]['anchors'], pool['anchors']) for s in cs)
                 and all(same(abl[s]['anchors'], pool['anchors']) for s in as_),
         }
