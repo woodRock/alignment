@@ -220,20 +220,37 @@ def _ransac_inliers(q: np.ndarray, r: np.ndarray) -> np.ndarray:
 # ── Pooled over batch-A samples ───────────────────────────────────────────────
 
 
-def merge_close(anchors: list[Anchor], max_gap: int = MERGE_GAP) -> list[Anchor]:
-    """Merge runs of anchors whose consecutive r differ by ≤ max_gap bins into one anchor at
-    their mean (r, q), rounded. Pooled anchors from different A samples are often the same
-    compound one or two bins apart; with integer bins, the local slope between such neighbours
-    is 0, 0.5, 1, 2 or 3 by rounding alone, which would make the slope filter's verdict
-    arbitrary. Sorted by r on return."""
+def _round_half_up(x: float) -> int:
+    """Round to the nearest integer, .5 upwards (Python's round() sends .5 to the even
+    neighbour: 100.5 → 100 but 101.5 → 102)."""
+    return int(np.floor(x + 0.5))
+
+
+def merge_close(
+    anchors: list[Anchor], max_gap: int = MERGE_GAP, max_drift_diff: int = 1
+) -> list[Anchor]:
+    """Merge anchors that are the same compound seen in different A samples: r within max_gap
+    bins of the group's *first* anchor (no chaining, so neighbouring compounds stay separate)
+    *and* drift (q − r) within max_drift_diff bins of it. Merged anchors become their mean
+    (r, q), rounded half up. Anything else stays separate, so a wrong match is left for the
+    outlier and slope filters to judge rather than averaged into a right one.
+
+    Why merge at all: with integer bins, the local slope between two anchors one or two bins
+    apart is 0, 0.5, 1, 2 or 3 by rounding alone, which would make the slope filter's verdict
+    on such a pair arbitrary. Sorted by r on return."""
     groups: list[list[Anchor]] = []
-    for a in sorted(anchors):
-        if groups and a[0] - groups[-1][-1][0] <= max_gap:
-            groups[-1].append(a)
-        else:
-            groups.append([a])
+    for r, q in sorted(anchors):
+        if groups:
+            r0, q0 = groups[-1][0]
+            if r - r0 <= max_gap and abs((q - r) - (q0 - r0)) <= max_drift_diff:
+                groups[-1].append((r, q))
+                continue
+        groups.append([(r, q)])
     return [
-        (round(float(np.mean([r for r, _ in g]))), round(float(np.mean([q for _, q in g]))))
+        (
+            _round_half_up(float(np.mean([r for r, _ in g]))),
+            _round_half_up(float(np.mean([q for _, q in g]))),
+        )
         for g in groups
     ]
 

@@ -136,7 +136,8 @@ def test_pool_anchors_empty():
 
 def test_merge_close_combines_neighbours_one_or_two_bins_apart():
     anchors = [(40, 30), (63, 46), (64, 46), (100, 80), (161, 139), (162, 140), (164, 141)]
-    assert merge_close(anchors) == [(40, 30), (64, 46), (100, 80), (162, 140)]
+    # (164, 141) is 3 bins from its group's first anchor (161, 139): kept separate
+    assert merge_close(anchors) == [(40, 30), (64, 46), (100, 80), (162, 140), (164, 141)]
 
 
 def test_merge_close_leaves_separated_anchors_and_sorts():
@@ -144,7 +145,31 @@ def test_merge_close_leaves_separated_anchors_and_sorts():
     assert merge_close(anchors) == [(40, 30), (70, 55), (100, 80)]
     assert merge_close([]) == []
     assert merge_close([(10, 5), (13, 8)], max_gap=2) == [(10, 5), (13, 8)]
-    assert merge_close([(10, 5), (13, 8)], max_gap=3) == [(12, 6)]
+    assert merge_close([(10, 5), (13, 8)], max_gap=3) == [(12, 7)]   # 11.5, 6.5 rounded up
+
+
+def test_merge_close_does_not_average_a_wrong_match_into_a_right_one():
+    """Round-4 review: the same compound matched correctly, (161, 139), and wrongly,
+    (162, 150), must stay two anchors (drift −22 vs −12) for the filters to judge; averaging
+    gave an invented (162, 144) 5 bins from both."""
+    assert merge_close([(161, 139), (162, 150)]) == [(161, 139), (162, 150)]
+    kept, *_ = pool_anchors([[(40, 32), (80, 72), (120, 112), (161, 153)],
+                             [(40, 32), (80, 72), (120, 112), (162, 120)]])
+    assert (162, 120) not in kept and all(q - r == -8 for r, q in kept)
+
+
+def test_merge_close_does_not_chain_neighbouring_compounds():
+    """Round-4 review: anchors 2, 4, 6 and 8 bins apart used to collapse into one; groups are
+    now measured from their first anchor."""
+    run = [(100, 90), (102, 92), (104, 94), (106, 96), (108, 98)]
+    merged = merge_close(run)
+    assert len(merged) == 3
+    assert all(abs(b[0] - a[0]) > 2 for a, b in zip(merged, merged[1:], strict=False))
+
+
+def test_merge_close_rounds_half_up():
+    assert merge_close([(100, 90), (101, 91)]) == [(101, 91)]     # 100.5 → 101 (not 100)
+    assert merge_close([(101, 91), (102, 92)]) == [(102, 92)]     # 101.5 → 102
 
 
 def test_slope_filter_no_longer_sees_rounding_slopes():
