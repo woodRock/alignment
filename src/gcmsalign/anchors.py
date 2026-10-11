@@ -299,7 +299,7 @@ def pool_anchors(
     for anchors in per_sample:
         for r, q in anchors:
             by_r[r].append(q)
-    pooled = [(r, int(np.round(np.median(qs)))) for r, qs in sorted(by_r.items())]
+    pooled = [(r, _round_half_up(float(np.median(qs)))) for r, qs in sorted(by_r.items())]
     counts = {'pooled': len(pooled)}
     pooled = merge_close(pooled)
     counts['after merging'] = len(pooled)

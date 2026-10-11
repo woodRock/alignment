@@ -276,3 +276,10 @@ def test_extract_anchors_too_few_peaks():
     flat = np.zeros((2, 200, 30), dtype=np.float32)
     res = extract_anchors(flat, flat, np.ones((2, 200)), np.ones((2, 200)))
     assert res.anchors == []
+
+
+def test_pooled_median_rounds_half_up_like_merging():
+    """A median that falls on .5 (two samples, q = 40 and 41) rounds up, as merged anchors do."""
+    kept, *_ = pool_anchors([[(50, 40), (90, 80), (130, 120), (170, 160)],
+                             [(50, 41), (90, 80), (130, 120), (170, 160)]])
+    assert (50, 41) in kept
