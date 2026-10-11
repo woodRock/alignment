@@ -9,3 +9,6 @@ from here (several load sibling scripts or `../src` relative to their own locati
 - `19`: older five-panel alignment figure, replaced by `20_generate_figures.py`.
 - `23`: anchor-count ablation; out of scope for the paper (mentioned only in Limitations).
 - `run_gpu_spooler.sh`: GPU-server runner for an earlier run plan; its step numbers are stale.
+- `legacy_src/`: the v1 `alignment.py` (index-free anchor code with the mixed time axes, kept for
+  reference) and the SimCLR encoders it imported (`encoder.py`, `regnet.py`). The paper's code is in
+  `src/` (config, data, metrics, anchors, warps, baselines, evaluation, calibration, warp_transformer).

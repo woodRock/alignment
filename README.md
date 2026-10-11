@@ -20,6 +20,11 @@ maximises the evaluation metric.
 
 ## Headline results
 
+> **Superseded (2026-10-11).** The numbers in this section and under *Results* come from v1:
+> data binned by scan index (which put a different time on each bin in different batches),
+> peaks on the normalised TIC, two mixed time axes, and an approximate anchor loss. They
+> will be replaced after the full rerun with the fixed code (`run.md`, section D).
+
 Results on four drifted cross-batch pairs from a four-batch fish oil GC-MS dataset:
 
 - **Largest TIC r gain on every pair.** The WarpTransformer improves mean TIC Pearson r by
@@ -40,14 +45,18 @@ Results on four drifted cross-batch pairs from a four-batch fish oil GC-MS datas
 All methods share a common six-step pipeline. Only step 5 (warp fitting) differs between
 methods.
 
-1. **Peak detection.** Find TIC local maxima above the 80th-percentile intensity, with a
-   minimum separation of 5 bins (`scipy.signal.find_peaks`), and keep the top-N by height.
+1. **Peak detection.** Find local maxima of the **raw** TIC (compound abundance) above its
+   80th-percentile intensity, with a minimum separation of 5 bins (`scipy.signal.find_peaks`),
+   and keep the 30 highest.
 2. **m/z fingerprinting.** Take the 3-bin mean spectrum (peak bin ±1) and L2-normalise it
    to a 1000-dim fingerprint.
 3. **Peak matching.** Match peaks by cosine similarity under a time-window constraint.
    Hungarian assignment gives one-to-one matches, with an adaptive similarity threshold.
-4. **RANSAC filtering.** Remove geometric outliers (minimum 2 inliers) and enforce
-   monotonicity on the inlier set.
+4. **RANSAC filtering.** Remove geometric outliers (straight line, 3-bin residual, minimum 2
+   inliers) and keep the longest subset in elution order (longest increasing subsequence).
+   For calibration, anchors from three batch-A samples are pooled (median per bin), then
+   drift outliers (> 1.5 s.d.) and anchors implying an implausible local slope (outside
+   0.5–2) are dropped. Every stage's anchor count is reported (`src/anchors.py`).
 5. **Warp fitting.** Fit a monotone warp through the inlier anchors. Methods differ here.
 6. **TIC resampling.** Resample the query TIC onto the reference time axis.
 
@@ -65,13 +74,16 @@ The model has the following components:
 - **Local RT attention.** Self-attention along the RT axis within each sample.
 - **Global cross-sample attention.** Self-attention across the N samples at each RT bin,
   so each sample sees where the same compound elutes in the rest of the batch.
-- **Monotone warp head.** Applies softplus to produce positive increments, takes their
-  cumulative sum, and normalises it to `[0, T]`. The output is strictly monotone, with
-  `w(0) = 0` and `w(T) = T`. The final layer is **zero-initialised**, so both pretrained
-  and random-init models start from an identity warp. Any benefit from pretraining
-  therefore comes from learned representations, not from a warm-started warp.
-- **Differentiable resampling.** The warp is applied to the TIC by linear interpolation
-  (grid sampling).
+- **Monotone warp head.** Increments δ(t) = softplus(u(t) + log(e − 1)) (so δ = 1 at u = 0)
+  are summed from a per-sample start offset predicted by a second head. The warp is strictly
+  monotone and **neither end is pinned**, so drift at the start or end of the run can be
+  represented. Both heads are **zero-initialised**, so an untrained model is exactly the
+  identity. (A pretrained model starts from whatever warp it predicts; scripts 06 and 08
+  report the starting warp magnitudes.)
+- **Differentiable resampling.** The warp is applied by linear interpolation, clamped to the
+  run.
+- **Anchor loss.** A compound at batch-A bin r and batch-B bin q must reach the same consensus
+  bin: w_B(w̄_A⁻¹(r)) = q, with w̄_A the mean batch-A warp (`anchor_loss_exact`).
 
 ### Synthetic pretraining
 
@@ -117,14 +129,18 @@ Fish oil GC-MS chromatograms should be placed under `data/fish_oil/`:
 ```
 data/
   fish_oil/
-    batch_sep2015/chroma/   {sample_id}.npz  [200, 1000] float32   (24 samples)
-    batch_jan2016/chroma/                                          (26 samples)
-    batch_apr2016/chroma/                                          (10 samples)
-    batch_jul2016/chroma/                                          (14 samples)
+    batch_sep2015/chroma/   {sample_id}.npz   (36 samples)
+    batch_jan2016/chroma/                     (26 samples)
+    batch_apr2016/chroma/                     (10 samples)
+    batch_jul2016/chroma/                     (16 samples)
 ```
 
-Each `.npz` file contains a single `[200, 1000]` float32 array. It has 200 RT bins
-spanning 0–45 min (0.225 min/bin) and 1000 integer-dalton *m/z* bins (1–1000 Da).
+Each `.npz` holds `chroma` ([200, 1000] float32: sqrt and L2-normalised per bin) and `tic_raw`
+([200] float32: summed raw intensity of each bin's apex scan). Runs are binned by **retention
+time** on a fixed 0–45 min grid of 0.225-min windows (bin i covers [0.225 i, 0.225 (i+1)) min),
+keeping the highest-TIC scan per window. Sep 2015 and Jan 2016 runs start acquiring at
+5.0 min, Apr and Jul 2016 runs at 3.0 min (`results/scan_time_audit.txt`, script 04), so their
+first 22 or 13 bins are empty.
 
 ## Training
 
@@ -132,8 +148,10 @@ spanning 0–45 min (0.225 min/bin) and 1000 integer-dalton *m/z* bins (1–1000
 python scripts/02_train_warp_transformer.py   # pretrain on synthetic GC-MS warps
 ```
 
-Scripts auto-select CUDA → MPS → CPU. Checkpoints are saved to `checkpoints/`, which is
-excluded from git.
+The checkpoint is written to `checkpoints/warp_transformer_v2.pt` (excluded from git), with a
+`.txt` report of the settings, library and final loss. v1 checkpoints pinned both warp ends
+and cannot be loaded by the current model. Analysis scripts default to `--device cpu`
+(bit-reproducible under a seed).
 
 ## Evaluation
 
@@ -173,8 +191,10 @@ Unused earlier scripts are in `scripts/archive/`.
 ### Metrics
 
 - **TIC r.** Mean pairwise Pearson r between aligned query and reference TICs over all
-  A×B sample pairs. Higher is better. This is the primary metric, and it is also what
-  COW-TIC optimises directly.
+  A×B sample pairs, on the common acquisition window (bins 22–199, 5.0–45 min; shared empty
+  bins would inflate r). Higher is better. This is the primary metric, and it is also what
+  COW-TIC optimises directly. Reported for the normalised TIC and the raw TIC (the same warps
+  applied to `tic_raw`).
 - **Study sil.** Study-label silhouette in PCA-50 space of per-*m/z* maximum-intensity
   projections. Lower means less batch separation. This projection is largely RT-invariant,
   so study sil is a **secondary diagnostic**, not a direct measure of compound-level
@@ -182,9 +202,25 @@ Unused earlier scripts are in `scripts/archive/`.
 - **Warp mag.** Mean |w(t) − t| in minutes.
 
 Significance is assessed with two-sided paired Wilcoxon signed-rank tests on per-pair
-TIC r. Main results are averaged over three independent calibration runs.
+TIC r. Main results are means ± s.d. over five calibration seeds on CPU (script 13).
+
+## Tests
+
+```bash
+python3.11 -m pytest -m "not slow"     # unit tests, ~10 s
+python3.11 -m pytest                   # + end-to-end runs of scripts 05–14 on synthetic data, ~5 min
+```
+
+Tests marked `real` check the real data under `data/fish_oil` and are skipped without it.
+`ALIGNMENT_ROOT` relocates `data/`, `results/` and `checkpoints/`; `ALIGNMENT_CALIB_STEPS`
+shortens calibration (tests only).
 
 ## Results
+
+> **Superseded (2026-10-11).** The numbers in this section come from v1:
+> data binned by scan index (which put a different time on each bin in different batches),
+> peaks on the normalised TIC, two mixed time axes, and an approximate anchor loss. They
+> will be replaced after the full rerun with the fixed code (`run.md`, section D).
 
 ### Batch-pair screening
 

@@ -27,16 +27,13 @@ Output: results/seed_summary.txt
 from __future__ import annotations
 
 import argparse
-import re
+import sys
 from pathlib import Path
 
 import numpy as np
 
-ROOT     = Path(__file__).parent.parent
-RESULTS  = ROOT / 'results'
-PER_PAIR = RESULTS / 'per_pair'
-PAIRS    = [('batch_sep2015', 'batch_jul2016'), ('batch_sep2015', 'batch_apr2016'),
-            ('batch_jan2016', 'batch_apr2016'), ('batch_jan2016', 'batch_jul2016')]
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / 'src'))
+from config import EVAL_PAIRS as PAIRS, PER_PAIR_DIR as PER_PAIR, RESULTS_DIR as RESULTS  # noqa: E402
 
 
 def ms(x) -> str:
@@ -60,10 +57,9 @@ def same(x, y) -> bool:
     return x.shape == y.shape and np.allclose(x, y, atol=1e-6)
 
 
-def ablate_device(a: str, b: str, seed: int) -> str:
-    f = RESULTS / f'ablate_pretrain_{a}_{b}_seed{seed}.txt'
-    m = re.search(r'device (\S+)', f.read_text()) if f.exists() else None
-    return m.group(1) if m else '?'
+def ablate_device(abl) -> str:
+    """Device recorded by script 08 ('?' for files written before it was recorded)."""
+    return str(abl['device']) if 'device' in abl.files else '?'
 
 
 def main(seeds: list[int]) -> None:
@@ -134,7 +130,12 @@ def main(seeds: list[int]) -> None:
                   '  '.join(f's{s} {x:.3f}/{y:.3f}' for s, x, y in zip(cs, wt, wt_raw)) +
                   '   (normalised/raw)',
                   f'  WarpTransformer warp magnitude (min): batch B {ms(mags[:, 2])}   '
-                  f'batch A {ms(mags[:, 1])}   all {ms(mags[:, 0])}', '']
+                  f'batch A {ms(mags[:, 1])}   all {ms(mags[:, 0])}']
+        if all('wt_warp_mag_pre' in cal[s].files for s in cs):
+            pre_m = np.array([cal[s]['wt_warp_mag_pre'] for s in cs])
+            lines.append(f'  … before calibration (pretrained model): batch B {ms(pre_m[:, 2])}   '
+                         f'batch A {ms(pre_m[:, 1])}   all {ms(pre_m[:, 0])}')
+        lines.append('')
 
         # ── Margins ───────────────────────────────────────────────────────────
         cow, pc = float(base['cow_tic'].mean()), float(pool['pchip_pooled'].mean())
@@ -159,7 +160,7 @@ def main(seeds: list[int]) -> None:
 
         # ── Pretraining ablation ─────────────────────────────────────────────
         if as_:
-            devs = sorted({ablate_device(a, b, s) for s in as_})
+            devs = sorted({ablate_device(abl[s]) for s in as_})
             pre  = np.array([abl[s]['pretrained'].mean() for s in as_])
             rnd  = np.array([abl[s]['random_init'].mean() for s in as_])
             pre_r = np.array([abl[s]['pretrained_raw'].mean() for s in as_])
@@ -182,7 +183,13 @@ def main(seeds: list[int]) -> None:
                       '  '.join(f's{s} {g:+.4f}' for s, g in zip(as_, gain_r)) +
                       f'   mean {ms4(gain_r)}   seeds > 0: {(gain_r > 0).sum()}/{len(gain_r)}',
                       f'    share of the improvement random init recovers: normalised {ms(share)}   '
-                      f'raw {ms(share_r)}', '']
+                      f'raw {ms(share_r)}']
+            if all('warp_mag_pre' in abl[s].files for s in as_):
+                wp = np.array([abl[s]['warp_mag_pre'] for s in as_])   # [seeds, arm, (all, A, B)]
+                for k, arm in enumerate(('pretrained', 'random init')):
+                    lines.append(f'    starting warp, {arm:<11} (min): all {ms(wp[:, k, 0])}   '
+                                 f'A {ms(wp[:, k, 1])}   B {ms(wp[:, k, 2])}')
+            lines.append('')
             overview.append((label, wt, cow, pc, gain))
         else:
             overview.append((label, wt, cow, pc, None))

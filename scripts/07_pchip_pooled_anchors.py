@@ -1,177 +1,98 @@
 """
-07_pchip_pooled_anchors.py — The paper's PCHIP baseline: one spline through the pooled anchors.
+07_pchip_pooled_anchors.py — The PCHIP baseline: one spline through the pooled anchors.
 
-PCHIP is fitted through exactly the WarpTransformer's calibration anchors: pooled over three
-sample pairs (A[0..2] vs B[0]), median-aggregated and outlier-filtered (calib06.extract_anchors).
-The same monotone spline construction as alignment.align_pair is used (alignment.
-pooled_anchor_pchip), and the one warp is applied to every batch-A sample (A_i → B frame,
-compared with every unwarped B_j). So PCHIP and the WarpTransformer receive identical anchors
-and differ only in how they use them. No network, no calibration, no randomness: CPU,
-deterministic, seconds.
+PCHIP gets exactly the WarpTransformer's calibration anchors (src/anchors.py, checked against
+the saved script-06 run) and the warp of src/warps.pchip_warp: PCHIP between the outer anchors
+and slope 1 beyond them, so neither end of the run is pinned (the WarpTransformer's warps are
+not pinned either). The one warp is applied to every batch-A sample (A → B frame); B is
+unwarped. Deterministic, CPU, seconds.
 
-Script 06 also reports this baseline in its per-pair table; this script writes the per-pair
-arrays that scripts 12 (significance tests) and 14 (Figs. 4–5) read, and compares against the
-saved arrays of the latest run (scripts 05 and 06, --seed): Unaligned, COW-TIC, WarpTransformer.
+Writes the per-pair arrays that scripts 12 (significance) and 14 (figures) read, and compares
+with the saved arrays of scripts 05 and 06 (--seed).
 
-Output: results/pchip_pooled_anchors.txt
-        results/per_pair/tic_r_pchip_pooled_<A>_<B>.npz
+Output: results/pchip_pooled_anchors.txt, results/per_pair/tic_r_pchip_pooled_<A>_<B>.npz
 """
-
 from __future__ import annotations
 
 import argparse
-import importlib.util
+import sys
 from pathlib import Path
 
 import numpy as np
-from scipy.stats import wilcoxon
 
-SCRIPTS = Path(__file__).parent
-ROOT    = SCRIPTS.parent
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / 'src'))
+import evaluation                                                               # noqa: E402
+from anchors import extract_anchors                                             # noqa: E402
+from config import EVAL_PAIRS, EXCLUDED_PAIRS, PER_PAIR_DIR, RESULTS_DIR, pair_label  # noqa: E402
+from data import load_batch                                                     # noqa: E402
+from metrics import holm, per_a_mean, paired_wilcoxon  # noqa: E402
 
-
-def _load(name: str, filename: str):
-    spec = importlib.util.spec_from_file_location(name, SCRIPTS / filename)
-    mod  = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
+PCHIP = 'PCHIP (pooled anchors)'
 
 
-calib06 = _load('calib06', '06_align_testtime_calib.py')
-from alignment import (load_chromas, load_tic_raw, warp_chroma_2d, warp_tic,   # noqa: E402
-                       pooled_anchor_pchip, pearson_rows)
-
-pooled_pchip_warp = pooled_anchor_pchip      # name used by script 09
-
-EVAL     = [('batch_sep2015', 'batch_jul2016'), ('batch_sep2015', 'batch_apr2016'),
-            ('batch_jan2016', 'batch_apr2016'), ('batch_jan2016', 'batch_jul2016')]
-EXCLUDED = [('batch_sep2015', 'batch_jan2016'), ('batch_apr2016', 'batch_jul2016')]
-PCHIP    = 'PCHIP (pooled anchors)'
-
-
-def holm(ps: list[float]) -> list[float]:
-    order = np.argsort(ps)
-    adj, running = np.empty(len(ps)), 0.0
-    for k, i in enumerate(order):
-        running = max(running, min(1.0, (len(ps) - k) * ps[i]))
-        adj[i] = running
-    return adj.tolist()
-
-
-def per_a(r: np.ndarray, n_a: int, n_b: int) -> np.ndarray:
-    return r.reshape(n_a, n_b).mean(axis=1)
-
-
-def main(seed: int) -> None:
-    per_pair = ROOT / 'results' / 'per_pair'
+def main(seed: int) -> list[str]:
     lines = [__doc__.strip().splitlines()[0], '',
-             'Anchors: calib06.extract_anchors (A[0..2] vs B[0]), the WarpTransformer\'s calibration '
-             'anchors.',
-             f'Comparison arrays: tic_r_calib_*_seed{seed}.npz (script 06) and tic_r_baselines_*.npz '
-             f'(script 05).', '']
-    rows, rows_raw, tests = [], [], []
+             f'Comparison arrays: tic_r_calib_*_seed{seed}.npz (06), tic_r_baselines_*.npz (05).', '']
+    summary, tests = [], []
+    for name_a, name_b in EVAL_PAIRS + EXCLUDED_PAIRS:
+        a, b = load_batch(name_a), load_batch(name_b)
+        calib = np.load(PER_PAIR_DIR / f'tic_r_calib_{name_a}_{name_b}_seed{seed}.npz')
+        base  = np.load(PER_PAIR_DIR / f'tic_r_baselines_{name_a}_{name_b}.npz')
+        if (int(calib['n_a']), int(calib['n_b'])) != (len(a), len(b)):
+            raise SystemExit(f'{name_a} × {name_b}: saved arrays do not match the data; rerun 05/06')
+        anchors = extract_anchors(a.chromas, b.chromas, a.tic_raw, b.tic_raw).anchors
+        saved = [tuple(map(int, x)) for x in calib['anchors'].reshape(-1, 2)]
+        if anchors != saved:
+            raise SystemExit(f'{name_a} × {name_b}: anchors {anchors} differ from 06\'s {saved}')
 
-    for a, b in EVAL + EXCLUDED:
-        ca = load_chromas(ROOT / 'data' / 'fish_oil' / a / 'chroma')
-        cb = load_chromas(ROOT / 'data' / 'fish_oil' / b / 'chroma')
-        n_a, n_b = len(ca), len(cb)
-        calib = np.load(per_pair / f'tic_r_calib_{a}_{b}_seed{seed}.npz')
-        base  = np.load(per_pair / f'tic_r_baselines_{a}_{b}.npz')
-        if (int(calib['n_a']), int(calib['n_b'])) != (n_a, n_b):
-            raise SystemExit(f'{a} × {b}: saved arrays are {int(calib["n_a"])}×{int(calib["n_b"])}, '
-                             f'data are {n_a}×{n_b}; rerun scripts 05/06 first')
+        pc = evaluation.pchip(a, b, anchors)
+        r = {'Unaligned': (calib['unaligned'], calib['unaligned_raw']),
+             PCHIP: (pc.r, pc.r_raw),
+             'COW-TIC': (base['cow_tic'], base['cow_tic_raw']),
+             'WarpTransformer': (calib['warptransformer'], calib['warptransformer_raw'])}
+        u, u_raw = r['Unaligned'][0].mean(), r['Unaligned'][1].mean()
+        lines += ['=' * 80, f'{pair_label(name_a, name_b)}   n = {len(a)}×{len(b)}   '
+                  f'anchors {len(anchors)}: {anchors}   PCHIP warp {pc.warp_mag:.3f} min',
+                  f'  {"Method":<26} {"TIC r":>7} {"Δ unal":>8} {"raw r":>8} {"Δ unal":>8}']
+        for k, (x, xr) in r.items():
+            lines.append(f'  {k:<26} {x.mean():>7.3f} {x.mean() - u:>+8.3f} '
+                         f'{xr.mean():>8.3f} {xr.mean() - u_raw:>+8.3f}')
+        summary.append((name_a, name_b, {k: (x.mean(), xr.mean()) for k, (x, xr) in r.items()}))
+        if (name_a, name_b) in EVAL_PAIRS:
+            tests.append((name_a, name_b, len(a), len(b), {k: x for k, (x, _) in r.items()}))
+        np.savez(PER_PAIR_DIR / f'tic_r_pchip_pooled_{name_a}_{name_b}.npz',
+                 pchip_pooled=pc.r, pchip_pooled_raw=pc.r_raw, unaligned_raw=r['Unaligned'][1],
+                 anchors=np.array(anchors).reshape(-1, 2), sil=pc.sil, warp_mag=pc.warp_mag,
+                 n_a=len(a), n_b=len(b))
 
-        anchors = calib06.extract_anchors(ca, cb)
-        saved   = [tuple(x) for x in calib['anchors'].tolist()]
-        if [tuple(x) for x in anchors] != saved:
-            raise SystemExit(f'{a} × {b}: recomputed anchors {anchors} differ from saved {saved}')
+    lines += ['', '=' * 80, 'Summary: mean TIC r normalised / raw (WT − PCHIP: what the network adds '
+              'beyond the same anchors)']
+    for name_a, name_b, s in summary:
+        tag = '' if (name_a, name_b) in EVAL_PAIRS else '  (excluded pair)'
+        cells = '  '.join(f'{k.split(" ")[0]} {v[0]:.3f}/{v[1]:.3f}' for k, v in s.items())
+        d = s['WarpTransformer'][0] - s[PCHIP][0]
+        lines.append(f'  {pair_label(name_a, name_b):<12} {cells}  WT−PCHIP {d:+.3f}{tag}')
 
-        warp, used = pooled_anchor_pchip(anchors)
-        al_a   = [warp_chroma_2d(c, warp) for c in ca]
-        r_pool = calib06.tic_r_per_pair(al_a, cb)
-        sil    = calib06.study_silhouette(al_a, cb)
-        mag    = calib06.pchip_warp_magnitude(warp)
-        raw_a  = load_tic_raw(ROOT / 'data' / 'fish_oil' / a / 'chroma')
-        raw_b  = load_tic_raw(ROOT / 'data' / 'fish_oil' / b / 'chroma')
-        r_raw  = {'Unaligned': pearson_rows(raw_a, raw_b),
-                  PCHIP: pearson_rows(np.stack([warp_tic(t, warp) for t in raw_a]), raw_b)}
-        if 'cow_tic_raw' in base.files:
-            r_raw['COW-TIC'] = base['cow_tic_raw']
-        if 'warptransformer_raw' in calib.files:
-            r_raw['WarpTransformer'] = calib['warptransformer_raw']
-
-        m = lambda x: float(np.mean(x))
-        r = {'Unaligned': calib['unaligned'], PCHIP: r_pool, 'COW-TIC': base['cow_tic'],
-             'WarpTransformer': calib['warptransformer']}
-        sils = {'Unaligned': calib['sil'][0], PCHIP: sil, 'COW-TIC': base['sil'][1],
-                'WarpTransformer': calib['sil'][2]}
-        mags = {PCHIP: mag, 'COW-TIC': float(base['warp_mag'][0]),
-                'WarpTransformer': float(calib['wt_warp_mag'][2])}
-        u = m(r['Unaligned'])
-        lines.append('=' * 88)
-        lines.append(f'{a} × {b}   n = {n_a}×{n_b} = {n_a * n_b}   pooled anchors {len(anchors)} '
-                     f'(used in spline {len(used)}): {used}')
-        lines.append(f'  {"Method":<32} {"TIC r":>7} {"Δ unal":>8} {"Study sil":>10} {"Warp mag":>10}')
-        for k, v in r.items():
-            mg = f'{mags[k]:.3f} min' if k in mags else '—'
-            lines.append(f'  {k:<32} {m(v):>7.3f} {m(v) - u:>+8.3f} {float(sils[k]):>10.3f} {mg:>10}')
-        u_raw = m(r_raw['Unaligned'])
-        lines.append(f'  {"TIC r (raw)":<32} {"TIC r":>7} {"Δ unal":>8}')
-        for k, v in r_raw.items():
-            lines.append(f'  {k:<32} {m(v):>7.3f} {m(v) - u_raw:>+8.3f}')
-        missing = [k for k in r if k not in r_raw]
-        if missing:
-            lines.append(f'  (no raw arrays saved yet for: {", ".join(missing)})')
-        rows.append((a, b, len(used), u, m(r_pool), m(r['COW-TIC']), m(r['WarpTransformer'])))
-        rows_raw.append((a, b, *(m(r_raw[k]) if k in r_raw else np.nan for k in r)))
-        if (a, b) in EVAL:
-            tests.append((a, b, n_a, n_b, r))
-
-        np.savez(per_pair / f'tic_r_pchip_pooled_{a}_{b}.npz', pchip_pooled=r_pool,
-                 pchip_pooled_raw=r_raw[PCHIP], unaligned_raw=r_raw['Unaligned'],
-                 anchors=np.array(anchors), anchors_used=np.array(used), sil=sil,
-                 warp_mag=mag, n_a=n_a, n_b=n_b)
-
-    lines += ['', '=' * 88, 'Summary (mean TIC r; WT − PCHIP is what the network adds beyond the '
-              'same anchors)',
-              f'  {"Pair":<28} {"anch":>4} {"Unal":>6} {"PCHIP":>6} {"COW":>6} {"WT":>6} '
-              f'{"WT−PCHIP":>9}']
-    for a, b, k, u, pool, cow, wt in rows:
-        tag = '' if (a, b) in EVAL else '  (excluded pair)'
-        lines.append(f'  {a + " × " + b:<28} {k:>4} {u:>6.3f} {pool:>6.3f} {cow:>6.3f} {wt:>6.3f} '
-                     f'{wt - pool:>+9.3f}{tag}')
-
-    lines += ['', 'Summary, raw TIC (same warps applied to the raw TIC; nan = not saved yet)',
-              f'  {"Pair":<28} {"Unal":>6} {"PCHIP":>6} {"COW":>6} {"WT":>6} {"WT−PCHIP":>9}']
-    for a, b, u, pool, cow, wt in rows_raw:
-        tag = '' if (a, b) in EVAL else '  (excluded pair)'
-        lines.append(f'  {a + " × " + b:<28} {u:>6.3f} {pool:>6.3f} {cow:>6.3f} {wt:>6.3f} '
-                     f'{wt - pool:>+9.3f}{tag}')
-
-    lines += ['', 'Paired two-sided Wilcoxon, per A sample (r averaged over B_j). Holm family: the 4 '
-              'evaluated batch pairs, corrected separately for each comparison below (family size 4).',
-              'The paper\'s significance table (all 10 method pairs within a batch pair) is '
+    lines += ['', 'Paired two-sided Wilcoxon per A sample (r averaged over B_j); Holm over the 4 '
+              'evaluated pairs, separately per comparison. The full 10-comparison table is '
               'significance_tests.txt (script 12).']
     for x, y in [('WarpTransformer', PCHIP), ('COW-TIC', PCHIP)]:
-        res = []
-        for a, b, n_a, n_b, r in tests:
-            dx, dy = per_a(r[x], n_a, n_b), per_a(r[y], n_a, n_b)
-            res.append((a, b, n_a, wilcoxon(dx, dy).pvalue, float(np.median(dx - dy))))
-        adj = holm([p for *_, p, _ in res])
+        res = [(na, nb, paired_wilcoxon(per_a_mean(r[x], n_a, n_b), per_a_mean(r[y], n_a, n_b))[1],
+                float(np.median(per_a_mean(r[x], n_a, n_b) - per_a_mean(r[y], n_a, n_b))))
+               for na, nb, n_a, n_b, r in tests]
         lines.append(f'  {x} vs {y}:')
-        for (a, b, n, p, md), pa in zip(res, adj):
-            lines.append(f'    {a + " × " + b:<28} n={n:<3} p={p:.2e}  Holm p={pa:.2e}  '
-                         f'median Δr {md:+.4f}')
+        for (na, nb, p, md), pa in zip(res, holm([t[2] for t in res])):
+            lines.append(f'    {pair_label(na, nb):<12} p {p:.2e}  Holm p {pa:.2e}  median Δr {md:+.4f}')
 
-    out = ROOT / 'results' / 'pchip_pooled_anchors.txt'
+    out = RESULTS_DIR / 'pchip_pooled_anchors.txt'
     out.write_text('\n'.join(lines) + '\n')
-    print('\n'.join(lines))
-    print(f'\n  results → {out}')
+    print('\n'.join(lines) + f'\n\n  results → {out}')
+    return lines
 
 
 if __name__ == '__main__':
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--seed', type=int, default=0,
-                    help='which saved script-16 run (tic_r_calib_*_seed{N}.npz) to compare against')
+                    help='which saved script-06 run (tic_r_calib_*_seed<N>.npz) to compare with')
     main(ap.parse_args().seed)

@@ -27,29 +27,19 @@ Output: results/significance_tests.txt
 from __future__ import annotations
 
 import argparse
+import sys
 from itertools import combinations
 from pathlib import Path
 
 import numpy as np
-from scipy.stats import wilcoxon
 
-RESULTS_DIR = Path(__file__).parent.parent / 'results'
-PER_PAIR    = RESULTS_DIR / 'per_pair'
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / 'src'))
+from config import EVAL_PAIRS as PAIRS, PER_PAIR_DIR as PER_PAIR, RESULTS_DIR  # noqa: E402
+from metrics import holm, paired_wilcoxon  # noqa: E402
 
-PAIRS = [('batch_sep2015', 'batch_jul2016'), ('batch_sep2015', 'batch_apr2016'),
-         ('batch_jan2016', 'batch_apr2016'), ('batch_jan2016', 'batch_jul2016')]
 PCHIP   = 'PCHIP (pooled anchors)'
 METHODS = ['Unaligned', 'icoshift', PCHIP, 'COW-TIC', 'WarpTransformer']
 ALPHA   = 0.05
-
-
-def holm(pvals: list[float]) -> list[float]:
-    order = np.argsort(pvals)
-    m, adj, running = len(pvals), [0.0] * len(pvals), 0.0
-    for rank, idx in enumerate(order):
-        running = max(running, min(1.0, (m - rank) * pvals[idx]))
-        adj[idx] = running
-    return adj
 
 
 def load_methods(a: str, b: str, seed: int) -> tuple[dict[str, np.ndarray], int, int]:
@@ -86,7 +76,7 @@ def run_tests(data: dict[str, np.ndarray], methods: list[str]) -> list[dict]:
     rows = []
     for m1, m2 in combinations(methods, 2):
         d = data[m2] - data[m1]
-        stat, p = wilcoxon(data[m2], data[m1], alternative='two-sided')
+        stat, p = paired_wilcoxon(data[m2], data[m1])
         rows.append(dict(m1=m1, m2=m2, stat=float(stat), p=float(p), n=len(d),
                          n_nonzero=int(np.sum(d != 0)), med=float(np.median(d))))
     for row, p_adj in zip(rows, holm([r['p'] for r in rows])):

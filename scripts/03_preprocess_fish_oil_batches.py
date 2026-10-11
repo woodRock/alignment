@@ -50,6 +50,8 @@ from tqdm import tqdm
 
 MZ_MAX   = 1000   # m/z bins 0–999, 1 Da resolution
 N_BINS   = 200    # RT bins (matches alignment convention)
+RUN_MIN  = 45.0   # fixed time grid 0–45 min
+BIN_MIN  = RUN_MIN / N_BINS   # 0.225 min per bin
 
 # Map 6-digit date strings to batch names
 DATE_TO_BATCH: dict[str, str] = {
@@ -122,14 +124,16 @@ _PACKET_RE     = re.compile(
 )
 
 
-def parse_txt(path: Path, mz_max: int = MZ_MAX) -> tuple[np.ndarray, np.ndarray, str] | None:
+def parse_txt(path: Path, mz_max: int = MZ_MAX
+              ) -> tuple[np.ndarray, np.ndarray, str, np.ndarray] | None:
     """
     Parse one raw GC-MS .txt file.
 
-    Returns (spectra, tic, acq_date) where:
+    Returns (spectra, tic, acq_date, times) where:
       spectra  : float32 [n_scans, mz_max]  — per-scan mass spectra
       tic      : float32 [n_scans]           — total ion current per scan
       acq_date : str, 6-digit YYMMDD
+      times    : float64 [n_scans]           — scan start time (min)
 
     Returns None for instrument blanks or files with no scan data.
     """
@@ -206,19 +210,37 @@ def parse_txt(path: Path, mz_max: int = MZ_MAX) -> tuple[np.ndarray, np.ndarray,
     n = len(scans)
     spectra = np.zeros((n, mz_max), dtype=np.float32)
     tic     = np.zeros(n, dtype=np.float32)
+    times   = np.zeros(n, dtype=np.float64)
 
     for i, (rt, t, peaks) in enumerate(scans):
-        tic[i] = t
+        tic[i]   = t
+        times[i] = rt
         for mz, intensity in peaks.items():
             spectra[i, mz] = intensity
 
-    return spectra, tic, acq_date
+    return spectra, tic, acq_date, times
 
 
 # ── Chromatogram processing ───────────────────────────────────────────────────
 
-def bin_chromatogram(spectra: np.ndarray, tic: np.ndarray, n_bins: int) -> np.ndarray:
-    """Divide RT axis into n_bins equal windows; keep the highest-TIC scan per window."""
+def bin_chromatogram(spectra: np.ndarray, tic: np.ndarray, times: np.ndarray, n_bins: int,
+                     bin_min: float = BIN_MIN) -> np.ndarray:
+    """Bin by retention time: window i covers [i·bin_min, (i+1)·bin_min) min on a fixed grid
+    starting at 0 min. Keeps the highest-TIC scan per window; windows with no scans (outside
+    the run's acquisition range) stay zero. Every run then shares one time axis, whatever its
+    start time or scan count."""
+    window = np.floor(np.asarray(times) / bin_min).astype(np.int64)
+    result = np.zeros((n_bins, spectra.shape[1]), dtype=np.float32)
+    for i in np.unique(window[(window >= 0) & (window < n_bins)]):
+        scans  = np.flatnonzero(window == i)
+        result[i] = spectra[scans[np.argmax(tic[scans])]]
+    return result
+
+
+def bin_chromatogram_by_index(spectra: np.ndarray, tic: np.ndarray, n_bins: int) -> np.ndarray:
+    """v1 binning (kept to reproduce the 2026-10-11 results): n_bins equal windows of scan
+    INDEX, keeping the highest-TIC scan per window. Equivalent to time binning only when every
+    run has the same start time and scan count, which the fish-oil batches do not."""
     n_scans  = len(tic)
     bin_size = n_scans / n_bins
     result   = np.zeros((n_bins, spectra.shape[1]), dtype=np.float32)
@@ -240,7 +262,8 @@ def sqrt_l2(arr: np.ndarray, eps: float = 1e-8) -> np.ndarray:
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
-def main(raw_dir: Path, output_dir: Path, n_bins: int, mz_max: int) -> None:
+def main(raw_dir: Path, output_dir: Path, n_bins: int, mz_max: int,
+         binning: str = "time") -> None:
     txt_files = sorted(raw_dir.rglob("*.txt"))
     print(f"Found {len(txt_files)} .txt files under {raw_dir}")
 
@@ -260,7 +283,7 @@ def main(raw_dir: Path, output_dir: Path, n_bins: int, mz_max: int) -> None:
         result = parse_txt(path, mz_max)
         if result is None:
             continue   # blank or empty
-        spectra, tic, acq_date = result
+        spectra, tic, acq_date, times = result
 
         batch = DATE_TO_BATCH.get(acq_date)
         if batch is None:
@@ -273,6 +296,7 @@ def main(raw_dir: Path, output_dir: Path, n_bins: int, mz_max: int) -> None:
             "tissue":  tissue,
             "spectra": spectra,
             "tic":     tic,
+            "times":   times,
             "stem":    path.stem,
         })
 
@@ -297,7 +321,11 @@ def main(raw_dir: Path, output_dir: Path, n_bins: int, mz_max: int) -> None:
                 print(f"  SKIP (unknown tissue '{rec['tissue']}'): {rec['stem']}")
                 continue
 
-            chroma    = bin_chromatogram(rec["spectra"], rec["tic"], n_bins)
+            if binning == "time":
+                chroma = bin_chromatogram(rec["spectra"], rec["tic"], rec["times"], n_bins,
+                                          RUN_MIN / n_bins)
+            else:
+                chroma = bin_chromatogram_by_index(rec["spectra"], rec["tic"], n_bins)
             # Raw TIC: summed intensity of each selected apex scan, before sqrt and normalisation
             tic_raw   = chroma.sum(axis=1, dtype=np.float64).astype(np.float32)
             chroma    = sqrt_l2(chroma)
@@ -405,6 +433,9 @@ if __name__ == "__main__":
         type=Path,
         help="Output directory (default: data/fish_oil/)",
     )
+    ap.add_argument("--binning", choices=["time", "index"], default="time",
+                    help="time (default): fixed 0.225-min windows on 0–45 min; index: v1 "
+                         "binning by scan index (reproduces the 2026-10-11 data)")
     ap.add_argument("--n-bins",  default=N_BINS,   type=int,
                     help="Number of RT bins (default 200)")
     ap.add_argument("--mz-max",  default=MZ_MAX,   type=int,
@@ -417,4 +448,4 @@ if __name__ == "__main__":
         print(f"Removing old flat dataset from {args.output_dir} …")
         clean_old_flat(args.output_dir)
 
-    main(args.raw_dir, args.output_dir, args.n_bins, args.mz_max)
+    main(args.raw_dir, args.output_dir, args.n_bins, args.mz_max, args.binning)

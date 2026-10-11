@@ -1,186 +1,144 @@
 """
-10_heldout_anchor_error.py — Leave-one-anchor-out RT error at known compounds.
+10_heldout_anchor_error.py — Leave-one-anchor-out retention-time error at known compounds.
 
-For each evaluated batch pair, the calibration anchor set (ref_bin r in batch A, query_bin q
-in batch B[0]; observed drift d = q − r) is taken from script 06. Each anchor is held out in
-turn and every method predicts its drift without it:
+For each evaluated pair, every calibration anchor (r in batch A, q in batch B) is held out in
+turn and each method predicts q from r without it:
 
-  WarpTransformer  recalibrated from the pretrained checkpoint on the remaining anchors
-                   (500 steps, same settings and seed as script 06), then
-                   error = |(mean_j w_Bj(r) − mean_i w_Ai(r)) − d|
-  PCHIP (pooled anchors) PCHIP spline through the remaining pooled anchors with the same end points as
-                   align_pair ((0, 0) and (45, 45) min), evaluated at r: error = |q̂ − q|
-  Free warp (no network)
-                   one monotone warp per batch (script 09's free_warp: the WT head's
-                   parameterisation, same anchor + smoothness loss and optimisation loop, at
-                   100× the WT learning rate) fitted to the remaining anchors; error =
-                   |(w_B(r) − w_A(r)) − d|. Same anchors and loss as the WarpTransformer, so a
-                   gap between the two is what the network adds between anchors.
-  COW-TIC          uses no anchors, so nothing is held out. COW aligns each of the A samples
-                   used for anchor extraction (A_0..A_2) to B[0]; its inverse warp at r is
-                   taken per sample and the median compared with q, mirroring how the anchors
-                   themselves were aggregated.
-  Reference rows   No alignment (error = |d|) and Constant shift (median drift of the
-                   remaining anchors).
+  WarpTransformer          recalibrated from the checkpoint on the remaining anchors (script
+                           06's settings and seed); prediction = mean over B samples of
+                           w_B(w̄_A⁻¹(r)) (warp_transformer.predict_query_bins)
+  Free warp (no network)   calibration.free_warp on the remaining anchors (100× the WT learning
+                           rate), same prediction; same anchors and loss as the WT, so a gap is
+                           what the network adds between anchors
+  PCHIP (pooled anchors)   warps.predict_query_bin through the remaining anchors (PCHIP between
+                           them, slope 1 beyond)
+  COW-TIC                  uses no anchors, so nothing is held out: COW aligns each of A[0..2]
+                           (the samples the anchors come from) onto B[0]; its warp is inverted at
+                           r and the median taken, as the anchors themselves are pooled
+  References               no alignment (q̂ = r) and a constant shift (median drift of the rest)
 
-The WarpTransformer is also calibrated once on all anchors, giving the in-sample residual at
-each anchor for comparison with the held-out error.
+Also reported: the WT's in-sample residual (calibrated on all anchors). Errors in minutes.
 
-All errors are in minutes. Output: results/heldout_anchor_error.txt and
-results/per_pair/heldout_anchor_error.npz
+Note: the anchor set is the pooled, outlier- and slope-filtered set of script 06; those filters
+ran with the held-out anchor included.
+
+Output: results/heldout_anchor_error.txt, results/per_pair/heldout_anchor_error.npz
 """
-
 from __future__ import annotations
 
 import argparse
-import importlib.util
 import sys
 from pathlib import Path
 
 import numpy as np
 import torch
-from scipy.interpolate import PchipInterpolator
 
-SCRIPTS = Path(__file__).parent
-ROOT    = SCRIPTS.parent
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / 'src'))
+from anchors import extract_anchors                                             # noqa: E402
+from baselines import cow_tic_align                                             # noqa: E402
+from calibration import (batch_tensors, calibrate, free_warp, load_model,      # noqa: E402
+                         pick_device, predict)
+from config import (BIN_MIN, DEFAULT_CKPT, EVAL_PAIRS, FREE_WARP_LR,            # noqa: E402
+                    N_REF_PAIRS, PER_PAIR_DIR, RESULTS_DIR, pair_label)
+from data import load_batch                                                     # noqa: E402
+from warp_transformer import predict_query_bins                                 # noqa: E402
+from warps import invert_src, predict_query_bin                                 # noqa: E402
 
-
-def _load(name: str, filename: str):
-    spec = importlib.util.spec_from_file_location(name, SCRIPTS / filename)
-    mod  = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
-
-
-calib06 = _load('calib06', '06_align_testtime_calib.py')
-base05  = _load('base05', '05_literature_baselines.py')
-mech09  = _load('mech09', '09_mechanism_ablation.py')
-from warp_transformer import ChromaWarpTransformer  # noqa: E402  (src on path via calib06)
-from alignment import load_chromas                  # noqa: E402
-
-BIN_MIN = calib06.BIN_MIN
-RUN_MIN = 45.0
-PAIRS = [('batch_sep2015', 'batch_jul2016'), ('batch_sep2015', 'batch_apr2016'),
-         ('batch_jan2016', 'batch_apr2016'), ('batch_jan2016', 'batch_jul2016')]
-FREE    = 'Free warp (no network)'
+FREE = 'Free warp (no network)'
 METHODS = ['No alignment', 'Constant shift', 'PCHIP (pooled anchors)', 'COW-TIC', FREE,
            'WarpTransformer']
 
 
-def wt_offset_at(model, chromas_t, study_ids, r_bins: list[int]) -> np.ndarray:
-    """Predicted drift (bins) at reference bins: mean_j w_Bj(r) − mean_i w_Ai(r)."""
-    with torch.no_grad():
-        _, warps = model(chromas_t, study_ids)
-    w = warps.cpu().numpy()
-    sid = study_ids.cpu().numpy()
-    return np.array([w[sid == 1, r].mean() - w[sid == 0, r].mean() for r in r_bins])
+def warps_predict(warps: np.ndarray, n_a: int, r_bins) -> np.ndarray:
+    """Predicted B bins at A bins r_bins from warps [N, T] (A first): mean over B samples."""
+    w = torch.as_tensor(warps, dtype=torch.float64)
+    sid = torch.tensor([0] * n_a + [1] * (len(w) - n_a))
+    return predict_query_bins(w, sid, list(r_bins)).mean(dim=0).numpy()
 
 
-def free_offset_at(n_a: int, n_b: int, anchors, r_bin: int, seed: int) -> float:
-    """Predicted drift (bins) at r_bin from the network-free per-batch warps: w_B(r) − w_A(r)."""
-    warps, _ = mech09.free_warp(n_a, n_b, anchors, lr=calib06.LR_CALIB * 100, seed=seed)
-    return float(warps[n_a, r_bin] - warps[0, r_bin])
+def cow_predict(a, b, r_bins) -> np.ndarray:
+    """Median over A[0..N_REF_PAIRS−1] of COW's inverse warp (A bin → B[0] bin) at r_bins."""
+    preds = [invert_src(cow_tic_align(a.tic[i], b.tic[0]).src, np.asarray(r_bins, float))
+             for i in range(min(N_REF_PAIRS, len(a)))]
+    return np.median(preds, axis=0)
 
 
-def calibrated_model(anchors, chromas_t, study_ids, device, ckpt, seed):
-    model = ChromaWarpTransformer()
-    model.load_state_dict(torch.load(ckpt, map_location=device))
-    model.to(device)
-    calib06.calibrate(model, chromas_t, study_ids, anchors, device, seed=seed)
-    return model
+def main(ckpt: Path, seed: int, device_name: str) -> list[str]:
+    device = pick_device(device_name)
+    lines = [__doc__.strip().splitlines()[0], '',
+             'Note: anchors are script 06\'s pooled set, outlier- and slope-filtered with the '
+             'held-out anchor included.',
+             f'Checkpoint {ckpt}   seed {seed}   device {device}', '']
+    saved, summary = {}, []
+    for name_a, name_b in EVAL_PAIRS:
+        a, b = load_batch(name_a), load_batch(name_b)
+        n_a, n_b = len(a), len(b)
+        anchors = extract_anchors(a.chromas, b.chromas, a.tic_raw, b.tic_raw).anchors
+        r_bins = [r for r, _ in anchors]
+        q_obs = np.array([q for _, q in anchors], dtype=float)
+        x, sid = batch_tensors(a.chromas, b.chromas, device)
+        label = pair_label(name_a, name_b)
+        print(f'\n{label}: {len(anchors)} anchors {anchors}', flush=True)
+        if len(anchors) < 2:
+            lines += ['=' * 96, f'{label}: {len(anchors)} anchor(s); at least 2 are needed to hold '
+                      'one out. Skipped.', '']
+            continue
 
+        def calibrated_warps(anc):
+            model = load_model(ckpt, device)
+            calibrate(model, x, sid, anc, seed=seed)
+            return predict(model, x, sid)[1]
 
-def pchip_predict(rest: list[tuple[int, int]], r_bin: int) -> float:
-    """Predicted query bin at r_bin from a PCHIP through the remaining anchors."""
-    rf = np.concatenate([[0.0], [r * BIN_MIN for r, _ in rest], [RUN_MIN]])
-    qf = np.concatenate([[0.0], [q * BIN_MIN for _, q in rest], [RUN_MIN]])
-    return float(PchipInterpolator(rf, qf)(r_bin * BIN_MIN)) / BIN_MIN
-
-
-def cow_predict(chromas_a, chromas_b, r_bins: list[int], n_ref: int) -> np.ndarray:
-    """Median over A_0..A_{n_ref-1} of COW's inverse warp (A time → B[0] time) at each r, in bins."""
-    ref_tic = chromas_b[0].sum(axis=1)
-    preds = []
-    for i in range(min(n_ref, len(chromas_a))):
-        _, _, warp_fn = base05.cow_tic_align(chromas_a[i].sum(axis=1), ref_tic)
-        b_times = np.linspace(0.0, RUN_MIN, 2001)          # B[0] time grid
-        a_times = warp_fn(b_times)                          # COW maps B[0] time → A_i time
-        preds.append(np.interp(np.array(r_bins) * BIN_MIN, a_times, b_times) / BIN_MIN)
-    return np.median(np.array(preds), axis=0)
-
-
-def main(ckpt: Path, seed: int, device_name: str) -> None:
-    device = calib06.pick_device(device_name)
-    lines = [__doc__.strip().split('\n')[0], '',
-             f"Checkpoint {ckpt}   seed {seed}   device {device}", '']
-    saved = {}
-    summary = []
-
-    for a, b in PAIRS:
-        chromas_a = load_chromas(ROOT / 'data' / 'fish_oil' / a / 'chroma')
-        chromas_b = load_chromas(ROOT / 'data' / 'fish_oil' / b / 'chroma')
-        n_a, n_b  = len(chromas_a), len(chromas_b)
-        study_ids = torch.tensor([0] * n_a + [1] * n_b, dtype=torch.long, device=device)
-        chromas_t = torch.from_numpy(np.stack(chromas_a + chromas_b)).to(device)
-        anchors   = calib06.extract_anchors(chromas_a, chromas_b)
-        r_bins    = [r for r, _ in anchors]
-        drifts    = np.array([q - r for r, q in anchors], dtype=float)
-        label     = f"{a.replace('batch_', '')} × {b.replace('batch_', '')}"
-        print(f"\n{label}: {len(anchors)} anchors {anchors}", flush=True)
-
-        full = calibrated_model(anchors, chromas_t, study_ids, device, ckpt, seed)
-        in_sample = np.abs(wt_offset_at(full, chromas_t, study_ids, r_bins) - drifts) * BIN_MIN
-        cow_q = cow_predict(chromas_a, chromas_b, r_bins, calib06.N_REF_PAIRS)
-
+        in_sample = np.abs(warps_predict(calibrated_warps(anchors), n_a, r_bins) - q_obs) * BIN_MIN
+        cow_q = cow_predict(a, b, r_bins)
         err = {m: [] for m in METHODS}
         for k, (r, q) in enumerate(anchors):
-            rest = [x for j, x in enumerate(anchors) if j != k]
-            d = q - r
-            err['No alignment'].append(abs(d) * BIN_MIN)
-            err['Constant shift'].append(abs(np.median([qq - rr for rr, qq in rest]) - d) * BIN_MIN)
-            err['PCHIP (pooled anchors)'].append(abs(pchip_predict(rest, r) - q) * BIN_MIN)
-            err['COW-TIC'].append(abs(cow_q[k] - q) * BIN_MIN)
-            err[FREE].append(abs(free_offset_at(n_a, n_b, rest, r, seed) - d) * BIN_MIN)
-            model = calibrated_model(rest, chromas_t, study_ids, device, ckpt, seed)
-            pred = wt_offset_at(model, chromas_t, study_ids, [r])[0]
-            err['WarpTransformer'].append(abs(pred - d) * BIN_MIN)
-            print(f"  held out ({r}, {q}) d={d:+d}: " +
-                  '  '.join(f"{m}={err[m][-1]:.3f}" for m in METHODS), flush=True)
+            rest = anchors[:k] + anchors[k + 1:]
+            pred = {'No alignment': r,
+                    'Constant shift': r + np.median([qq - rr for rr, qq in rest]),
+                    'PCHIP (pooled anchors)': predict_query_bin(rest, r),
+                    'COW-TIC': cow_q[k],
+                    FREE: warps_predict(free_warp(n_a, n_b, rest, FREE_WARP_LR, seed)[0], n_a, [r])[0],
+                    'WarpTransformer': warps_predict(calibrated_warps(rest), n_a, [r])[0]}
+            for m in METHODS:
+                err[m].append(abs(float(pred[m]) - q) * BIN_MIN)
+            print(f'  held out ({r}, {q}) d={q - r:+d}: ' +
+                  '  '.join(f'{m}={err[m][-1]:.3f}' for m in METHODS), flush=True)
 
-        lines += [f"{'=' * 92}", f"{label}   {len(anchors)} anchors (ref_bin, query_bin): {anchors}", '',
-                  f"  {'Method':<22} {'mean (min)':>11} {'max (min)':>10}   per anchor (min, in anchor order)"]
+        lines += ['=' * 96, f'{label}   {len(anchors)} anchors (A bin, B bin): {anchors}', '',
+                  f'  {"Method":<24} {"mean (min)":>11} {"max (min)":>10}   per anchor (min)']
         for m in METHODS:
             e = np.array(err[m])
-            lines.append(f"  {m:<22} {e.mean():>11.3f} {e.max():>10.3f}   " +
-                         ' '.join(f"{x:.2f}" for x in e))
-        lines.append(f"  {'WT in-sample':<22} {in_sample.mean():>11.3f} {in_sample.max():>10.3f}   " +
-                     ' '.join(f"{x:.2f}" for x in in_sample) +
-                     "   (calibrated on all anchors; not held out)")
+            lines.append(f'  {m:<24} {e.mean():>11.3f} {e.max():>10.3f}   ' +
+                         ' '.join(f'{v:.2f}' for v in e))
+        lines.append(f'  {"WT in-sample":<24} {in_sample.mean():>11.3f} {in_sample.max():>10.3f}   ' +
+                     ' '.join(f'{v:.2f}' for v in in_sample) + '   (calibrated on all anchors)')
         lines.append('')
         summary.append((label, {m: (np.mean(err[m]), np.max(err[m])) for m in METHODS}))
         for m in METHODS:
-            saved[f"{a}_{b}_{m.replace(' ', '_')}"] = np.array(err[m])
-        saved[f"{a}_{b}_anchors"] = np.array(anchors)
-        saved[f"{a}_{b}_wt_in_sample"] = in_sample
+            saved[f'{name_a}_{name_b}_{m.replace(" ", "_")}'] = np.array(err[m])
+        saved[f'{name_a}_{name_b}_anchors'] = np.array(anchors).reshape(-1, 2)
+        saved[f'{name_a}_{name_b}_wt_in_sample'] = in_sample
 
-    lines += [f"{'=' * 92}", "Summary: mean / max held-out error (min)",
-              f"  {'Pair':<20} " + ' '.join(f"{m[:22]:>22}" for m in METHODS)]
+    lines += ['=' * 96, 'Summary: mean / max held-out error (min)',
+              f'  {"Pair":<12} ' + ' '.join(f'{m[:22]:>22}' for m in METHODS)]
     for label, s in summary:
-        lines.append(f"  {label:<20} " + ' '.join(f"{s[m][0]:>12.3f} / {s[m][1]:<7.3f}" for m in METHODS))
-    lines += ['', "With 4–8 anchors per pair, each mean is over 4–8 values; end anchors are",
-              "extrapolated by every method once held out, so per-anchor values are listed above."]
+        lines.append(f'  {label:<12} ' + ' '.join(f'{s[m][0]:>12.3f} / {s[m][1]:<7.3f}' for m in METHODS))
+    lines += ['', 'End anchors are extrapolated by every method once held out; read the per-anchor '
+              'values, not only the means (4–8 anchors per pair).']
 
-    report = '\n'.join(lines)
-    print('\n' + report)
-    (ROOT / 'results' / 'heldout_anchor_error.txt').write_text(report + '\n')
-    (ROOT / 'results' / 'per_pair').mkdir(parents=True, exist_ok=True)
-    np.savez(ROOT / 'results' / 'per_pair' / 'heldout_anchor_error.npz', **saved)
-    print(f"\n  results → {ROOT / 'results' / 'heldout_anchor_error.txt'}")
+    out = RESULTS_DIR / 'heldout_anchor_error.txt'
+    out.write_text('\n'.join(lines) + '\n')
+    PER_PAIR_DIR.mkdir(parents=True, exist_ok=True)
+    np.savez(PER_PAIR_DIR / 'heldout_anchor_error.npz', **saved)
+    print('\n' + '\n'.join(lines) + f'\n\n  results → {out}')
+    return lines
 
 
 if __name__ == '__main__':
-    ap = argparse.ArgumentParser()
-    ap.add_argument('--ckpt', type=Path, default=ROOT / 'checkpoints' / 'warp_transformer.pt')
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument('--ckpt', type=Path, default=DEFAULT_CKPT)
     ap.add_argument('--seed', type=int, default=0)
     ap.add_argument('--device', default='cpu')
     args = ap.parse_args()

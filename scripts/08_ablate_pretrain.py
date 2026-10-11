@@ -1,270 +1,86 @@
 """
-08_ablate_pretrain.py — Does pretraining matter, or is calibration doing all the work?
+08_ablate_pretrain.py — Does pretraining matter, or does calibration do all the work?
 
-Runs the same anchor-supervised calibration loop from script 06 twice:
-  (a) starting from the pretrained warp_transformer.pt checkpoint
-  (b) starting from a freshly initialised (random weights) ChromaWarpTransformer
+Runs script 06's calibration twice on the same anchors and seed: (a) from the pretrained
+checkpoint, (b) from a random-init model (initialisation seeded too). The zero-initialised
+warp and start heads make the random-init model start exactly at the identity warp; the
+pretrained model starts from whatever warp its trained heads predict. Both starting warp
+magnitudes are measured and reported, so the comparison's starting points are on record.
 
-Zero-initialised warp_head means both starts produce a near-identity warp at step 0,
-so any difference in the final TIC r reflects what the pretrained representations
-contribute beyond the anchor supervision signal itself.
+Output: results/ablate_pretrain_<A>_<B>_seed<S>.txt, results/per_pair/tic_r_ablate_<A>_<B>_seed<S>.npz
 """
-
 from __future__ import annotations
 
+import argparse
 import sys
-import random
-import numpy as np
-import torch
-import torch.optim as optim
-from collections import defaultdict
 from pathlib import Path
-from scipy.stats import pearsonr
 
-sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
-from warp_transformer import (ChromaWarpTransformer, apply_warp, warp_smoothness_loss,
-                              enable_cuda_determinism)
-from alignment import load_chromas, load_tic_raw, align_pair, pearson_rows
+import numpy as np
 
-DATA_DIR    = Path(__file__).parent.parent / 'data'
-CKPT_DIR    = Path(__file__).parent.parent / 'checkpoints'
-RESULTS_DIR = Path(__file__).parent.parent / 'results'
-
-N_BINS        = 200
-BIN_MIN       = 45.0 / N_BINS
-N_CALIB_STEPS = 500
-LR_CALIB      = 5e-4
-LAMBDA_ANCHOR = 1.0
-LAMBDA_SMOOTH = 0.05
-N_REF_PAIRS   = 3
-OUTLIER_IQR   = 1.5
-
-STUDY_A_DEFAULT = 'fish_oil/batch_sep2015'
-STUDY_B_DEFAULT = 'fish_oil/batch_jul2016'
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / 'src'))
+import evaluation                                                               # noqa: E402
+from anchors import extract_anchors                                             # noqa: E402
+from calibration import batch_tensors, calibrate, load_model, pick_device, predict  # noqa: E402
+from config import DEFAULT_CKPT, PER_PAIR_DIR, RESULTS_DIR, pair_label          # noqa: E402
+from data import load_batch                                                     # noqa: E402
 
 
-def extract_anchors(chromas_a, chromas_b, n_ref=N_REF_PAIRS):
-    ref_query_per_rbin = defaultdict(list)
-    query_sample = chromas_b[0]
-    for i in range(min(n_ref, len(chromas_a))):
-        _, _, _, _, _, anchors = align_pair(
-            query_sample, chromas_a[i], encode_fn=None, return_anchors=True
-        )
-        for r_bin, q_bin in anchors:
-            ref_query_per_rbin[r_bin].append(q_bin)
-
-    if not ref_query_per_rbin:
-        return []
-    aggregated = [(r, int(np.round(np.median(q))))
-                  for r, q in sorted(ref_query_per_rbin.items())]
-    drifts = np.array([q - r for r, q in aggregated], dtype=float)
-    mean, std = float(np.mean(drifts)), max(float(np.std(drifts)), 1.0)
-    keep = np.abs(drifts - mean) <= OUTLIER_IQR * std
-    return [a for a, k in zip(aggregated, keep) if k]
+def run_arm(ckpt, a, b, anchors, device, seed):
+    """Calibrate one arm. Returns (PairEval, warp mags before, warp mags after)."""
+    model = load_model(ckpt, device, seed=seed)
+    x, sid = batch_tensors(a.chromas, b.chromas, device)
+    _, w_pre = predict(model, x, sid)
+    calibrate(model, x, sid, anchors, seed=seed)
+    aligned, warps = predict(model, x, sid)
+    n_a = len(a)
+    return (evaluation.warped_pair(a, b, warps, aligned),
+            evaluation.warp_mags(w_pre, n_a), evaluation.warp_mags(warps, n_a))
 
 
-def anchor_loss(warps, study_ids, anchor_pairs, device):
-    if not anchor_pairs:
-        return torch.tensor(0.0, device=device)
-    ref_mean    = warps[study_ids == 0].mean(dim=0)
-    query_warps = warps[study_ids == 1]
-    loss = torch.tensor(0.0, device=device)
-    for r_bin, q_bin in anchor_pairs:
-        drift    = float(q_bin - r_bin)
-        rel_warp = query_warps[:, r_bin] - ref_mean[r_bin]
-        loss     = loss + (rel_warp - drift).pow(2).mean()
-    return loss / len(anchor_pairs)
-
-
-def set_seed(seed: int) -> None:
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    enable_cuda_determinism()
-
-
-def tic_r_per_pair(chromas_a, chromas_b) -> np.ndarray:
-    """Pearson TIC r for every (A_i, B_j), i-major (same order as scripts 05 and 06)."""
-    return np.array([float(pearsonr(a.sum(1), b.sum(1))[0])
-                     for a in chromas_a for b in chromas_b])
-
-
-def tic_r(chromas_a, chromas_b):
-    return float(tic_r_per_pair(chromas_a, chromas_b).mean())
-
-
-def run_calibration(model, chromas_t, study_ids, anchors, device, label, seed=None, raw=None):
-    """Returns (mean TIC r, warp mag all samples, warp mag batch B, per-pair TIC r,
-    per-pair raw TIC r). raw: [N, T] raw TICs of both batches, warped like the chromatograms."""
-    model.eval()
-    with torch.no_grad():
-        _, w0 = model(chromas_t, study_ids)
-    warp_init = float((w0 - torch.arange(N_BINS, device=device).float()).abs().mean()) * BIN_MIN
-    print(f"  [{label}] initial warp mag = {warp_init:.3f} min")
-
-    if anchors:
-        # Seeded immediately before the loop, exactly as in script 06, so the pretrained
-        # arm reproduces script 06's calibration for the same seed and device.
-        if seed is not None:
-            set_seed(seed)
-        model.train()
-        opt   = optim.Adam(model.parameters(), lr=LR_CALIB)
-        sched = optim.lr_scheduler.CosineAnnealingLR(opt, T_max=N_CALIB_STEPS)
-        best_loss, best_state = float('inf'), {k: v.clone() for k, v in model.state_dict().items()}
-
-        for step in range(1, N_CALIB_STEPS + 1):
-            aligned, warps = model(chromas_t, study_ids)
-            a_loss = anchor_loss(warps, study_ids, anchors, device)
-            s_loss = warp_smoothness_loss(warps)
-            loss   = LAMBDA_ANCHOR * a_loss + LAMBDA_SMOOTH * s_loss
-            opt.zero_grad(); loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-            opt.step(); sched.step()
-            if float(loss) < best_loss:
-                best_loss  = float(loss)
-                best_state = {k: v.clone() for k, v in model.state_dict().items()}
-
-        model.load_state_dict(best_state)
-
-    model.eval()
-    with torch.no_grad():
-        aligned_t, warps_t = model(chromas_t, study_ids)
-
-    n_a = (study_ids == 0).sum().item()
-    al_np = aligned_t.cpu().numpy()
-    al_a  = [al_np[i] for i in range(n_a)]
-    al_b  = [al_np[i] for i in range(n_a, len(al_np))]
-
-    warp_np  = warps_t.cpu().numpy()
-    id_np    = np.arange(N_BINS, dtype=np.float32)[None, :]
-    warp_mag = float(np.abs(warp_np - id_np).mean()) * BIN_MIN
-    warp_b   = float(np.abs(warp_np[n_a:] - id_np).mean()) * BIN_MIN
-    r_pairs  = tic_r_per_pair(al_a, al_b)
-    r        = float(r_pairs.mean())
-    raw_w    = apply_warp(torch.from_numpy(raw[:, :, None]), warps_t.cpu())[:, :, 0].numpy()
-    r_raw    = pearson_rows(raw_w[:n_a], raw_w[n_a:])
-    print(f"  [{label}] TIC r = {r:.4f}  TIC r (raw) = {r_raw.mean():.4f}  "
-          f"warp_mag = {warp_mag:.3f} min  (batch B {warp_b:.3f} min)")
-    return r, warp_mag, warp_b, r_pairs, r_raw
-
-
-def pick_device(name: str = 'auto') -> torch.device:
-    if name != 'auto':
-        return torch.device(name)
-    return (torch.device('cuda') if torch.cuda.is_available()
-            else torch.device('mps') if torch.backends.mps.is_available()
-            else torch.device('cpu'))
-
-
-def main(study_a: str = STUDY_A_DEFAULT, study_b: str = STUDY_B_DEFAULT,
-         seed: int | None = None, ckpt: Path = CKPT_DIR / 'warp_transformer.pt',
-         device_name: str = 'auto'):
+def main(name_a: str, name_b: str, seed: int | None, ckpt: Path, device_name: str) -> list[str]:
     device = pick_device(device_name)
-    print(f"Device: {device}")
-    print(f"Dataset: {study_a}  vs  {study_b}   seed={seed}\n")
+    a, b = load_batch(name_a), load_batch(name_b)
+    anchors = extract_anchors(a.chromas, b.chromas, a.tic_raw, b.tic_raw).anchors
+    un = evaluation.unaligned(a, b)
+    arms = {'pretrained': run_arm(ckpt, a, b, anchors, device, seed),
+            'random init': run_arm(None, a, b, anchors, device, seed)}
 
-    chromas_a = load_chromas(DATA_DIR / study_a / 'chroma')
-    chromas_b = load_chromas(DATA_DIR / study_b / 'chroma')
-    n_a, n_b  = len(chromas_a), len(chromas_b)
-    print(f"  {Path(study_a).name}: {n_a} samples")
-    print(f"  {Path(study_b).name}: {n_b} samples\n")
+    lines = [__doc__.strip().splitlines()[0], '',
+             f'{pair_label(name_a, name_b)}   seed {seed}   device {device}   checkpoint {ckpt}',
+             f'Anchors ({len(anchors)}): {anchors}', '',
+             f'  {"Arm":<14} {"TIC r":>7} {"Δ unal":>8} {"raw r":>8} {"Δ unal":>8}   '
+             f'{"warp before (all/A/B, min)":>27}   {"warp after (all/A/B, min)":>26}',
+             f'  {"Unaligned":<14} {un.mean:>7.4f} {"—":>8} {un.mean_raw:>8.4f} {"—":>8}']
+    for k, (e, pre, post) in arms.items():
+        lines.append(f'  {k:<14} {e.mean:>7.4f} {e.mean - un.mean:>+8.4f} {e.mean_raw:>8.4f} '
+                     f'{e.mean_raw - un.mean_raw:>+8.4f}   '
+                     f'{pre[0]:>7.3f} {pre[1]:>7.3f} {pre[2]:>7.3f}     '
+                     f'{post[0]:>7.3f} {post[1]:>7.3f} {post[2]:>7.3f}')
+    (pe, ppre, ppost), (re, rpre, rpost) = arms['pretrained'], arms['random init']
+    lines += ['', f'Pretraining advantage: {pe.mean - re.mean:+.4f} TIC r '
+              f'({pe.mean_raw - re.mean_raw:+.4f} raw)']
 
-    all_chromas = chromas_a + chromas_b
-    study_ids   = torch.tensor([0]*n_a + [1]*n_b, dtype=torch.long, device=device)
-    chromas_t   = torch.from_numpy(np.stack(all_chromas)).to(device)
-    raw_all     = np.concatenate([load_tic_raw(DATA_DIR / study_a / 'chroma'),
-                                  load_tic_raw(DATA_DIR / study_b / 'chroma')])
-
-    anchors = extract_anchors(chromas_a, chromas_b)
-    drift_bins = [q - r for r, q in anchors]
-    print(f"Anchors: {len(anchors)} RANSAC pairs")
-    if anchors:
-        print(f"  ref bins : {[r for r, _ in anchors]}")
-        print(f"  drift    : {drift_bins} bins  "
-              f"(median {int(np.median(drift_bins)):+d}, "
-              f"range [{min(drift_bins)}, {max(drift_bins)}])\n")
-
-    # Unaligned baseline
-    r_unaligned = tic_r(chromas_a, chromas_b)
-    r_unaligned_raw = float(pearson_rows(raw_all[:n_a], raw_all[n_a:]).mean())
-    print(f"Unaligned TIC r = {r_unaligned:.4f}  TIC r (raw) = {r_unaligned_raw:.4f}\n")
-
-    # (a) Pretrained model
-    model_pre = ChromaWarpTransformer()
-    model_pre.load_state_dict(torch.load(ckpt, map_location=device))
-    model_pre.to(device)
-    print(f"Running calibration from pretrained checkpoint ({ckpt}) …")
-    r_pre, mag_pre, mag_pre_b, pairs_pre, raw_pre = run_calibration(
-        model_pre, chromas_t, study_ids, anchors, device, 'pretrained', seed, raw_all)
-
-    # (b) Random-init model (same architecture, no checkpoint). The init itself is
-    # seeded so that the random-init arm is repeatable too.
-    if seed is not None:
-        set_seed(seed)
-    model_rand = ChromaWarpTransformer()
-    model_rand.to(device)
-    print(f"\nRunning calibration from random initialisation …")
-    r_rand, mag_rand, mag_rand_b, pairs_rand, raw_rand = run_calibration(
-        model_rand, chromas_t, study_ids, anchors, device, 'random-init', seed, raw_all)
-
-    # Summary
-    lines = [
-        f"{'=' * 74}",
-        f"{'Method':<30}  {'TIC r':>7}  {'Δ unaligned':>12}  {'Warp mag':>9}  {'Warp B':>9}",
-        f"{'-' * 74}",
-        f"{'Unaligned':<30}  {r_unaligned:>7.4f}  {'—':>12}  {'—':>9}  {'—':>9}",
-        f"{'WarpTransformer (pretrained)':<30}  {r_pre:>7.4f}  "
-        f"{r_pre - r_unaligned:>+12.4f}  {mag_pre:>8.3f}m  {mag_pre_b:>8.3f}m",
-        f"{'WarpTransformer (random init)':<30}  {r_rand:>7.4f}  "
-        f"{r_rand - r_unaligned:>+12.4f}  {mag_rand:>8.3f}m  {mag_rand_b:>8.3f}m",
-        f"{'=' * 74}",
-        f"{'TIC r (raw)':<30}  {'TIC r':>7}  {'Δ unaligned':>12}",
-        f"{'-' * 74}",
-        f"{'Unaligned':<30}  {r_unaligned_raw:>7.4f}  {'—':>12}",
-        f"{'WarpTransformer (pretrained)':<30}  {raw_pre.mean():>7.4f}  "
-        f"{raw_pre.mean() - r_unaligned_raw:>+12.4f}",
-        f"{'WarpTransformer (random init)':<30}  {raw_rand.mean():>7.4f}  "
-        f"{raw_rand.mean() - r_unaligned_raw:>+12.4f}",
-        f"{'=' * 74}",
-        f"Warp mag: mean |w(t) − t| over all samples of both batches. Warp B: batch-B samples only.",
-        f"Seed {seed}   device {device}   checkpoint {ckpt}",
-        f"Anchors ({len(anchors)}): {anchors}",
-    ]
-    print('\n' + '\n'.join(lines))
-    gap = r_pre - r_rand
-    print(f"\nPretraining advantage: {gap:+.4f} TIC r")
-
-    a_lbl, b_lbl = Path(study_a).name, Path(study_b).name
-    suffix = f'_seed{seed}' if seed is not None else ''
-    RESULTS_DIR.mkdir(exist_ok=True)
-    (RESULTS_DIR / f'ablate_pretrain_{a_lbl}_{b_lbl}{suffix}.txt').write_text(
-        '\n'.join(lines) + f"\nPretraining advantage: {gap:+.4f} TIC r\n")
-    (RESULTS_DIR / 'per_pair').mkdir(exist_ok=True)
-    np.savez(RESULTS_DIR / 'per_pair' / f'tic_r_ablate_{a_lbl}_{b_lbl}{suffix}.npz',
-             pretrained=pairs_pre, random_init=pairs_rand,
-             pretrained_raw=raw_pre, random_init_raw=raw_rand,
-             warp_mag=np.array([mag_pre, mag_rand]), warp_mag_b=np.array([mag_pre_b, mag_rand_b]),
-             anchors=np.array(anchors), seed=-1 if seed is None else seed)
-    if abs(gap) < 0.01:
-        print("→ calibration alone accounts for nearly all the improvement; "
-              "pretraining adds negligible benefit on this task.")
-    elif gap > 0:
-        print("→ pretrained representations help the model interpolate between "
-              f"sparse anchors ({len(anchors)} pairs), giving a meaningful edge.")
-    else:
-        print("→ random init outperforms pretrained — calibration overshoots with "
-              "pretrained representations on this pair.")
+    suffix = '' if seed is None else f'_seed{seed}'
+    out = RESULTS_DIR / f'ablate_pretrain_{name_a}_{name_b}{suffix}.txt'
+    out.write_text('\n'.join(lines) + '\n')
+    PER_PAIR_DIR.mkdir(parents=True, exist_ok=True)
+    np.savez(PER_PAIR_DIR / f'tic_r_ablate_{name_a}_{name_b}{suffix}.npz',
+             pretrained=pe.r, random_init=re.r, pretrained_raw=pe.r_raw, random_init_raw=re.r_raw,
+             warp_mag=np.array([ppost[0], rpost[0]]), warp_mag_b=np.array([ppost[2], rpost[2]]),
+             warp_mag_pre=np.array([ppre, rpre]),          # [arm, (all, A, B)]
+             anchors=np.array(anchors).reshape(-1, 2), seed=-1 if seed is None else seed,
+             device=str(device))
+    print('\n'.join(lines) + f'\n\n  results → {out}')
+    return lines
 
 
 if __name__ == '__main__':
-    import argparse
-    ap = argparse.ArgumentParser()
-    ap.add_argument('--study-a', default=STUDY_A_DEFAULT)
-    ap.add_argument('--study-b', default=STUDY_B_DEFAULT)
-    ap.add_argument('--seed', type=int, default=None,
-                    help='seed torch, numpy and random (random init and calibration)')
-    ap.add_argument('--ckpt', type=Path, default=CKPT_DIR / 'warp_transformer.pt')
-    ap.add_argument('--device', default='auto',
-                    help='auto | cpu | mps | cuda. Use cpu for exactly repeatable runs.')
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument('--study-a', default='fish_oil/batch_sep2015')
+    ap.add_argument('--study-b', default='fish_oil/batch_jul2016')
+    ap.add_argument('--seed', type=int, default=None)
+    ap.add_argument('--ckpt', type=Path, default=DEFAULT_CKPT)
+    ap.add_argument('--device', default='cpu', help='cpu (default, reproducible) | mps | cuda | auto')
     args = ap.parse_args()
-    main(args.study_a, args.study_b, args.seed, args.ckpt, args.device)
+    main(Path(args.study_a).name, Path(args.study_b).name, args.seed, args.ckpt, args.device)

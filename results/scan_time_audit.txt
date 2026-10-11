@@ -1,0 +1,103 @@
+Scan-time audit: one row per non-blank run, then per-batch summaries.
+
+  Batch            Sample                                    n_scans  first (min)  last (min)  interval (s)  scans/min
+  batch_apr2016    1 - SNA1 Head 2                              5040        3.000      44.992         0.500      120.0
+  batch_apr2016    1 - SNA1 Head A                              5040        3.000      44.992         0.500      120.0
+  batch_apr2016    1 - SNA1 Skin A                              5040        3.000      44.992         0.500      120.0
+  batch_apr2016    1 - SNA1 Skin B                              5040        3.000      44.992         0.500      120.0
+  batch_apr2016    2 - GUR2  Frame A                            5040        3.000      44.992         0.500      120.0
+  batch_apr2016    2 - GUR2 Frame B                             5040        3.000      44.992         0.500      120.0
+  batch_apr2016    2 - GUR2 Rest of Guts A                      5040        3.000      44.992         0.500      120.0
+  batch_apr2016    2 - GUR2 Rest of Guts B                      5040        3.000      44.992         0.500      120.0
+  batch_apr2016    2 - GUR2 Skin A                              5040        3.000      44.992         0.500      120.0
+  batch_apr2016    2 - GUR2 Skin B                              5040        3.000      44.992         0.500      120.0
+  batch_aug2015    4 - BCO4 Head A                              4800        5.000      44.992         0.500      120.0
+  batch_aug2015    4 - BCO4 Head B                              4800        5.000      44.992         0.500      120.0
+  batch_jan2016    5 - BCO5 Frame A                             4800        5.000      44.992         0.500      120.0
+  batch_jan2016    5 - BCO5 Frame B                             4800        5.000      44.992         0.500      120.0
+  batch_jan2016    5 - BCO5 Frame C                             4800        5.000      44.992         0.500      120.0
+  batch_jan2016    5 - BCO5 Gonad Female A                      4800        5.000      44.992         0.500      120.0
+  batch_jan2016    5 - BCO5 Gonad Female B                      4800        5.000      44.992         0.500      120.0
+  batch_jan2016    5 - BCO5 Gonad Female C                      4800        5.000      44.992         0.500      120.0
+  batch_jan2016    5 - BCO5 Gonad Male B                        4800        5.000      44.992         0.500      120.0
+  batch_jan2016    5 - BCO5 Gonad Male C                        4800        5.000      44.992         0.500      120.0
+  batch_jan2016    5 - BCO5 Liver Female A                      4800        5.000      44.992         0.500      120.0
+  batch_jan2016    5 - BCO5 Liver Female B                      4800        5.000      44.992         0.500      120.0
+  batch_jan2016    5 - BCO5 Liver Female C                      4800        5.000      44.992         0.500      120.0
+  batch_jan2016    5 - BCO5 Liver Male A                        4800        5.000      44.992         0.500      120.0
+  batch_jan2016    5 - BCO5 Liver Male B                        4800        5.000      44.992         0.500      120.0
+  batch_jan2016    5 - BCO5 Liver Male C                        4800        5.000      44.992         0.500      120.0
+  batch_jan2016    6 - BCO6 Gonad Female A                      4800        5.000      44.992         0.500      120.0
+  batch_jan2016    6 - BCO6 Gonad Female B                      4800        5.000      44.992         0.500      120.0
+  batch_jan2016    6 - BCO6 Gonad Female C                      4800        5.000      44.992         0.500      120.0
+  batch_jan2016    6 - BCO6 Gonad Male A                        4800        5.000      44.992         0.500      120.0
+  batch_jan2016    6 - BCO6 Gonad Male B                        4800        5.000      44.992         0.500      120.0
+  batch_jan2016    6 - BCO6 Gonad Male C                        4800        5.000      44.992         0.500      120.0
+  batch_jan2016    6 - BCO6 Head A                              4800        5.000      44.992         0.500      120.0
+  batch_jan2016    6 - BCO6 Head B                              4800        5.000      44.992         0.500      120.0
+  batch_jan2016    6 - BCO6 Head C                              4800        5.000      44.992         0.500      120.0
+  batch_jan2016    6 - BCO6 Skin A                              4800        5.000      44.992         0.500      120.0
+  batch_jan2016    6 - BCO6 Skin B                              4800        5.000      44.992         0.500      120.0
+  batch_jan2016    6 - BCO6 Skin C                              4800        5.000      44.992         0.500      120.0
+  batch_jul2016    3 - TAR3 Skin A                              5040        3.000      44.992         0.500      120.0
+  batch_jul2016    3 - TAR3 Skin B                              5040        3.000      44.992         0.500      120.0
+  batch_jul2016    4 - BCO4 Skin A                              5040        3.000      44.992         0.500      120.0
+  batch_jul2016    4 - BCO4 Skin B                              5040        3.000      44.992         0.500      120.0
+  batch_jul2016    5 - BCO5 Head A                              5040        3.000      44.992         0.500      120.0
+  batch_jul2016    5 - BCO5 Head B                              5040        3.000      44.992         0.500      120.0
+  batch_jul2016    5 - BCO5 Skin A                              5040        3.000      44.992         0.500      120.0
+  batch_jul2016    5 - BCO5 Skin B                              5040        3.000      44.992         0.500      120.0
+  batch_jul2016    6 - BCO6 Frame A                             5040        3.000      44.992         0.500      120.0
+  batch_jul2016    6 - BCO6 Frame B                             5040        3.000      44.992         0.500      120.0
+  batch_jul2016    6 - BCO6 Liver Female A                      5040        3.000      44.992         0.500      120.0
+  batch_jul2016    6 - BCO6 Liver Female B                      5040        3.000      44.992         0.500      120.0
+  batch_jul2016    6 - BCO6 Liver Male                          5040        3.000      44.992         0.500      120.0
+  batch_jul2016    6 - BCO6 Liver Male B                        5040        3.000      44.992         0.500      120.0
+  batch_jul2016    6 - BCO6 Rest of Guts A                      5040        3.000      44.992         0.500      120.0
+  batch_jul2016    6 - BCO6 Rest of Guts B                      5040        3.000      44.992         0.500      120.0
+  batch_sep2015    1 - SNA1 Gonad A                             4800        5.000      44.992         0.500      120.0
+  batch_sep2015    1 - SNA1 Gonad B                             4800        5.000      44.992         0.500      120.0
+  batch_sep2015    1 - SNA1 Liver Female A                      4800        5.000      44.992         0.500      120.0
+  batch_sep2015    1 - SNA1 Liver Female B                      4800        5.000      44.992         0.500      120.0
+  batch_sep2015    1 - SNA1 Liver Male A                        4800        5.000      44.992         0.500      120.0
+  batch_sep2015    1 - SNA1 Liver Male B                        4800        5.000      44.992         0.500      120.0
+  batch_sep2015    1 - SNA1 Rest of Guts A                      4800        5.000      44.992         0.500      120.0
+  batch_sep2015    1 - SNA1 Rest of Guts B                      4800        5.000      44.992         0.500      120.0
+  batch_sep2015    2 - GUR2 Gonad A                             4800        5.000      44.992         0.500      120.0
+  batch_sep2015    2 - GUR2 Gonad B                             4800        5.000      44.992         0.500      120.0
+  batch_sep2015    2 - GUR2 Head A                              4800        5.000      44.992         0.500      120.0
+  batch_sep2015    2 - GUR2 Head B                              4800        5.000      44.992         0.500      120.0
+  batch_sep2015    2 - GUR2 Liver A                             4800        5.000      44.992         0.500      120.0
+  batch_sep2015    2 - GUR2 Liver B                             4800        5.000      44.992         0.500      120.0
+  batch_sep2015    2 - GUR2 ROG A                               4800        5.000      44.992         0.500      120.0
+  batch_sep2015    2 - GUR2 ROG B                               4800        5.000      44.992         0.500      120.0
+  batch_sep2015    3 - TAR3 Gonad Female A                      4800        5.000      44.992         0.500      120.0
+  batch_sep2015    3 - TAR3 Gonad Female B                      4800        5.000      44.992         0.500      120.0
+  batch_sep2015    3 - TAR3 Gonad Male A                        4800        5.000      44.992         0.500      120.0
+  batch_sep2015    3 - TAR3 Gonad Male B                        4800        5.000      44.992         0.500      120.0
+  batch_sep2015    3 - TAR3 Head A                              4800        5.000      44.992         0.500      120.0
+  batch_sep2015    3 - TAR3 Head B                              4800        5.000      44.992         0.500      120.0
+  batch_sep2015    3 - TAR3 Liver Female A                      4800        5.000      44.992         0.500      120.0
+  batch_sep2015    3 - TAR3 Liver Female B                      4800        5.000      44.992         0.500      120.0
+  batch_sep2015    3 - TAR3 Liver Male A                        4800        5.000      44.992         0.500      120.0
+  batch_sep2015    3 - TAR3 Liver Male B                        4800        5.000      44.992         0.500      120.0
+  batch_sep2015    3 - TAR3 Rest of Guts A                      4800        5.000      44.992         0.500      120.0
+  batch_sep2015    3 - TAR3 Rest of Guts B                      4800        5.000      44.992         0.500      120.0
+  batch_sep2015    4 - BCO4 Gonad A                             4800        5.000      44.992         0.500      120.0
+  batch_sep2015    4 - BCO4 Gonad B                             4800        5.000      44.992         0.500      120.0
+  batch_sep2015    4 - BCO4 Liver Female A                      4800        5.000      44.992         0.500      120.0
+  batch_sep2015    4 - BCO4 Liver Female B                      4800        5.000      44.992         0.500      120.0
+  batch_sep2015    4 - BCO4 Liver Male A                        4800        5.000      44.992         0.500      120.0
+  batch_sep2015    4 - BCO4 Liver Male B                        4800        5.000      44.992         0.500      120.0
+  batch_sep2015    4 - BCO4 Rest of Guts A                      4800        5.000      44.992         0.500      120.0
+  batch_sep2015    4 - BCO4 Rest of Guts B                      4800        5.000      44.992         0.500      120.0
+
+  Batch            runs     n_scans min/mean/max    first min/max      last min/max    interval (s) min/max
+  batch_apr2016      10     5040  5040.0    5040    3.000   3.000    44.992  44.992        0.500      0.500
+  batch_aug2015       2     4800  4800.0    4800    5.000   5.000    44.992  44.992        0.500      0.500
+  batch_jan2016      26     4800  4800.0    4800    5.000   5.000    44.992  44.992        0.500      0.500
+  batch_jul2016      16     5040  5040.0    5040    3.000   3.000    44.992  44.992        0.500      0.500
+  batch_sep2015      36     4800  4800.0    4800    5.000   5.000    44.992  44.992        0.500      0.500
+
+Decision:
+  Runs DIFFER in scan count and/or acquisition time range (by more than one scan interval, 0.50 s). Binning by scan index would stretch runs relative to each other, so 03 bins by retention time on a fixed 0–45 min grid (0.225-min windows; windows outside a run's range are zero).

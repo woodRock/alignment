@@ -1,0 +1,10 @@
+[run]
+source = src, scripts
+omit =
+    scripts/tests/*
+    scripts/archive/*
+data_file = .coverage
+
+[report]
+show_missing = True
+skip_covered = False

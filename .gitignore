@@ -25,3 +25,7 @@ checkpoints/
 
 # Local run logs, runner scripts and result archives
 logs/
+
+# Test coverage
+.coverage
+.coverage.*

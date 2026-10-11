@@ -1,5 +1,5 @@
 """
-Download and preprocess EI-MS spectra for SimCLR pretraining.
+Download and preprocess EI-MS spectra: the spectral library for pretraining (script 02).
 
 Sources:
   MoNA (MassBank of North America) — bulk GC-MS export (~200 MB zip)
@@ -32,7 +32,6 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import io
 import json
 import re
 import zipfile
@@ -202,13 +201,41 @@ def parse_massbank(records_dir: Path) -> Iterator[dict]:
     print(f"\nRetained {kept} EI records from MassBank")
 
 
+_MB_EI_INSTRUMENT = re.compile(r"\bEI\b|GC-EI|EI-B", re.IGNORECASE)
+
+
+def is_ei_ms(text: str) -> bool:
+    """A MassBank record is EI-MS if its AC$INSTRUMENT_TYPE names an EI instrument and it is a
+    single-stage spectrum (AC$MASS_SPECTROMETRY: MS_TYPE MS). Replaces a substring test for
+    "EI" anywhere in the record, which also passed compound and author names (caffeine,
+    cysteine, Leibniz) and so let LC-ESI MS/MS spectra in."""
+    instrument, ms_type = "", ""
+    for line in text.splitlines():
+        if line.startswith("AC$INSTRUMENT_TYPE:"):
+            instrument = line.partition(":")[2].strip()
+        elif line.startswith("AC$MASS_SPECTROMETRY: MS_TYPE"):
+            ms_type = line.split()[-1]
+    return bool(_MB_EI_INSTRUMENT.search(instrument)) and ms_type.upper() == "MS"
+
+
+def count_massbank_filters(records_dir: Path) -> tuple[int, int, int]:
+    """(records, kept by the old substring filter, kept by is_ei_ms)."""
+    n = old = new = 0
+    for path in records_dir.rglob("*.txt"):
+        text = path.read_text(encoding="utf-8", errors="replace")
+        n += 1
+        old += "EI" in text.upper()
+        new += is_ei_ms(text)
+    return n, old, new
+
+
 def _parse_mb_txt(path: Path) -> dict | None:
     try:
         text = path.read_text(encoding="utf-8", errors="replace")
     except OSError:
         return None
 
-    if "EI" not in text.upper():
+    if not is_ei_ms(text):
         return None
 
     fields: dict[str, str] = {}

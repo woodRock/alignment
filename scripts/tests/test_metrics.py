@@ -1,0 +1,106 @@
+"""metrics.py and config.py."""
+import numpy as np
+import pytest
+
+from config import (BIN_MIN, EVAL_BINS, EVAL_PAIRS, EVAL_START_BIN, EXCLUDED_PAIRS, N_BINS,
+                    batch_name, pair_label)
+from metrics import (holm, mean_sd, pearson, pearson_rows, per_a_mean, study_silhouette,
+                     tic_r_pairs, warp_magnitude, within_batch_r)
+
+
+def test_evaluation_window_starts_at_5_min():
+    assert EVAL_START_BIN == 22
+    assert EVAL_START_BIN * BIN_MIN <= 5.0 < (EVAL_START_BIN + 1) * BIN_MIN
+    assert EVAL_BINS.stop == N_BINS
+
+
+def test_pairs_and_labels():
+    assert len(EVAL_PAIRS) == 4 and len(EXCLUDED_PAIRS) == 2
+    assert pair_label('batch_sep2015', 'batch_jul2016') == 'Sep15×Jul16'
+    assert pair_label('x', 'y') == 'x × y'
+    assert batch_name('batch_jul2016') == 'Jul 2016' and batch_name('other') == 'other'
+
+
+def test_pearson_rows_matches_corrcoef_on_window_i_major(rng):
+    a, b = rng.normal(size=(3, N_BINS)), rng.normal(size=(4, N_BINS))
+    r = pearson_rows(a, b)
+    for i in range(3):
+        for j in range(4):
+            ref = np.corrcoef(a[i, EVAL_BINS], b[j, EVAL_BINS])[0, 1]
+            assert r[i * 4 + j] == pytest.approx(ref)
+    assert pearson_rows(a, b, bins=None)[5] == pytest.approx(np.corrcoef(a[1], b[1])[0, 1])
+
+
+def test_window_excludes_shared_empty_region(rng):
+    """Shared zeros before the window would inflate r; inside the window they are excluded."""
+    a, b = rng.normal(size=N_BINS), rng.normal(size=N_BINS)
+    a[:EVAL_START_BIN] = b[:EVAL_START_BIN] = -50
+    assert abs(pearson(a, b)) < 0.3 < pearson(a, b, bins=None)
+
+
+def test_pearson_constant_row_is_nan(rng):
+    r = pearson_rows(np.ones((1, N_BINS)), rng.normal(size=(2, N_BINS)))
+    assert np.all(np.isnan(r))
+
+
+def test_pearson_is_bounded(rng):
+    a = rng.normal(size=(2, N_BINS))
+    r = pearson_rows(a, a)
+    assert np.all(np.abs(r) <= 1) and r[0] == 1.0
+
+
+def test_tic_r_pairs_sums_mz(rng):
+    a, b = rng.uniform(size=(2, N_BINS, 5)), rng.uniform(size=(3, N_BINS, 5))
+    assert np.allclose(tic_r_pairs(a, b), pearson_rows(a.sum(-1), b.sum(-1)))
+
+
+def test_within_batch_r(rng):
+    x = rng.normal(size=(4, N_BINS))
+    m, s, k = within_batch_r(x)
+    full = pearson_rows(x, x).reshape(4, 4)
+    off = full[np.triu_indices(4, 1)]
+    assert k == 6 and m == pytest.approx(off.mean()) and s == pytest.approx(off.std())
+    with pytest.raises(ValueError):
+        within_batch_r(x[:1])
+
+
+def test_warp_magnitude_and_per_a_mean():
+    assert warp_magnitude(np.arange(N_BINS) + 2.0) == pytest.approx(2 * BIN_MIN)
+    assert warp_magnitude(np.tile(np.arange(N_BINS) - 1.0, (3, 1))) == pytest.approx(BIN_MIN)
+    assert per_a_mean(np.arange(6.0), 2, 3).tolist() == [1.0, 4.0]
+
+
+def test_holm_known_values():
+    p = [0.01, 0.04, 0.03, 0.005]
+    assert np.allclose(holm(p), [0.03, 0.06, 0.06, 0.02])
+    assert np.all(holm([0.5, 0.9]) <= 1.0)
+
+
+@pytest.mark.parametrize('seed', range(10))
+def test_holm_properties(seed):
+    p = np.random.default_rng(seed).uniform(size=8)
+    adj = holm(p)
+    order = np.argsort(p)
+    assert np.all(adj >= p) and np.all(adj <= 1)
+    assert np.all(np.diff(adj[order]) >= -1e-15)          # monotone in p
+
+
+def test_mean_sd():
+    assert mean_sd([1.0, 3.0]) == (2.0, pytest.approx(np.sqrt(2)))
+    m, s = mean_sd([4.0])
+    assert m == 4.0 and np.isnan(s)
+
+
+def test_study_silhouette_separates_distinct_batches(rng):
+    a = rng.uniform(size=(6, 20, 10))
+    b = rng.uniform(size=(6, 20, 10)) + 2.0
+    assert study_silhouette(a, b) > 0.5
+    assert abs(study_silhouette(a[:3], a[3:])) < 0.3
+
+
+def test_paired_wilcoxon_identical_and_different(rng):
+    from metrics import paired_wilcoxon
+    x = rng.normal(size=20)
+    assert paired_wilcoxon(x, x) == (0.0, 1.0)
+    stat, p = paired_wilcoxon(x + 1.0, x)
+    assert p < 1e-4 and stat == 0.0
