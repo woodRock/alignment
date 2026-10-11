@@ -9,6 +9,8 @@ from gcmsalign.anchors import (
     MATCH_STAGES,
     POOL_STAGES,
     detect_peaks,
+    drift_outlier_filter,
+    merge_close,
     extract_anchors,
     fingerprint,
     longest_increasing_subsequence,
@@ -107,25 +109,101 @@ def test_pool_anchors_median_outlier_and_stages():
         [(40, 33), (80, 72), (120, 111), (150, 60)],  # (150, 60): drift −90
         [(40, 31), (80, 73)],
     ]
-    anchors, counts, removed = pool_anchors(per_sample)
-    assert (40, 32) in anchors and (80, 72) in anchors
-    assert all(r != 150 for r, _ in anchors)
+    anchors, counts, removed_outlier, removed_slope = pool_anchors(per_sample)
+    assert anchors == [(40, 32), (80, 72), (120, 112)]           # median q per r
+    assert removed_outlier == [(150, 60)] and removed_slope == []
     assert list(counts) == list(POOL_STAGES)
-    assert counts['pooled'] == 4 and counts['after slope filter'] == len(anchors)
+    assert counts == {'pooled': 4, 'after merging': 4, 'after outlier filter': 3,
+                      'after slope filter': 3}
 
 
 def test_pool_anchors_identical_drifts_are_kept():
     """The s.d. floor of 1 bin keeps a set with zero spread."""
-    anchors, _, _ = pool_anchors([[(40, 30), (80, 70), (120, 110)]])
+    anchors, *_ = pool_anchors([[(40, 30), (80, 70), (120, 110)]])
     assert anchors == [(40, 30), (80, 70), (120, 110)]
 
 
 def test_pool_anchors_empty():
     assert pool_anchors([[], []]) == (
         [],
-        {'pooled': 0, 'after outlier filter': 0, 'after slope filter': 0},
+        {'pooled': 0, 'after merging': 0, 'after outlier filter': 0, 'after slope filter': 0},
+        [],
         [],
     )
+
+
+# ── merge_close (round-3 review, issue 4) ─────────────────────────────────────
+
+def test_merge_close_combines_neighbours_one_or_two_bins_apart():
+    anchors = [(40, 30), (63, 46), (64, 46), (100, 80), (161, 139), (162, 140), (164, 141)]
+    assert merge_close(anchors) == [(40, 30), (64, 46), (100, 80), (162, 140)]
+
+
+def test_merge_close_leaves_separated_anchors_and_sorts():
+    anchors = [(100, 80), (40, 30), (70, 55)]
+    assert merge_close(anchors) == [(40, 30), (70, 55), (100, 80)]
+    assert merge_close([]) == []
+    assert merge_close([(10, 5), (13, 8)], max_gap=2) == [(10, 5), (13, 8)]
+    assert merge_close([(10, 5), (13, 8)], max_gap=3) == [(12, 6)]
+
+
+def test_slope_filter_no_longer_sees_rounding_slopes():
+    """(63, 46) and (64, 46) are one compound; unmerged, their slope of 0 trips the filter."""
+    pair = [(48, 31), (63, 46), (64, 46), (86, 67)]
+    assert slope_filter(pair)[1] != []
+    assert slope_filter(merge_close(pair)) == (merge_close(pair), [])
+
+
+# ── drift_outlier_filter ──────────────────────────────────────────────────────
+
+# Real Sep15×Jul16 pattern (bins): drift trends from −15 at r = 48 to −22 at r = 165
+TRENDING = [(48, 33), (64, 46), (69, 51), (75, 57), (86, 67), (118, 98), (165, 143)]
+
+
+def test_trending_drift_keeps_both_end_anchors():
+    """A smooth drift trend is not an outlier: the end anchors stay (a constant-mean rule
+    removed (48, 33) and (165, 143) here)."""
+    kept, removed = drift_outlier_filter(TRENDING)
+    assert kept == TRENDING and removed == []
+    d = np.array([q - r for r, q in TRENDING], float)
+    sd = max(d.std(), 1.0)
+    assert any(abs(x - d.mean()) > 1.5 * sd for x in d)       # the old rule would drop some
+
+
+def test_anchor_far_from_the_trend_is_removed():
+    bad = (100, 60)                                           # drift −40 among −15 … −22
+    kept, removed = drift_outlier_filter([*TRENDING, bad])
+    assert removed == [bad] and kept == TRENDING
+
+
+def test_robust_to_a_gross_outlier_at_the_end():
+    """A high-leverage outlier at the end of the range would pull a fitted line onto itself;
+    judging each anchor against a line fitted to the others prevents that."""
+    anchors = [(40, 32), (60, 52), (80, 72), (100, 92), (120, 112), (190, 130)]
+    kept, removed = drift_outlier_filter(anchors)
+    assert removed == [(190, 130)] and kept == anchors[:5]
+
+
+def test_drift_outlier_filter_small_and_unsorted_inputs():
+    assert drift_outlier_filter([]) == ([], [])
+    assert drift_outlier_filter([(80, 10), (40, 30)]) == ([(40, 30), (80, 10)], [])
+    three = [(40, 32), (80, 72), (120, 10)]                  # < 4: nothing to judge against
+    assert drift_outlier_filter(three) == (three, [])
+    kept, _ = drift_outlier_filter(list(reversed(TRENDING)))
+    assert kept == TRENDING
+
+
+def test_scatter_within_the_bin_precision_is_kept():
+    """Scatter of ±1 bin around the trend (0.225-min binning) stays under the 3-bin floor."""
+    jitter = [(40, 30), (60, 51), (80, 69), (100, 90), (120, 111), (140, 129)]
+    assert drift_outlier_filter(jitter) == (jitter, [])
+    assert len(drift_outlier_filter(jitter, n_sd=0.1, floor=0.5)[1]) > 0
+
+
+def test_removes_several_outliers_one_at_a_time():
+    bad = [(70, 20), (130, 160)]
+    kept, removed = drift_outlier_filter([*TRENDING, *bad])
+    assert removed == sorted(bad) and kept == TRENDING
 
 
 # ── match_anchors / extract_anchors ───────────────────────────────────────────

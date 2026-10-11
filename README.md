@@ -194,8 +194,11 @@ Anchors are found in four stages:
    removed, and the longest subset in elution order is kept (longest increasing
    subsequence).
 4. **Pooling.** Anchors from three batch-A samples matched to B[0] are combined (median
-   B bin per A bin). Drift outliers (more than 1.5 s.d.) and anchors that imply an
-   implausible local slope (outside 0.5–2) are then dropped.
+   B bin per A bin). An anchor is dropped if its drift is far from the straight-line drift
+   *trend* of the other anchors (more than 1.5 s.d. of their residuals, and at least 3 bins),
+   as are anchors that imply an implausible local slope (outside 0.5–2). The trend matters:
+   drift changes smoothly along the run, so comparing with a constant mean would discard the
+   anchors at both ends.
 
 The anchor count after every stage is reported (`gcmsalign.anchors`).
 
@@ -272,8 +275,10 @@ The results are being regenerated. A code audit on 2026-10-11 found that the v1 
 - mixed two time axes;
 - used an approximate anchor loss.
 
-All of these are fixed and covered by tests. The tables will be added here after the full
-rerun ([`run.md`](run.md)). The v1 numbers remain in the git history but should not be used.
+All of these are fixed and covered by tests. **Until the full rerun completes, everything in
+`results/` and `figs/` is still v1 output** (checkpoint `warp_transformer_baseline.pt`) and
+should not be quoted. The tables will be added here after the rerun ([`run.md`](run.md)); the v1
+numbers remain in the git history.
 
 ## Testing and code quality
 
@@ -300,9 +305,9 @@ python3.11 -m mypy                     # types
   classes is untested.
 - **Tuned pretraining.** The synthetic pretraining distribution is tuned to this
   dataset's drift range.
-- **Few, early anchors.** Anchors are few (about 6–9 per pair) and come from the tallest
-  raw-TIC peaks, which in this dataset elute in the first 30 minutes. Drift later in the
-  run is extrapolated.
+- **No anchors in the last minutes.** Anchors are few (8–10 per pair) and span about
+  11–37 min. After 37 min the only peaks are column bleed (siloxane ions m/z 73, 207, 281),
+  which are not compounds and are rejected, so drift there is extrapolated.
 - **No independent RT check.** Compound identities are inferred from spectral matching.
   Retention indices from n-alkane standards would be a stronger, independent check.
 

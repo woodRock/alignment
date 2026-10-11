@@ -93,7 +93,8 @@ class Paths:
 
 # ── Anchor extraction ─────────────────────────────────────────────────────────
 N_REF_PAIRS = 3  # batch-A samples matched against B[0]
-OUTLIER_SD = 1.5  # pooled anchors with |drift − mean| > OUTLIER_SD · s.d. are dropped
+MERGE_GAP = 2  # pooled anchors ≤ this many bins apart are one compound: merged
+OUTLIER_SD = 1.5  # drop pooled anchors > OUTLIER_SD · s.d. (≥ RANSAC_RESID) off the trend
 SLOPE_RANGE = (0.5, 2.0)  # plausible local Δq/Δr between consecutive pooled anchors
 MAX_DRIFT_MIN = 20.0  # candidate peak matches further apart than this are not considered
 SIM_THRESHOLD = 0.30  # minimum spectral cosine for a match
@@ -108,6 +109,7 @@ N_CALIB_STEPS = 500
 LR_CALIB = 5e-4
 LAMBDA_ANCHOR = 1.0
 LAMBDA_SMOOTH = 0.05
+LAMBDA_FRAME = 0.1  # fixes the consensus frame's free translation (warp_transformer.frame_loss)
 FREE_WARP_LR = LR_CALIB * 100
 
 

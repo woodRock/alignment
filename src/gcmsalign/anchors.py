@@ -6,8 +6,9 @@ Pipeline for one sample pair (match_anchors):
   within ±REFINE_RADIUS bins → RANSAC line (B → A, residual RANSAC_RESID bins) →
   longest increasing subsequence in elution order.
 Pooled over N_REF_PAIRS batch-A samples matched against B[0] (extract_anchors):
-  median B bin per A bin → drift outlier filter (OUTLIER_SD · s.d.) → local-slope plausibility
-  filter (SLOPE_RANGE).
+  median B bin per A bin → merge anchors ≤ MERGE_GAP bins apart → drift outlier filter
+  (leave-one-out residual from the straight-line drift trend of the other anchors) →
+  local-slope plausibility filter (SLOPE_RANGE).
 
 Anchors are (r, q) integer bins: r in batch A, q in batch B. Peaks are found on the raw TIC
 (compound abundance); fingerprints and matching use the normalised chromatogram.
@@ -28,6 +29,7 @@ from sklearn.linear_model import RANSACRegressor
 from .config import (
     BIN_MIN,
     MAX_DRIFT_MIN,
+    MERGE_GAP,
     N_REF_PAIRS,
     OUTLIER_SD,
     PEAK_HEIGHT_PCT,
@@ -42,13 +44,14 @@ from .config import (
 Anchor = tuple[int, int]
 
 MATCH_STAGES = ('proposed', 'above threshold', 'after RANSAC', 'after monotone')
-POOL_STAGES = ('pooled', 'after outlier filter', 'after slope filter')
+POOL_STAGES = ('pooled', 'after merging', 'after outlier filter', 'after slope filter')
 
 
 @dataclass
 class AnchorResult:
     anchors: list[Anchor]
     stages: dict[str, int] = field(default_factory=dict)  # stage → count (match stages summed)
+    removed_by_outlier: list[Anchor] = field(default_factory=list)
     removed_by_slope: list[Anchor] = field(default_factory=list)
 
 
@@ -217,29 +220,77 @@ def _ransac_inliers(q: np.ndarray, r: np.ndarray) -> np.ndarray:
 # ── Pooled over batch-A samples ───────────────────────────────────────────────
 
 
+def merge_close(anchors: list[Anchor], max_gap: int = MERGE_GAP) -> list[Anchor]:
+    """Merge runs of anchors whose consecutive r differ by ≤ max_gap bins into one anchor at
+    their mean (r, q), rounded. Pooled anchors from different A samples are often the same
+    compound one or two bins apart; with integer bins, the local slope between such neighbours
+    is 0, 0.5, 1, 2 or 3 by rounding alone, which would make the slope filter's verdict
+    arbitrary. Sorted by r on return."""
+    groups: list[list[Anchor]] = []
+    for a in sorted(anchors):
+        if groups and a[0] - groups[-1][-1][0] <= max_gap:
+            groups[-1].append(a)
+        else:
+            groups.append([a])
+    return [
+        (round(float(np.mean([r for r, _ in g]))), round(float(np.mean([q for _, q in g]))))
+        for g in groups
+    ]
+
+
+def drift_outlier_filter(
+    anchors: list[Anchor], n_sd: float = OUTLIER_SD, floor: float = RANSAC_RESID
+) -> tuple[list[Anchor], list[Anchor]]:
+    """Drop anchors whose drift (q − r) is far from the drift *trend* of the other anchors.
+
+    Each anchor is judged against a least-squares straight line of drift against r fitted to
+    all the *other* anchors (a leave-one-out residual), so an outlier cannot bend the line it
+    is judged by, even at the end of the range. Its deviation is compared with
+    max(n_sd · s.d. of the others' residuals, floor): the floor (default RANSAC_RESID, 3 bins)
+    is the precision the matching stage already assumes, so scatter from 0.225-min binning is
+    not mistaken for misidentification. The worst anchor beyond its limit is dropped and the
+    rest re-judged; repeat. Drift trends smoothly along the run (about −3.4 to −5 min over the
+    fish-oil runs), so a constant-mean rule would wrongly remove the anchors at both ends.
+    Needs ≥ 4 anchors (3 others to fit and spread); fewer are returned unchanged.
+    Returns (kept, removed), both sorted by r."""
+    kept, removed = sorted(anchors), []
+    while len(kept) >= 4:
+        r = np.array([a for a, _ in kept], dtype=float)
+        drift = np.array([q for _, q in kept], dtype=float) - r
+        excess = np.empty(len(kept))
+        for i in range(len(kept)):
+            others = np.arange(len(kept)) != i
+            line = np.polyfit(r[others], drift[others], 1)
+            spread = (drift[others] - np.polyval(line, r[others])).std()
+            limit = max(n_sd * float(spread), floor)
+            excess[i] = abs(drift[i] - np.polyval(line, r[i])) / limit
+        worst = int(np.argmax(excess))
+        if excess[worst] <= 1.0:
+            break
+        removed.append(kept.pop(worst))
+    return kept, sorted(removed)
+
+
 def pool_anchors(
     per_sample: list[list[Anchor]],
-) -> tuple[list[Anchor], dict[str, int], list[Anchor]]:
-    """Median q per r across samples → outlier filter on drift → slope filter.
-    Returns (anchors sorted by r, stage counts, anchors removed by the slope filter)."""
+) -> tuple[list[Anchor], dict[str, int], list[Anchor], list[Anchor]]:
+    """Median q per r across samples → merge close anchors → drift outlier filter → slope
+    filter.
+    Returns (anchors sorted by r, stage counts, removed by the outlier filter, removed by the
+    slope filter)."""
     by_r: dict[int, list[int]] = defaultdict(list)
     for anchors in per_sample:
         for r, q in anchors:
             by_r[r].append(q)
     pooled = [(r, int(np.round(np.median(qs)))) for r, qs in sorted(by_r.items())]
     counts = {'pooled': len(pooled)}
-    if pooled:
-        drift = np.array([q - r for r, q in pooled], dtype=float)
-        sd = max(float(drift.std()), 1.0)  # ≥ 1 bin, so identical drifts are kept
-        pooled = [
-            a
-            for a, d in zip(pooled, drift, strict=True)
-            if abs(d - drift.mean()) <= OUTLIER_SD * sd
-        ]
+    pooled = merge_close(pooled)
+    counts['after merging'] = len(pooled)
+    pooled, removed_outlier = drift_outlier_filter(pooled)
     counts['after outlier filter'] = len(pooled)
-    kept, removed = slope_filter(pooled)
+    kept, removed_slope = slope_filter(pooled)
     counts['after slope filter'] = len(kept)
-    return kept, counts, removed
+    return kept, counts, removed_outlier, removed_slope
 
 
 def extract_anchors(
@@ -257,9 +308,14 @@ def extract_anchors(
         per_sample.append(anchors)
         for k, v in counts.items():
             stages[k] += v
-    anchors, pool_counts, removed = pool_anchors(per_sample)
+    anchors, pool_counts, removed_outlier, removed_slope = pool_anchors(per_sample)
     stages.update(pool_counts)
-    return AnchorResult(anchors=anchors, stages=stages, removed_by_slope=removed)
+    return AnchorResult(
+        anchors=anchors,
+        stages=stages,
+        removed_by_outlier=removed_outlier,
+        removed_by_slope=removed_slope,
+    )
 
 
 def format_stages(stages: dict[str, int]) -> str:

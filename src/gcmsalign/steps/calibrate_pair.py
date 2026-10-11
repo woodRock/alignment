@@ -2,7 +2,8 @@
 
 Anchors (gcmsalign.anchors): peaks on the raw TIC of A[0..2] and B[0], spectral-cosine matching,
 RANSAC, longest increasing subsequence, pooled over the three A samples (median B bin per A
-bin), drift outlier filter and local-slope filter; the count after every stage is reported.
+bin), drift outlier filter (around the drift trend) and local-slope filter; the count after
+every stage is reported.
 
 The pretrained model is calibrated for --calib-steps Adam steps on the exact anchor loss (each
 anchor's A and B positions must map to the same consensus bin) plus a smoothness penalty. TIC r
@@ -117,7 +118,17 @@ def format_report(res: CalibResult) -> list[str]:
     un = res.unaligned
 
     def row(name: str, e: evaluation.PairEval, mag: str | None) -> list[object]:
-        return [name, e.mean, e.mean - un.mean, e.mean_raw, e.mean_raw - un.mean_raw, e.sil, mag]
+        return [
+            name,
+            e.mean,
+            e.mean - un.mean,
+            e.mean_raw,
+            e.mean_raw - un.mean_raw,
+            e.sil,
+            mag,
+            f'{100 * e.outside:.1f}%',
+            e.mean_valid,
+        ]
 
     return [
         title(__doc__),
@@ -127,9 +138,19 @@ def format_report(res: CalibResult) -> list[str]:
         f'Seed {res.seed}   device {res.device}   checkpoint {res.ckpt}',
         '',
         *table(
-            ['Method', 'TIC r', 'Δ unal', 'raw r', 'Δ unal', 'Study sil', 'Warp mag'],
             [
-                ['Unaligned', un.mean, None, un.mean_raw, None, un.sil, None],
+                'Method',
+                'TIC r',
+                'Δ unal',
+                'raw r',
+                'Δ unal',
+                'Study sil',
+                'Warp mag',
+                'outside',
+                'r in range',
+            ],
+            [
+                row('Unaligned', un, None),
                 row('PCHIP (pooled anchors)', res.pchip, f'{res.pchip.warp_mag:.3f}m'),
                 row('WarpTransformer + anchor calib', res.wt, f'{res.wt.warp_mag:.3f}m'),
             ],
@@ -138,10 +159,13 @@ def format_report(res: CalibResult) -> list[str]:
         'TIC r: mean Pearson r over all A×B pairs on the common window; raw r: the same '
         'warps applied to the raw TIC.',
         'Warp mag: PCHIP = its one warp; WarpTransformer = batch-B samples.',
+        "outside: share of evaluated (bin, sample) values read outside a run's acquired range; "
+        'r in range: TIC r with those values masked out.',
         '',
         f'Anchors ({len(res.anchors.anchors)}, (A bin, B bin)): {res.anchors.anchors}',
         f'Anchor stages (match stages summed over the A samples): '
         f'{format_stages(res.anchors.stages)}',
+        f'Removed by the drift outlier filter: {res.anchors.removed_by_outlier}',
         f'Removed by the slope filter: {res.anchors.removed_by_slope}',
         f'Calibration: {res.calib_steps} steps, lr {LR_CALIB}, λ_anchor {LAMBDA_ANCHOR}, '
         f'λ_smooth {LAMBDA_SMOOTH}, best loss {res.log.best_loss:.4f}, '
@@ -176,6 +200,10 @@ def save(res: CalibResult, paths: Paths) -> None:
         wt_warp_mag=np.array(res.mags),
         wt_warp_mag_pre=np.array(res.mags_pre),
         warps=res.warps,
+        outside=np.array([res.unaligned.outside, res.pchip.outside, res.wt.outside]),
+        unaligned_valid=res.unaligned.r_valid,
+        pchip_pooled_valid=res.pchip.r_valid,
+        warptransformer_valid=res.wt.r_valid,
         calib_seconds=res.log.seconds,
         calib_steps=res.calib_steps,
     )

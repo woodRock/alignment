@@ -7,7 +7,10 @@ Each iteration builds a mini-dataset of 4–16 chromatograms:
      is applied exactly once, as for the real data.
   2. Place them at random consensus positions, each with its own peak width
      σ ~ U(sigma_range) bins (after apex-scan binning real peaks span about one bin).
-  3. Batch 0: per-compound jitter. Batch 1: the same jitter plus a global offset of
+  3. Each batch gets an acquisition start s ~ U{0 … max_acquisition_start} bins (one per batch,
+     so the two usually differ, as Sep/Jan runs start at 5.0 min and Apr/Jul at 3.0 min); bins
+     before s are all-zero, exactly as step 03 leaves bins before a run's start.
+     Batch 0: per-compound jitter. Batch 1: the same jitter plus a global offset of
      min_offset … max_offset bins in a random direction. Elution order is kept.
   4. Target warp of each sample (consensus bin → source bin): linear through the peak pairs
      and continued with slope 1 beyond the outer peaks. Not clipped: the model's warps may point
@@ -52,6 +55,7 @@ class SyntheticConfig:
     min_offset: int = 5  # bins, between batches
     max_offset: int = 25  # bins (±5.6 min)
     noise_scale: float = 0.005  # exponential noise on intensities
+    max_acquisition_start: int = 25  # bins; each batch's runs are empty before a random start
     n_samples: tuple[int, int] = (4, 16)
 
 
@@ -164,10 +168,13 @@ def mini_dataset(
     n_a = max(1, n_samples // 2)
     chromas, warps, sids = [], [], []
     for study, n, off in ((0, n_a, 0), (1, n_samples - n_a, offset)):
+        start = int(rng.integers(0, cfg.max_acquisition_start + 1))  # one per batch
         for _ in range(n):
             pks = drifted_positions(pks_ref, off, cfg.within_jitter, rng)
             heights = rng.uniform(0.3, 2.5, len(pks_ref))
-            chromas.append(build_chromatogram(compounds, pks, heights, sigmas, rng, cfg))
+            chroma = build_chromatogram(compounds, pks, heights, sigmas, rng, cfg)
+            chroma[:start] = 0.0  # not acquired before the run's start
+            chromas.append(chroma)
             warps.append(target_warp(pks_ref, pks))
             sids.append(study)
     return np.stack(chromas), np.stack(warps), np.array(sids, dtype=np.int64)

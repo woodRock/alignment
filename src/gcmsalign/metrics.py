@@ -29,6 +29,24 @@ def pearson_rows(a: np.ndarray, b: np.ndarray, bins: slice | None = EVAL_BINS) -
     return np.clip(r, -1.0, 1.0).ravel()
 
 
+def pearson_rows_masked(
+    a: np.ndarray, b: np.ndarray, valid_a: np.ndarray, valid_b: np.ndarray, bins: slice = EVAL_BINS
+) -> np.ndarray:
+    """Like pearson_rows, but each (a_i, b_j) uses only the bins in `bins` where both
+    valid_a[i] and valid_b[j] are True (NaN if fewer than 3 such bins or a constant row)."""
+    a = np.atleast_2d(np.asarray(a, dtype=np.float64))[:, bins]
+    b = np.atleast_2d(np.asarray(b, dtype=np.float64))[:, bins]
+    va = np.atleast_2d(valid_a)[:, bins]
+    vb = np.atleast_2d(valid_b)[:, bins]
+    out = np.full(len(a) * len(b), np.nan)
+    for i in range(len(a)):
+        for j in range(len(b)):
+            m = va[i] & vb[j]
+            if m.sum() >= 3:
+                out[i * len(b) + j] = pearson_rows(a[i, m], b[j, m], bins=None)[0]
+    return out
+
+
 def pearson(a: np.ndarray, b: np.ndarray, bins: slice | None = EVAL_BINS) -> float:
     """Pearson r of two 1-D signals on `bins`."""
     return float(pearson_rows(a, b, bins)[0])

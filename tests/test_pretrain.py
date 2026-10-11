@@ -82,7 +82,10 @@ def test_mini_dataset_shapes_and_targets():
     x, w, sid = tr.mini_dataset(_library(), 6, np.random.default_rng(1))
     assert x.shape == (6, T, 1000) and w.shape == (6, T) and sid.tolist() == [0, 0, 0, 1, 1, 1]
     assert np.all(np.diff(w, axis=1) > 0)
-    assert np.isfinite(x).all() and np.allclose(np.linalg.norm(x, axis=2), 1.0, atol=1e-4)
+    norms = np.linalg.norm(x, axis=2)
+    assert np.isfinite(x).all()
+    assert np.all(np.isclose(norms, 1.0, atol=1e-4) | (norms == 0))   # unit bins or empty start
+    assert np.all(np.diff((norms > 0).astype(int), axis=1) >= 0)       # zeros only at the start
 
 
 def test_training_runs_and_is_reproducible():
@@ -135,3 +138,26 @@ def test_is_ei_ms(text, expected):
 
 def test_old_substring_filter_would_have_passed_esi():
     assert 'EI' in ESI.upper() and not dl.is_ei_ms(ESI)
+
+
+def test_mini_dataset_has_an_empty_start_per_batch():
+    """Round-3 review, issue 2: each batch's runs are all-zero before one acquisition start,
+    as step 03 leaves the bins before a real run's start; batches can differ."""
+    starts = set()
+    for seed in range(20):
+        x, _, sid = tr.mini_dataset(_library(), 6, np.random.default_rng(seed))
+        for study in (0, 1):
+            nz = np.abs(x[sid == study]).sum(axis=2) > 0          # [n, T]
+            first = nz.argmax(axis=1)
+            assert len(set(first.tolist())) == 1                   # one start per batch
+            s = int(first[0])
+            assert s <= CFG.max_acquisition_start
+            assert np.all(x[sid == study][:, :s] == 0) and np.all(nz[:, s:])
+            starts.add(s)
+    assert len(starts) > 5
+
+
+def test_acquisition_start_can_be_switched_off():
+    x, _, _ = tr.mini_dataset(_library(), 4, np.random.default_rng(0),
+                              SyntheticConfig(max_acquisition_start=0))
+    assert np.all(np.abs(x).sum(axis=2) > 0)

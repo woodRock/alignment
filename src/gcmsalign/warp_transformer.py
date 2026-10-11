@@ -76,6 +76,20 @@ def warp_smoothness_loss(warps: Tensor) -> Tensor:
     return ((velocity - 1.0) ** 2).mean()
 
 
+def frame_loss(warps: Tensor, study_ids: Tensor) -> Tensor:
+    """Squared mean offset of the mean batch-A warp from the identity: (mean_t (w̄_A(t) − t))².
+
+    The anchor loss depends only on where batch B lands relative to batch A, and the smoothness
+    loss only on the slope, so translating the shared consensus frame changes neither (exactly
+    for shift-like warps, nearly otherwise): with the warp ends no longer pinned, only the
+    pretrained prior would hold the frame in place.
+    This term fixes that one free direction and nothing else: it is zero for any warps whose
+    batch-A mean has no net offset, whatever their shape."""
+    mean_a = warps[study_ids == 0].mean(dim=0)
+    t = torch.arange(warps.shape[-1], dtype=warps.dtype, device=warps.device)
+    return (mean_a - t).mean() ** 2
+
+
 def sample_warp(warp: Tensor, t: Tensor) -> Tensor:
     """Value of a warp warp [T] at fractional output positions t [...] by linear interpolation,
     continued linearly with the end segments' slope outside [0, T−1]. Differentiable in warp

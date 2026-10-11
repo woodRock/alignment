@@ -111,7 +111,7 @@ def variants(
     anchors: list[tuple[int, int]],
     seed: int,
     calib_steps: int,
-) -> tuple[dict[str, Tics], dict[float, tuple[float, float]]]:
+) -> tuple[dict[str, Tics], dict[float, tuple[float, float, float]]]:
     """name → (A TICs, B TICs), and each free warp's final (anchor, smoothness) loss."""
     n_a, n_b = len(ta), len(tb)
     both = np.concatenate([ta, tb])
@@ -150,8 +150,8 @@ class PairResult:
     w_wt: np.ndarray
     tics: dict[str, Tics]
     r: dict[str, np.ndarray]
-    loss_wt: tuple[float, float]
-    loss_free: dict[float, tuple[float, float]]
+    loss_wt: tuple[float, float, float]  # anchor, smoothness, frame
+    loss_free: dict[float, tuple[float, float, float]]
 
 
 def compute_pair(
@@ -214,14 +214,16 @@ def format_report(results: list[PairResult], seed: int, device: str, ckpt: Path)
 
         u = float(p.r['Unaligned'].mean())
         free = '; '.join(
-            f'free lr {lr:g} {lo[0]:.4f} / {lo[1]:.5f}' for lr, lo in p.loss_free.items()
+            f'free lr {lr:g} {lo[0]:.4f} / {lo[1]:.5f} / {lo[2]:.5f}'
+            for lr, lo in p.loss_free.items()
         )
         lines += [
             '',
             f'{pair_label(p.name_a, p.name_b)}   n = {p.n_a}×{p.n_b}   anchors {len(p.anchors)}',
             f'  WT within-batch warp spread (mean |w_i − batch mean|): A '
             f'{spread(p.w_wt[: p.n_a]):.3f} min, B {spread(p.w_wt[p.n_a :]):.3f} min',
-            f'  Final anchor / smoothness loss: WT {p.loss_wt[0]:.4f} / {p.loss_wt[1]:.5f}; {free}',
+            f'  Final anchor / smoothness / frame loss: WT {p.loss_wt[0]:.4f} / '
+            f'{p.loss_wt[1]:.5f} / {p.loss_wt[2]:.5f}; {free}',
             *table(
                 ['Variant', 'TIC r A×B', 'Δ unal', 'within A', 'within B'],
                 [

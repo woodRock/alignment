@@ -21,9 +21,20 @@ class Batch:
         return len(self.chromas)
 
     @property
+    def acquisition_start(self) -> np.ndarray:
+        """[N] first bin with signal in each sample (the run's acquisition start)."""
+        return acquisition_start(self.tic_raw)
+
+    @property
     def tic(self) -> np.ndarray:
         """Normalised TIC [N, T]: the sum over m/z of the normalised chromatogram."""
         return self.chromas.sum(axis=-1)
+
+
+def acquisition_start(tic_raw: np.ndarray) -> np.ndarray:
+    """First bin with non-zero raw TIC in each row of tic_raw [N, T] (T if a row is empty)."""
+    nz = np.asarray(tic_raw) > 0
+    return np.where(nz.any(axis=1), nz.argmax(axis=1), nz.shape[1])
 
 
 def chroma_files(chroma_dir: Path) -> list[Path]:

@@ -13,11 +13,12 @@ import numpy as np
 import torch
 import torch.optim as optim
 
-from .config import LAMBDA_ANCHOR, LAMBDA_SMOOTH, LR_CALIB, N_BINS, N_CALIB_STEPS
+from .config import LAMBDA_ANCHOR, LAMBDA_FRAME, LAMBDA_SMOOTH, LR_CALIB, N_BINS, N_CALIB_STEPS
 from .warp_transformer import (
     ChromaWarpTransformer,
     anchor_loss_exact,
     enable_cuda_determinism,
+    frame_loss,
     make_monotone_warp,
     warp_smoothness_loss,
 )
@@ -121,9 +122,7 @@ def calibrate(
 
     for step in range(1, steps + 1):
         aligned, warps = model(x, study_ids)
-        a_loss = loss_fn(warps, study_ids, anchors)
-        s_loss = warp_smoothness_loss(warps)
-        loss = LAMBDA_ANCHOR * a_loss + LAMBDA_SMOOTH * s_loss
+        loss, parts = calibration_objective(warps, study_ids, anchors, loss_fn)
         if float(loss) < log.best_loss:  # snapshot the parameters this loss was measured on
             log.best_loss = float(loss)
             best_state = {k: v.detach().clone() for k, v in model.state_dict().items()}
@@ -136,8 +135,7 @@ def calibrate(
             rec = {
                 'step': step,
                 'loss': float(loss),
-                'anchor': float(a_loss),
-                'smooth': float(s_loss),
+                **parts,
             }
             if on_log is not None:
                 on_log(step, rec, aligned.detach())
@@ -151,22 +149,35 @@ def calibrate(
     return log
 
 
+def calibration_objective(
+    warps: torch.Tensor, study_ids: torch.Tensor, anchors: list, loss_fn: LossFn = anchor_loss_exact
+) -> tuple[torch.Tensor, dict[str, float]]:
+    """The calibration loss: λ_anchor · anchor + λ_smooth · smoothness + λ_frame · frame, and its
+    unweighted parts. Shared by calibrate and free_warp."""
+    a_loss = loss_fn(warps, study_ids, anchors)
+    s_loss = warp_smoothness_loss(warps)
+    f_loss = frame_loss(warps, study_ids)
+    total = LAMBDA_ANCHOR * a_loss + LAMBDA_SMOOTH * s_loss + LAMBDA_FRAME * f_loss
+    return total, {'anchor': float(a_loss), 'smooth': float(s_loss), 'frame': float(f_loss)}
+
+
 def final_losses(
     warps: np.ndarray | torch.Tensor, study_ids: torch.Tensor, anchors: list
-) -> tuple[float, float]:
-    """(anchor loss, smoothness loss) of given warps."""
+) -> tuple[float, float, float]:
+    """(anchor, smoothness, frame) losses of given warps."""
     w = torch.as_tensor(warps, dtype=torch.float32, device=study_ids.device)
-    return float(anchor_loss_exact(w, study_ids, anchors)), float(warp_smoothness_loss(w))
+    _, parts = calibration_objective(w, study_ids, anchors)
+    return parts['anchor'], parts['smooth'], parts['frame']
 
 
 def free_warp(
     n_a: int, n_b: int, anchors: list, lr: float, seed: int, steps: int = N_CALIB_STEPS
-) -> tuple[np.ndarray, tuple[float, float]]:
+) -> tuple[np.ndarray, tuple[float, float, float]]:
     """Network-free control: one monotone warp per batch with the WarpTransformer head's
     parameterisation (increments and a start offset, zero-initialised = identity), fitted with
     the same loss and optimisation loop as calibrate. Per-sample warps would get identical
     gradients within a batch, so per-batch parameters are equivalent. CPU.
-    Returns (warps [n_a + n_b, T], (anchor loss, smoothness loss))."""
+    Returns (warps [n_a + n_b, T], (anchor, smoothness, frame) losses)."""
     set_seed(seed)
     study_ids = torch.tensor([0] * n_a + [1] * n_b, dtype=torch.long)
     raw = torch.zeros(2, N_BINS, requires_grad=True)
@@ -180,9 +191,7 @@ def free_warp(
     best, best_params = float('inf'), (raw.detach().clone(), start.detach().clone())
     for _ in range(steps):
         w = warps_of(raw, start)
-        loss = LAMBDA_ANCHOR * anchor_loss_exact(
-            w, study_ids, anchors
-        ) + LAMBDA_SMOOTH * warp_smoothness_loss(w)
+        loss, _ = calibration_objective(w, study_ids, anchors)
         if float(loss) < best:
             best, best_params = float(loss), (raw.detach().clone(), start.detach().clone())
         opt.zero_grad()

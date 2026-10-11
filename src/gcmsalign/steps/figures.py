@@ -110,29 +110,25 @@ def select_sample(a, b, aligned, select: str) -> tuple[int, np.ndarray]:
 
 
 def fig1_warp_functions(a, b, warps, anchors, ai, out):
-    """Reference = A[ai] (x axis), query = B[0] (y axis); every curve maps A time → B time."""
+    """Every curve maps A time (x) to B time (y) for A[ai] and B[0]. icoshift and COW-TIC align
+    A[ai] onto B[0], as in the evaluation (step 05): their warp gives, for each B bin, the A
+    position read there, plotted as (A position, B time)."""
     n_a = len(a)
-    ico = icoshift_align(b.tic[0], a.tic[ai])
-    cow = cow_tic_align(b.tic[0], a.tic[ai])
+    ico = icoshift_align(a.tic[ai], b.tic[0])
+    cow = cow_tic_align(a.tic[ai], b.tic[0])
     fig, ax = plt.subplots(figsize=(7, 5.5))
     ax.plot(
         TIME_AXIS, TIME_AXIS, '--', color='#bbbbbb', lw=1.2, label='Identity (no drift)', zorder=1
     )
-    ax.step(
-        TIME_AXIS,
-        ico.src * BIN_MIN,
-        where='mid',
-        color=COLORS['icoshift'],
-        lw=1.6,
-        label='icoshift',
-        zorder=3,
+    ax.plot(
+        ico.src * BIN_MIN, TIME_AXIS, color=COLORS['icoshift'], lw=1.6, label='icoshift', zorder=3
     )
     ax.plot(
-        TIME_AXIS, cow.src * BIN_MIN, color=COLORS['COW-TIC'], lw=1.6, label='COW-TIC', zorder=3
+        cow.src * BIN_MIN, TIME_AXIS, color=COLORS['COW-TIC'], lw=1.6, label='COW-TIC', zorder=3
     )
     ax.scatter(
-        np.array(cow.details['r_nodes']) * BIN_MIN,
-        np.array(cow.details['q_nodes']) * BIN_MIN,
+        np.array(cow.details['q_nodes']) * BIN_MIN,  # A positions of the nodes
+        np.array(cow.details['r_nodes']) * BIN_MIN,  # B (reference) node times
         color=COLORS['COW-TIC'],
         s=50,
         zorder=5,
@@ -169,8 +165,8 @@ def fig1_warp_functions(a, b, warps, anchors, ai, out):
             label='Pooled anchors (PCHIP and WarpTransformer)',
         )
     na, nb = batch_name(a.name), batch_name(b.name)
-    ax.set_xlabel(f'Retention time, {na} sample {ai} (reference) (min)', fontsize=10)
-    ax.set_ylabel(f'Retention time, {nb} sample 0 (query) (min)', fontsize=10)
+    ax.set_xlabel(f'Retention time, {na} sample {ai} (min)', fontsize=10)
+    ax.set_ylabel(f'Retention time, {nb} sample 0 (min)', fontsize=10)
     ax.set_title(f'Warp functions — {na} vs {nb}', fontsize=11)
     ax.set_xlim(0, LAST_MIN)
     ax.set_ylim(0, LAST_MIN)
