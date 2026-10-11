@@ -24,9 +24,9 @@ Output: data/pretraining/spectra.h5
 Dependencies: requests, h5py  (pip install requests h5py)
 
 Usage:
-  python scripts/04_download_pretrain_data.py
-  python scripts/04_download_pretrain_data.py --force    # re-download even if cached
-  python scripts/04_download_pretrain_data.py --mona-only
+  python scripts/01_download_pretrain_data.py
+  python scripts/01_download_pretrain_data.py --force    # re-download even if cached
+  python scripts/01_download_pretrain_data.py --mona-only
 """
 
 from __future__ import annotations

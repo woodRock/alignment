@@ -315,3 +315,29 @@ def load_encoder(path: Path, device: torch.device = None):
 def load_chromas(chroma_dir: Path) -> list[np.ndarray]:
     return [np.load(p)['chroma'].astype(np.float32)
             for p in sorted(Path(chroma_dir).glob('*.npz'))]
+
+
+def load_tic_raw(chroma_dir: Path) -> np.ndarray:
+    """Raw TIC [N, N_BINS] (summed raw intensity of each binned apex scan), same order as load_chromas."""
+    paths = sorted(Path(chroma_dir).glob('*.npz'))
+    out = []
+    for p in paths:
+        with np.load(p) as z:
+            if 'tic_raw' not in z:
+                raise SystemExit(f'{p} has no tic_raw; rerun scripts/preprocess_fish_oil_batches.py')
+            out.append(z['tic_raw'].astype(np.float32))
+    return np.stack(out)
+
+
+def warp_tic(tic: np.ndarray, warp_fn) -> np.ndarray:
+    """Apply a time warp to a 1-D TIC exactly as warp_chroma_2d warps a chromatogram."""
+    return warp_chroma_2d(tic[:, None], warp_fn)[:, 0]
+
+
+def pearson_rows(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+    """Pearson r for every (a_i, b_j) row pair of a [n_a, T] and b [n_b, T], i-major flat."""
+    a = np.asarray(a, dtype=np.float64)
+    b = np.asarray(b, dtype=np.float64)
+    az = (a - a.mean(1, keepdims=True)) / a.std(1, keepdims=True)
+    bz = (b - b.mean(1, keepdims=True)) / b.std(1, keepdims=True)
+    return (az @ bz.T / a.shape[1]).ravel()

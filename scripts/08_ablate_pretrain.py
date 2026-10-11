@@ -1,7 +1,7 @@
 """
-18_ablate_pretrain.py — Does pretraining matter, or is calibration doing all the work?
+08_ablate_pretrain.py — Does pretraining matter, or is calibration doing all the work?
 
-Runs the same anchor-supervised calibration loop from script 16 twice:
+Runs the same anchor-supervised calibration loop from script 06 twice:
   (a) starting from the pretrained warp_transformer.pt checkpoint
   (b) starting from a freshly initialised (random weights) ChromaWarpTransformer
 
@@ -22,8 +22,9 @@ from pathlib import Path
 from scipy.stats import pearsonr
 
 sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
-from warp_transformer import ChromaWarpTransformer, warp_smoothness_loss, enable_cuda_determinism
-from alignment import load_chromas, align_pair
+from warp_transformer import (ChromaWarpTransformer, apply_warp, warp_smoothness_loss,
+                              enable_cuda_determinism)
+from alignment import load_chromas, load_tic_raw, align_pair, pearson_rows
 
 DATA_DIR    = Path(__file__).parent.parent / 'data'
 CKPT_DIR    = Path(__file__).parent.parent / 'checkpoints'
@@ -83,7 +84,7 @@ def set_seed(seed: int) -> None:
 
 
 def tic_r_per_pair(chromas_a, chromas_b) -> np.ndarray:
-    """Pearson TIC r for every (A_i, B_j), i-major (same order as scripts 16 and 17)."""
+    """Pearson TIC r for every (A_i, B_j), i-major (same order as scripts 05 and 06)."""
     return np.array([float(pearsonr(a.sum(1), b.sum(1))[0])
                      for a in chromas_a for b in chromas_b])
 
@@ -92,8 +93,9 @@ def tic_r(chromas_a, chromas_b):
     return float(tic_r_per_pair(chromas_a, chromas_b).mean())
 
 
-def run_calibration(model, chromas_t, study_ids, anchors, device, label, seed=None):
-    """Returns (mean TIC r, warp mag all samples, warp mag batch B, per-pair TIC r)."""
+def run_calibration(model, chromas_t, study_ids, anchors, device, label, seed=None, raw=None):
+    """Returns (mean TIC r, warp mag all samples, warp mag batch B, per-pair TIC r,
+    per-pair raw TIC r). raw: [N, T] raw TICs of both batches, warped like the chromatograms."""
     model.eval()
     with torch.no_grad():
         _, w0 = model(chromas_t, study_ids)
@@ -101,8 +103,8 @@ def run_calibration(model, chromas_t, study_ids, anchors, device, label, seed=No
     print(f"  [{label}] initial warp mag = {warp_init:.3f} min")
 
     if anchors:
-        # Seeded immediately before the loop, exactly as in script 16, so the pretrained
-        # arm reproduces script 16's calibration for the same seed and device.
+        # Seeded immediately before the loop, exactly as in script 06, so the pretrained
+        # arm reproduces script 06's calibration for the same seed and device.
         if seed is not None:
             set_seed(seed)
         model.train()
@@ -139,8 +141,11 @@ def run_calibration(model, chromas_t, study_ids, anchors, device, label, seed=No
     warp_b   = float(np.abs(warp_np[n_a:] - id_np).mean()) * BIN_MIN
     r_pairs  = tic_r_per_pair(al_a, al_b)
     r        = float(r_pairs.mean())
-    print(f"  [{label}] TIC r = {r:.4f}  warp_mag = {warp_mag:.3f} min  (batch B {warp_b:.3f} min)")
-    return r, warp_mag, warp_b, r_pairs
+    raw_w    = apply_warp(torch.from_numpy(raw[:, :, None]), warps_t.cpu())[:, :, 0].numpy()
+    r_raw    = pearson_rows(raw_w[:n_a], raw_w[n_a:])
+    print(f"  [{label}] TIC r = {r:.4f}  TIC r (raw) = {r_raw.mean():.4f}  "
+          f"warp_mag = {warp_mag:.3f} min  (batch B {warp_b:.3f} min)")
+    return r, warp_mag, warp_b, r_pairs, r_raw
 
 
 def pick_device(name: str = 'auto') -> torch.device:
@@ -167,6 +172,8 @@ def main(study_a: str = STUDY_A_DEFAULT, study_b: str = STUDY_B_DEFAULT,
     all_chromas = chromas_a + chromas_b
     study_ids   = torch.tensor([0]*n_a + [1]*n_b, dtype=torch.long, device=device)
     chromas_t   = torch.from_numpy(np.stack(all_chromas)).to(device)
+    raw_all     = np.concatenate([load_tic_raw(DATA_DIR / study_a / 'chroma'),
+                                  load_tic_raw(DATA_DIR / study_b / 'chroma')])
 
     anchors = extract_anchors(chromas_a, chromas_b)
     drift_bins = [q - r for r, q in anchors]
@@ -179,15 +186,16 @@ def main(study_a: str = STUDY_A_DEFAULT, study_b: str = STUDY_B_DEFAULT,
 
     # Unaligned baseline
     r_unaligned = tic_r(chromas_a, chromas_b)
-    print(f"Unaligned TIC r = {r_unaligned:.4f}\n")
+    r_unaligned_raw = float(pearson_rows(raw_all[:n_a], raw_all[n_a:]).mean())
+    print(f"Unaligned TIC r = {r_unaligned:.4f}  TIC r (raw) = {r_unaligned_raw:.4f}\n")
 
     # (a) Pretrained model
     model_pre = ChromaWarpTransformer()
     model_pre.load_state_dict(torch.load(ckpt, map_location=device))
     model_pre.to(device)
     print(f"Running calibration from pretrained checkpoint ({ckpt}) …")
-    r_pre, mag_pre, mag_pre_b, pairs_pre = run_calibration(
-        model_pre, chromas_t, study_ids, anchors, device, 'pretrained', seed)
+    r_pre, mag_pre, mag_pre_b, pairs_pre, raw_pre = run_calibration(
+        model_pre, chromas_t, study_ids, anchors, device, 'pretrained', seed, raw_all)
 
     # (b) Random-init model (same architecture, no checkpoint). The init itself is
     # seeded so that the random-init arm is repeatable too.
@@ -196,8 +204,8 @@ def main(study_a: str = STUDY_A_DEFAULT, study_b: str = STUDY_B_DEFAULT,
     model_rand = ChromaWarpTransformer()
     model_rand.to(device)
     print(f"\nRunning calibration from random initialisation …")
-    r_rand, mag_rand, mag_rand_b, pairs_rand = run_calibration(
-        model_rand, chromas_t, study_ids, anchors, device, 'random-init', seed)
+    r_rand, mag_rand, mag_rand_b, pairs_rand, raw_rand = run_calibration(
+        model_rand, chromas_t, study_ids, anchors, device, 'random-init', seed, raw_all)
 
     # Summary
     lines = [
@@ -209,6 +217,14 @@ def main(study_a: str = STUDY_A_DEFAULT, study_b: str = STUDY_B_DEFAULT,
         f"{r_pre - r_unaligned:>+12.4f}  {mag_pre:>8.3f}m  {mag_pre_b:>8.3f}m",
         f"{'WarpTransformer (random init)':<30}  {r_rand:>7.4f}  "
         f"{r_rand - r_unaligned:>+12.4f}  {mag_rand:>8.3f}m  {mag_rand_b:>8.3f}m",
+        f"{'=' * 74}",
+        f"{'TIC r (raw)':<30}  {'TIC r':>7}  {'Δ unaligned':>12}",
+        f"{'-' * 74}",
+        f"{'Unaligned':<30}  {r_unaligned_raw:>7.4f}  {'—':>12}",
+        f"{'WarpTransformer (pretrained)':<30}  {raw_pre.mean():>7.4f}  "
+        f"{raw_pre.mean() - r_unaligned_raw:>+12.4f}",
+        f"{'WarpTransformer (random init)':<30}  {raw_rand.mean():>7.4f}  "
+        f"{raw_rand.mean() - r_unaligned_raw:>+12.4f}",
         f"{'=' * 74}",
         f"Warp mag: mean |w(t) − t| over all samples of both batches. Warp B: batch-B samples only.",
         f"Seed {seed}   device {device}   checkpoint {ckpt}",
@@ -226,6 +242,7 @@ def main(study_a: str = STUDY_A_DEFAULT, study_b: str = STUDY_B_DEFAULT,
     (RESULTS_DIR / 'per_pair').mkdir(exist_ok=True)
     np.savez(RESULTS_DIR / 'per_pair' / f'tic_r_ablate_{a_lbl}_{b_lbl}{suffix}.npz',
              pretrained=pairs_pre, random_init=pairs_rand,
+             pretrained_raw=raw_pre, random_init_raw=raw_rand,
              warp_mag=np.array([mag_pre, mag_rand]), warp_mag_b=np.array([mag_pre_b, mag_rand_b]),
              anchors=np.array(anchors), seed=-1 if seed is None else seed)
     if abs(gap) < 0.01:

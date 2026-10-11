@@ -1,18 +1,18 @@
 """
-20_generate_figures.py — generate all five paper figures.
+14_generate_figures.py — generate all five paper figures.
 
 Figures
 -------
   fig1_warp_functions.pdf        — warp function shapes for all four methods
-  fig2_tic_overlays.pdf          — 5-panel TIC alignment comparison with anchor ticks
+  fig2_tic_overlays.pdf          — 5-panel raw-TIC alignment comparison with anchor ticks
   fig3_calibration_curve.pdf     — loss and TIC r vs calibration step (pretrained vs random)
   fig4_per_pair_distributions.pdf— per-pair TIC r violin plots across all batch pairs
   fig5_silhouette_scatter.pdf    — study silhouette vs TIC r scatter
 
 Usage:
-    python scripts/20_generate_figures.py               # all figures
-    python scripts/20_generate_figures.py --figs 1 3 5  # specific figures
-    python scripts/20_generate_figures.py \\
+    python scripts/14_generate_figures.py               # all figures
+    python scripts/14_generate_figures.py --figs 1 3 5  # specific figures
+    python scripts/14_generate_figures.py \\
         --study-a fish_oil/batch_sep2015 \\
         --study-b fish_oil/batch_jul2016
 """
@@ -36,11 +36,16 @@ from scipy.interpolate import PchipInterpolator
 from scipy.stats import pearsonr
 
 sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
-from warp_transformer import ChromaWarpTransformer, warp_smoothness_loss, enable_cuda_determinism
+from warp_transformer import (ChromaWarpTransformer, apply_warp, warp_smoothness_loss,
+                              enable_cuda_determinism)
 from alignment import (
-    load_chromas, align_pair, detect_peaks, fingerprints, pooled_anchor_pchip, warp_chroma_2d,
-    N_BINS, RUN_MIN, BIN_MIN, TIME_AXIS, PRECISION_CUTOFF,
+    load_chromas, load_tic_raw, align_pair, detect_peaks, fingerprints, pooled_anchor_pchip,
+    warp_chroma_2d, warp_tic, N_BINS, RUN_MIN, BIN_MIN, TIME_AXIS, PRECISION_CUTOFF,
 )
+import importlib.util as _ilu
+_spec  = _ilu.spec_from_file_location('base05', Path(__file__).parent / '05_literature_baselines.py')
+base05 = _ilu.module_from_spec(_spec)
+_spec.loader.exec_module(base05)
 
 DATA_DIR    = Path(__file__).parent.parent / 'data'
 CKPT_DIR    = Path(__file__).parent.parent / 'checkpoints'
@@ -69,6 +74,12 @@ BATCH_PAIRS = [
     ('fish_oil/batch_jan2016', 'fish_oil/batch_jul2016'),
 ]
 PAIR_LABELS = ['Sep15×Jul16', 'Sep15×Apr16', 'Jan16×Apr16', 'Jan16×Jul16']
+
+
+def batch_name(label: str) -> str:
+    """'batch_jul2016' → 'Jul 2016'."""
+    s = label.replace('batch_', '')
+    return f'{s[:3].capitalize()} {s[3:]}' if len(s) == 7 and s[3:].isdigit() else label
 
 
 def _set_seed(seed: int) -> None:
@@ -199,7 +210,7 @@ def calibrate(chromas_a, chromas_b, device, pretrained=True, log_every=5, seed=N
     """
     Returns (aligned_a, aligned_b, warp_np, anchors, log) where log is a list
     of dicts {step, loss, tic_r} recorded every log_every steps. With a seed, the
-    random init (if any) and the calibration loop are seeded as in scripts 16 and 18.
+    random init (if any) and the calibration loop are seeded as in scripts 06 and 08.
     """
     n_a, n_b = len(chromas_a), len(chromas_b)
     study_ids = torch.tensor([0]*n_a + [1]*n_b, dtype=torch.long, device=device)
@@ -284,7 +295,8 @@ def cow_fn(q, r):
 
 # ── Figure 1: Warp function comparison ────────────────────────────────────────
 
-def fig1_warp_functions(chromas_a, chromas_b, warp_np, n_a, anchors, out, ai=0):
+def fig1_warp_functions(chromas_a, chromas_b, warp_np, n_a, anchors, out, ai=0,
+                        name_a='Sep 2015', name_b='Jul 2016'):
     """Single-panel plot of all four warp functions on one representative pair (A[ai], B[0]).
     The WarpTransformer curve is B[0]'s warp into the shared frame, independent of ai."""
     ref_chroma, qry_chroma = chromas_a[ai], chromas_b[0]
@@ -346,9 +358,9 @@ def fig1_warp_functions(chromas_a, chromas_b, warp_np, n_a, anchors, out, ai=0):
         ax.scatter(anc_r, anc_q, color='#222222', s=50, zorder=6, linewidths=0,
                    label='Pooled anchors (PCHIP and WarpTransformer)')
 
-    ax.set_xlabel('Reference retention time (min)', fontsize=10)
-    ax.set_ylabel('Source retention time in query (min)', fontsize=10)
-    ax.set_title('Warp functions — Sep 2015 vs Jul 2016', fontsize=11)
+    ax.set_xlabel(f'Retention time, {name_a} sample {ai} (reference) (min)', fontsize=10)
+    ax.set_ylabel(f'Source retention time, {name_b} sample 0 (query) (min)', fontsize=10)
+    ax.set_title(f'Warp functions — {name_a} vs {name_b}', fontsize=11)
     ax.set_xlim(0, RUN_MIN); ax.set_ylim(0, RUN_MIN)
     ax.legend(fontsize=8.5, loc='upper left', framealpha=0.85)
     ax.tick_params(labelsize=8)
@@ -362,86 +374,74 @@ def fig1_warp_functions(chromas_a, chromas_b, warp_np, n_a, anchors, out, ai=0):
 
 # ── Figure 2: TIC alignment overlays with anchor ticks ───────────────────────
 
-def fig2_tic_overlays(chromas_a, chromas_b, warp_np, warp_np_b, n_a, anchors,
-                      qi, out):
-    """5-panel TIC overlay. qi = index into chromas_a for the query sample."""
-    query_raw = chromas_a[qi]
-    ref_raw   = chromas_b[0]
-    ref_tic   = ref_raw.sum(axis=1)
-    qry_tic   = query_raw.sum(axis=1)
+def fig2_tic_overlays(raw_a, raw_b, chromas_a, chromas_b, warp_np, n_a, anchors, qi, out,
+                      name_a='Sep 2015', name_b='Jul 2016'):
+    """5-panel overlay of the raw TIC (max-normalised for display) of A[qi] against B[0].
+
+    Every warp is the one each method computes as usual (icoshift and COW-TIC optimised on the
+    normalised TIC, PCHIP through the pooled anchors, the calibrated WarpTransformer's per-sample
+    warps); it is then applied to the raw TIC, and r is Pearson r on the raw TIC.
+    warp_np: [N, T] WarpTransformer warps (source bins), A samples first."""
+    qry_raw, ref_raw = raw_a[qi], raw_b[0]
+    qry_tic, ref_tic = chromas_a[qi].sum(axis=1), chromas_b[0].sum(axis=1)
 
     def norm(t): mx = t.max(); return t / mx if mx > 0 else t
 
-    # Run classical methods
-    ico_warped, _, _, _ = icoshift_align_detail(qry_tic, ref_tic)
-    cow_warped, _, _, _ = cow_tic_align_detail(qry_tic, ref_tic)
+    ico_warped = base05.icoshift_align(qry_tic, ref_tic, raw_query=qry_raw)[3]
+    cow_warped = base05.cow_tic_align(qry_tic, ref_tic, raw_query=qry_raw)[3]
     pchip_fn_ba, _ = pooled_anchor_pchip(anchors)            # B time → A time
-    pchip_warped    = warp_chroma_2d(query_raw, pchip_fn_ba).sum(axis=1)
+    pchip_warped   = warp_tic(qry_raw, pchip_fn_ba)
+    wt_w = apply_warp(torch.from_numpy(np.stack([qry_raw, ref_raw])[:, :, None]),
+                      torch.from_numpy(warp_np[[qi, n_a]]))[:, :, 0].numpy()
+    wt_qry, wt_ref = wt_w[0], wt_w[1]
 
-    wt_qry = warp_np[qi].sum() if False else None   # unused
-    wt_qry_tic = warp_np[qi:qi+1][0].sum(1)   # placeholder; use aligned chromas
-    # warp_np here is actually aligned_a from calibration, not warp tensor
-    # — the caller must pass aligned chromas, handled below in main
-    wt_ref_tic  = warp_np_b.sum(axis=1)
-    wt_qry_tic2 = warp_np[qi:qi+1][0].sum(axis=1) if warp_np.ndim == 3 else warp_np[qi]
-
-    r_un    = pearsonr(qry_tic.astype(np.float64), ref_tic.astype(np.float64))[0]
-    r_ico   = pearsonr(ico_warped.astype(np.float64), ref_tic.astype(np.float64))[0]
-    r_cow   = pearsonr(cow_warped.astype(np.float64), ref_tic.astype(np.float64))[0]
-    r_pchip = pearsonr(pchip_warped.astype(np.float64), ref_tic.astype(np.float64))[0]
-    r_wt    = pearsonr(wt_qry_tic2.astype(np.float64), wt_ref_tic.astype(np.float64))[0]
+    def r(x, y): return float(pearsonr(x.astype(np.float64), y.astype(np.float64))[0])
 
     # Anchor ticks: the same pooled anchors in both panels, at their position on each panel's
     # time axis (PCHIP panel = batch-B frame → q; WarpTransformer panel = consensus ≈ A frame → r)
     pchip_ticks_r = [q * BIN_MIN for _, q in anchors]
-    calib_ticks_r = [r * BIN_MIN for r, _ in anchors]
+    calib_ticks_r = [r_ * BIN_MIN for r_, _ in anchors]
 
     panels = [
-        ('Unaligned',         norm(qry_tic),     norm(ref_tic),    float(r_un),    [],               [],     None),
-        ('icoshift',          norm(ico_warped),   norm(ref_tic),    float(r_ico),   [],               [],     None),
-        ('COW-TIC',           norm(cow_warped),   norm(ref_tic),    float(r_cow),   [],               [],     None),
-        ('PCHIP (pooled anchors)', norm(pchip_warped), norm(ref_tic),  float(r_pchip), pchip_ticks_r,    None,   None),
-        ('WarpTransformer',   norm(wt_qry_tic2),  norm(wt_ref_tic), float(r_wt),    calib_ticks_r,    None,   None),
+        ('Unaligned',              qry_raw,      ref_raw, []),
+        ('icoshift',               ico_warped,   ref_raw, []),
+        ('COW-TIC',                cow_warped,   ref_raw, []),
+        ('PCHIP (pooled anchors)', pchip_warped, ref_raw, pchip_ticks_r),
+        ('WarpTransformer',        wt_qry,       wt_ref,  calib_ticks_r),
     ]
+    panels = [(m, norm(q), norm(rf), r(q, rf), t) for m, q, rf, t in panels]
 
     fig, axes = plt.subplots(1, 5, figsize=(18, 4.0), sharey=True, sharex=True)
-    fig.subplots_adjust(wspace=0.06, left=0.05, right=0.99, top=0.80, bottom=0.16)
+    fig.subplots_adjust(wspace=0.06, left=0.05, right=0.99, top=0.86, bottom=0.16)
 
-    for ax, (method, qry, ref, r, ticks_r, ticks_c, cutoff) in zip(axes, panels):
+    for ax, (method, qry, ref, rv, ticks_r) in zip(axes, panels):
         color = COLORS.get(method, '#333333')
         ax.fill_between(TIME_AXIS, ref, alpha=0.18, color='#444444', linewidth=0)
         ax.plot(TIME_AXIS, ref, color='#555555', lw=0.9)
         ax.plot(TIME_AXIS, qry, color=color, lw=1.1, alpha=0.9)
+        for t in ticks_r:
+            ax.axvline(t, ymin=0, ymax=0.08, color=color, lw=1.4, alpha=0.85)
 
-        # Anchor ticks
-        for j, t in enumerate(ticks_r):
-            if ticks_c is not None:
-                c = '#2ca02c' if ticks_c[j] >= cutoff else '#d62728'
-            else:
-                c = color
-            ax.axvline(t, ymin=0, ymax=0.08, color=c, lw=1.4, alpha=0.85)
-
-        ax.set_title(f'{method}\n$r={r:.3f}$', fontsize=8.5, pad=4)
+        ax.set_title(f'{method}\n$r={rv:.3f}$', fontsize=8.5, pad=4)
         ax.set_xlim(0, RUN_MIN); ax.set_ylim(-0.04, 1.2)
         ax.set_xlabel('RT (min)', fontsize=8)
         ax.tick_params(labelsize=7)
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
 
-    axes[0].set_ylabel('Normalised TIC', fontsize=8)
+    axes[0].set_ylabel('TIC (scaled)', fontsize=8)
 
     from matplotlib.lines import Line2D
     fig.legend(handles=[
-        Line2D([0],[0], color='#555555', lw=1.4, label='Reference (batch_jul2016[0])'),
-        Line2D([0],[0], color='#333333', lw=1.4, label=f'Query (batch_sep2015[{qi}], aligned)'),
+        Line2D([0],[0], color='#555555', lw=1.4, label=f'{name_b} sample 0'),
+        Line2D([0],[0], color='#333333', lw=1.4, label=f'{name_a} sample {qi} (aligned)'),
         Line2D([0],[0], color='#333333', lw=1.4, label='Ticks: pooled calibration anchors'),
     ], fontsize=7.5, loc='lower center', ncol=3, bbox_to_anchor=(0.5, 0.0), framealpha=0.8)
 
-    fig.suptitle('Cross-batch TIC alignment — Sep 2015 × Jul 2016', fontsize=10, y=0.98)
     fig.savefig(out, dpi=300, bbox_inches='tight')
     plt.close(fig)
-    print(f"  fig2 per-panel r (batch_sep2015[{qi}] vs batch_jul2016[0]): " + ', '.join(
-        f"{m} {r:.3f}" for m, _, _, r, *_ in panels))
+    print(f"  fig2 per-panel r on the raw TIC ({name_a} sample {qi} vs {name_b} sample 0): " +
+          ', '.join(f"{m} {rv:.3f}" for m, _, _, rv, _ in panels))
     print(f"  fig2 → {out}")
 
 
@@ -516,12 +516,12 @@ def fig4_violin(all_data, out):
         parts['cbars'].set_color('#555555')
 
         ax.set_xticks(positions)
-        ax.set_xticklabels([m.replace(' ', '\n') for m in methods], fontsize=7)
-        ax.set_title(pair_label, fontsize=9)
-        ax.tick_params(axis='y', labelsize=8)
+        ax.set_xticklabels([m.replace(' ', '\n') for m in methods], fontsize=9)
+        ax.set_title(pair_label, fontsize=10)
+        ax.tick_params(axis='y', labelsize=9)
         ax.spines['top'].set_visible(False); ax.spines['right'].set_visible(False)
 
-    axes[0].set_ylabel('Pairwise TIC r', fontsize=9)
+    axes[0].set_ylabel('Pairwise TIC r', fontsize=10)
     fig.suptitle('Per-pair TIC r distributions across batch pairs', fontsize=10, y=0.97)
     fig.savefig(out, dpi=300, bbox_inches='tight')
     plt.close(fig)
@@ -531,21 +531,21 @@ def fig4_violin(all_data, out):
 # ── Figure 5: Silhouette vs TIC r scatter ────────────────────────────────────
 
 def _per_pair_files(sa, sb, fig_seed):
-    """Saved per-pair arrays for one batch pair: baselines (17), calibration (16), PCHIP (24)."""
+    """Saved per-pair arrays for one batch pair: baselines (05), calibration (06), PCHIP (07)."""
     la, lb = Path(sa).name, Path(sb).name
     d = RESULTS_DIR / 'per_pair'
     base  = np.load(d / f'tic_r_baselines_{la}_{lb}.npz')
     calib = np.load(d / f'tic_r_calib_{la}_{lb}_seed{fig_seed}.npz')
     pchip = np.load(d / f'tic_r_pchip_pooled_{la}_{lb}.npz')
     if not np.allclose(base['unaligned'], calib['unaligned'], atol=1e-6):
-        raise ValueError(f'Unaligned arrays differ between scripts 16 and 17 for {la} × {lb}')
+        raise ValueError(f'Unaligned arrays differ between scripts 05 and 06 for {la} × {lb}')
     if pchip['pchip_pooled'].shape != calib['warptransformer'].shape:
-        raise ValueError(f'PCHIP arrays (script 24) do not match the calibration run for {la} × {lb}')
+        raise ValueError(f'PCHIP arrays (script 07) do not match the calibration run for {la} × {lb}')
     return base, calib, pchip
 
 
 def load_per_pair_r(fig_seed):
-    """method → pair_label → per-pair TIC r array, from saved results (scripts 16, 17)."""
+    """method → pair_label → per-pair TIC r array, from saved results (scripts 05, 06)."""
     all_data = {m: {} for m in
                 ['Unaligned', 'icoshift', 'COW-TIC', 'PCHIP (pooled anchors)', 'WarpTransformer']}
     for (sa, sb), pl in zip(BATCH_PAIRS, PAIR_LABELS):
@@ -629,7 +629,7 @@ def main():
                     help="Batch-A sample shown in Figs 1-2: largest ('best') or median "
                          "WarpTransformer TIC r improvement over unaligned")
     ap.add_argument('--seed', type=int, default=None,
-                    help='seed calibration as in scripts 16/18 (with --device cpu, repeatable)')
+                    help='seed calibration as in scripts 06/08 (with --device cpu, repeatable)')
     ap.add_argument('--device', default='auto', help='auto | cpu | mps | cuda')
     ap.add_argument('--ckpt', type=Path, default=CKPT_DIR / 'warp_transformer.pt')
     ap.add_argument('--fig-seed', type=int, default=0,
@@ -709,23 +709,19 @@ def main():
             chromas_a, chromas_b, warp_full, n_a, anchors,
             out=RESULTS_DIR / f'fig1_warp_functions_{label_a}_{label_b}{tag}.pdf',
             ai=qi if args.select == 'median' else 0,
+            name_a=batch_name(label_a), name_b=batch_name(label_b),
         )
 
     # ── Figure 2
     if 2 in want:
         print("\nGenerating Figure 2 (TIC overlays) …")
 
-        # Pass aligned chromas as the warp_np arrays for the WT panel
-        class _AlignedChromas:
-            """Thin adapter so fig2 can call .sum(axis=1) on aligned chromas."""
-            pass
-
         fig2_tic_overlays(
-            chromas_a, chromas_b,
-            aligned_a,  # shape: list of [200,1000]
-            aligned_b[0],
-            n_a, anchors, qi,
-            out=RESULTS_DIR / f'fig2_tic_overlays_{label_a}_{label_b}{tag}.pdf'
+            load_tic_raw(DATA_DIR / args.study_a / 'chroma'),
+            load_tic_raw(DATA_DIR / args.study_b / 'chroma'),
+            chromas_a, chromas_b, warp_full, n_a, anchors, qi,
+            out=RESULTS_DIR / f'fig2_tic_overlays_{label_a}_{label_b}{tag}.pdf',
+            name_a=batch_name(label_a), name_b=batch_name(label_b),
         )
 
     # ── Figure 3

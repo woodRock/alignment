@@ -1,8 +1,8 @@
 """
-17_literature_baselines.py — COW-TIC and icoshift as literature baselines.
+05_literature_baselines.py — COW-TIC and icoshift as literature baselines.
 
 Implements two classical TIC-only alignment algorithms and evaluates them
-pairwise, matching the evaluation protocol of 16_align_testtime_calib.py.
+pairwise, matching the evaluation protocol of 06_align_testtime_calib.py.
 
 Both methods operate purely on the Total Ion Chromatogram (TIC = sum over m/z)
 and use no spectral identity information, in contrast to the spectral-anchor
@@ -21,7 +21,7 @@ icoshift  Savorani et al. 2010, J. Magn. Reson. 202, 190–202.
              segments and shifts each independently by the lag that maximises
              FFT cross-correlation with the corresponding reference segment.
 
-Metrics match 16_align_testtime_calib.py:
+Metrics match 06_align_testtime_calib.py:
   TIC r     — mean pairwise Pearson r across all A×B pairs
   Δ unaligned — improvement over unaligned baseline
   Study sil — study-label silhouette in PCA-50 space (lower = less batch effect)
@@ -48,7 +48,7 @@ RUN_MIN   = 45.0
 BIN_MIN   = RUN_MIN / N_BINS           # 0.225 min per bin
 TIME_AXIS = np.linspace(0, RUN_MIN, N_BINS)
 
-# Max RT drift for cross-study (same as 07_cross_study.py)
+# Max RT drift for cross-study (same as archive/07_cross_study.py)
 MAX_DRIFT_BINS = int(round(20.0 / BIN_MIN))   # ~89 bins
 
 # COW-TIC parameters
@@ -77,6 +77,13 @@ def load_chromas(chroma_dir: Path) -> list[np.ndarray]:
             for p in sorted(chroma_dir.glob('*.npz'))]
 
 
+def load_tic_raw(chroma_dir: Path) -> np.ndarray:
+    paths = sorted(chroma_dir.glob('*.npz'))
+    if not all('tic_raw' in np.load(p).files for p in paths):
+        raise SystemExit(f'{chroma_dir}: no tic_raw; rerun scripts/03_preprocess_fish_oil_batches.py')
+    return np.stack([np.load(p)['tic_raw'].astype(np.float32) for p in paths])
+
+
 # ── COW-TIC ──────────────────────────────────────────────────────────────────
 
 def _pearson_fast(a: np.ndarray, b: np.ndarray) -> float:
@@ -92,7 +99,8 @@ def _pearson_fast(a: np.ndarray, b: np.ndarray) -> float:
 
 def cow_tic_align(query_tic: np.ndarray, ref_tic: np.ndarray,
                   n_segs: int = COW_N_SEGS,
-                  slack: int = COW_SLACK) -> tuple[np.ndarray, float]:
+                  slack: int = COW_SLACK,
+                  raw_query: np.ndarray | None = None) -> tuple:
     """
     Correlation Optimized Warping on TIC profiles.
 
@@ -105,8 +113,18 @@ def cow_tic_align(query_tic: np.ndarray, ref_tic: np.ndarray,
     -------
     warped_tic : (N_BINS,) float32
     warp_mag   : mean |warp(t) − t| in minutes
+    warp_fn    : reference time (min) → query time (min)
+    warped_raw : only if raw_query is given — raw_query warped by the same warp
     """
     N = len(ref_tic)
+    identity = lambda t: np.asarray(t, dtype=float)
+
+    def out(warped, mag, fn, src=None):
+        if raw_query is None:
+            return warped, mag, fn
+        raw = raw_query.astype(np.float32) if src is None else \
+            np.interp(src, np.arange(N), raw_query).astype(np.float32)
+        return warped, mag, fn, raw
     T = N // n_segs
 
     # Reference node positions (fixed, evenly spaced)
@@ -156,18 +174,19 @@ def cow_tic_align(query_tic: np.ndarray, ref_tic: np.ndarray,
     # Backtrack from fixed last node
     q_last = r_nodes[-1]
     if q_last not in back[n_segs]:
-        return query_tic.astype(np.float32), 0.0
+        return out(query_tic.astype(np.float32), 0.0, identity)
 
     q_nodes_rev = [q_last]
     for seg in range(n_segs, 0, -1):
         prev = back[seg].get(q_nodes_rev[-1])
         if prev is None:
-            return query_tic.astype(np.float32), 0.0
+            return out(query_tic.astype(np.float32), 0.0, identity)
         q_nodes_rev.append(prev)
     q_nodes = list(reversed(q_nodes_rev))
 
     # Build warped TIC and compute warp magnitude
     warped   = np.empty(N, dtype=np.float32)
+    src      = np.empty(N)          # query position (bins) sampled at each reference bin
     abs_diff = []
     for seg in range(n_segs):
         r_s, r_e = r_nodes[seg], r_nodes[seg + 1]
@@ -184,6 +203,7 @@ def cow_tic_align(query_tic: np.ndarray, ref_tic: np.ndarray,
         # interpolated between q_s and q_e — compare with the ref position t
         r_positions = np.arange(r_s, r_e + 1, dtype=float)
         q_positions = np.linspace(q_s, q_e, r_len)
+        src[r_s:r_e + 1] = q_positions
         abs_diff.extend(np.abs(q_positions - r_positions).tolist())
 
     warp_mag = float(np.mean(abs_diff)) * BIN_MIN   # convert bins → minutes
@@ -193,14 +213,15 @@ def cow_tic_align(query_tic: np.ndarray, ref_tic: np.ndarray,
     q_times = np.array(q_nodes, dtype=float) * BIN_MIN
     warp_fn = lambda t, _r=r_times, _q=q_times: np.interp(t, _r, _q)
 
-    return warped, warp_mag, warp_fn
+    return out(warped, warp_mag, warp_fn, src)
 
 
 # ── icoshift ─────────────────────────────────────────────────────────────────
 
 def icoshift_align(query_tic: np.ndarray, ref_tic: np.ndarray,
                    n_intervals: int = ICO_N_INTERVALS,
-                   max_shift: int = ICO_MAX_SHIFT) -> tuple[np.ndarray, float]:
+                   max_shift: int = ICO_MAX_SHIFT,
+                   raw_query: np.ndarray | None = None) -> tuple:
     """
     Interval Correlation Shifting (icoshift) on TIC profiles.
     Savorani et al. 2010, J. Magn. Reson. 202, 190–202.
@@ -214,9 +235,12 @@ def icoshift_align(query_tic: np.ndarray, ref_tic: np.ndarray,
     -------
     warped_tic : (N_BINS,) float32
     warp_mag   : mean |shift| in minutes
+    warp_fn    : reference time (min) → query time (min)
+    warped_raw : only if raw_query is given — raw_query warped by the same shifts
     """
     N      = len(query_tic)
     warped = query_tic.copy().astype(np.float32)
+    warped_raw = None if raw_query is None else raw_query.copy().astype(np.float32)
     bounds = np.round(np.linspace(0, N, n_intervals + 1)).astype(int)
 
     best_lags        = []
@@ -247,6 +271,8 @@ def icoshift_align(query_tic: np.ndarray, ref_tic: np.ndarray,
             src = np.arange(lo, hi) - best_lag
             src = src.clip(0, N - 1)
             warped[lo:hi] = query_tic[src]
+            if warped_raw is not None:
+                warped_raw[lo:hi] = raw_query[src]
 
         best_lags.append(best_lag)
         total_abs_shift  += abs(best_lag) * seg_len
@@ -265,6 +291,8 @@ def icoshift_align(query_tic: np.ndarray, ref_tic: np.ndarray,
         idx = np.clip(idx, 0, len(_l) - 1)
         return t - _l[idx]
 
+    if raw_query is not None:
+        return warped, warp_mag, warp_fn, warped_raw
     return warped, warp_mag, warp_fn
 
 
@@ -314,29 +342,35 @@ def evaluate_pairwise(
     chromas_a: list[np.ndarray],
     chromas_b: list[np.ndarray],
     align_fn,
-) -> tuple[dict, list[float], list[float]]:
+    raw_a: np.ndarray,
+    raw_b: np.ndarray,
+) -> tuple[dict, list[float], list[float], list[float]]:
     """
     Align every sample in chromas_a onto every sample in chromas_b as reference.
 
-    align_fn(query_tic, ref_tic) → (warped_tic, warp_mag_minutes, warp_fn)
+    align_fn(query_tic, ref_tic, raw_query) → (warped_tic, warp_mag_minutes, warp_fn, warped_raw)
+    The warp is optimised on the normalised TIC; warped_raw is the raw TIC under that same warp.
 
     Returns
     -------
-    stats      : dict with 'tic_r', 'warp_mag', 'study_sil'
-    cors       : per-pair Pearson r list
+    stats      : dict with 'tic_r', 'tic_r_raw', 'warp_mag', 'study_sil'
+    cors       : per-pair Pearson r list (normalised TIC)
     warp_mags  : per-pair warp magnitude list
+    cors_raw   : per-pair Pearson r list (raw TIC)
     """
     b_tics  = [c.sum(axis=1) for c in chromas_b]
-    cors, warp_mags = [], []
+    cors, warp_mags, cors_raw = [], [], []
     n_total = len(chromas_a) * len(chromas_b)
     done = 0
 
-    for qc in chromas_a:
+    for qc, q_raw in zip(chromas_a, raw_a):
         q_tic = qc.sum(axis=1)
-        for rc, r_tic in zip(chromas_b, b_tics):
-            warped, warp_mag, _ = align_fn(q_tic, r_tic)
+        for r_tic, r_raw in zip(b_tics, raw_b):
+            warped, warp_mag, _, warped_raw = align_fn(q_tic, r_tic, q_raw)
             cor = float(np.corrcoef(r_tic, warped)[0, 1])
             cors.append(0.0 if np.isnan(cor) else cor)
+            cor = float(np.corrcoef(r_raw, warped_raw)[0, 1])
+            cors_raw.append(0.0 if np.isnan(cor) else cor)
             warp_mags.append(warp_mag)
             done += 1
             if done % 500 == 0:
@@ -346,9 +380,10 @@ def evaluate_pairwise(
 
     return {
         'tic_r':     float(np.nanmean(cors)),
+        'tic_r_raw': float(np.nanmean(cors_raw)),
         'warp_mag':  float(np.nanmean(warp_mags)),
         'study_sil': study_sil,
-    }, cors, warp_mags
+    }, cors, warp_mags, cors_raw
 
 
 # ── Main ─────────────────────────────────────────────────────────────────────
@@ -359,6 +394,8 @@ def main(study_a_dir: Path, study_b_dir: Path,
     print("Loading chromatograms …")
     chromas_a = load_chromas(study_a_dir / 'chroma')
     chromas_b = load_chromas(study_b_dir / 'chroma')
+    raw_a     = load_tic_raw(study_a_dir / 'chroma')
+    raw_b     = load_tic_raw(study_b_dir / 'chroma')
     n_pairs   = len(chromas_a) * len(chromas_b)
     print(f"  {label_a}: {len(chromas_a)} samples")
     print(f"  {label_b}: {len(chromas_b)} samples")
@@ -377,7 +414,9 @@ def main(study_a_dir: Path, study_b_dir: Path,
         for r_tic in b_tics
     ]
     unaligned_r = float(np.nanmean(unaligned_cors))
-    print(f"Unaligned baseline  TIC r = {unaligned_r:.3f}\n")
+    unaligned_cors_raw = [float(np.corrcoef(r_raw, q_raw)[0, 1]) for q_raw in raw_a for r_raw in raw_b]
+    unaligned_r_raw = float(np.nanmean(unaligned_cors_raw))
+    print(f"Unaligned baseline  TIC r = {unaligned_r:.3f}  TIC r (raw) = {unaligned_r_raw:.3f}\n")
 
     # Unaligned silhouette
     feats_unaligned = np.stack([c.max(axis=0) for c in chromas_a + chromas_b])
@@ -387,19 +426,21 @@ def main(study_a_dir: Path, study_b_dir: Path,
     sil_unaligned = float(silhouette_score(pca_unaligned, labels_unaligned))
 
     methods: list[tuple[str, object]] = [
-        ('COW-TIC',  lambda q, r: cow_tic_align(q, r)),
-        ('icoshift', lambda q, r: icoshift_align(q, r)),
+        ('COW-TIC',  lambda q, r, raw=None: cow_tic_align(q, r, raw_query=raw)),
+        ('icoshift', lambda q, r, raw=None: icoshift_align(q, r, raw_query=raw)),
     ]
 
     results  = {}
     all_cors = {'Unaligned': unaligned_cors}
+    all_cors_raw = {'Unaligned': unaligned_cors_raw}
 
     for label, fn in methods:
         print(f"Evaluating: {label} …")
-        stats, cors, _ = evaluate_pairwise(chromas_a, chromas_b, fn)
+        stats, cors, _, cors_raw = evaluate_pairwise(chromas_a, chromas_b, fn, raw_a, raw_b)
         results[label]  = stats
         all_cors[label] = cors
-        print(f"  TIC r={stats['tic_r']:.3f}  warp_mag={stats['warp_mag']:.3f} min  "
+        all_cors_raw[label] = cors_raw
+        print(f"  TIC r={stats['tic_r']:.3f}  TIC r (raw)={stats['tic_r_raw']:.3f}  warp_mag={stats['warp_mag']:.3f} min  "
               f"study_sil={stats['study_sil']:.3f}\n")
 
     # Summary table — matches warp_transformer_calib output format
@@ -413,7 +454,14 @@ def main(study_a_dir: Path, study_b_dir: Path,
         print(f"{lbl:<{w}} {r['tic_r']:>7.3f}  {delta:>+12.3f}  "
               f"{r['study_sil']:>10.3f}")
     print("=" * 72)
+    print(f"{'TIC r (raw)':<{w}} {'TIC r':>7}  {'Δ unaligned':>12}")
+    print("-" * 72)
+    print(f"{'Unaligned':<{w}} {unaligned_r_raw:>7.3f}  {'—':>12}")
+    for lbl, r in results.items():
+        print(f"{lbl:<{w}} {r['tic_r_raw']:>7.3f}  {r['tic_r_raw'] - unaligned_r_raw:>+12.3f}")
+    print("=" * 72)
     print(f"TIC r     : mean Pearson r across all {label_a}↔{label_b} pairs  (n={n_pairs})")
+    print("TIC r (raw): same warps (optimised on the normalised TIC) applied to the raw TIC")
     print("Δ unaligned: improvement over unaligned baseline")
     print("Study sil : study-label silhouette in PCA-50  (lower = less batch effect)")
 
@@ -440,6 +488,9 @@ def main(study_a_dir: Path, study_b_dir: Path,
              unaligned=np.array(all_cors['Unaligned']),
              cow_tic=np.array(all_cors['COW-TIC']),
              icoshift=np.array(all_cors['icoshift']),
+             unaligned_raw=np.array(all_cors_raw['Unaligned']),
+             cow_tic_raw=np.array(all_cors_raw['COW-TIC']),
+             icoshift_raw=np.array(all_cors_raw['icoshift']),
              n_a=len(chromas_a), n_b=len(chromas_b),
              sil=np.array([sil_unaligned,
                            results['COW-TIC']['study_sil'],

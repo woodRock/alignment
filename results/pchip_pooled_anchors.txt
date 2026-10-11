@@ -9,60 +9,99 @@ batch_sep2015 × batch_jul2016   n = 36×16 = 576   pooled anchors 7 (used in sp
   Unaligned                          0.076   +0.000      0.209          —
   PCHIP (pooled anchors)             0.476   +0.401      0.249  2.856 min
   COW-TIC                            0.605   +0.529      0.233  3.026 min
-  WarpTransformer                    0.628   +0.552      0.215  2.191 min
+  WarpTransformer                    0.611   +0.535      0.216  2.052 min
+  TIC r (raw)                        TIC r   Δ unal
+  Unaligned                         -0.033   +0.000
+  PCHIP (pooled anchors)             0.014   +0.046
+  COW-TIC                            0.299   +0.332
+  WarpTransformer                    0.071   +0.104
 ========================================================================================
 batch_sep2015 × batch_apr2016   n = 36×10 = 360   pooled anchors 5 (used in spline 5): [(44, 34), (108, 90), (161, 139), (162, 140), (194, 187)]
   Method                             TIC r   Δ unal  Study sil   Warp mag
   Unaligned                          0.086   +0.000      0.128          —
   PCHIP (pooled anchors)             0.510   +0.424      0.174  3.138 min
   COW-TIC                            0.634   +0.548      0.165  3.061 min
-  WarpTransformer                    0.673   +0.587      0.153  3.144 min
+  WarpTransformer                    0.663   +0.577      0.178  3.102 min
+  TIC r (raw)                        TIC r   Δ unal
+  Unaligned                         -0.008   +0.000
+  PCHIP (pooled anchors)             0.282   +0.290
+  COW-TIC                            0.257   +0.265
+  WarpTransformer                    0.287   +0.295
 ========================================================================================
 batch_jan2016 × batch_apr2016   n = 26×10 = 260   pooled anchors 4 (used in spline 4): [(44, 33), (72, 59), (109, 91), (161, 140)]
   Method                             TIC r   Δ unal  Study sil   Warp mag
   Unaligned                          0.128   +0.000      0.025          —
   PCHIP (pooled anchors)             0.517   +0.390      0.029  3.114 min
   COW-TIC                            0.558   +0.431      0.020  2.277 min
-  WarpTransformer                    0.642   +0.514      0.037  2.984 min
+  WarpTransformer                    0.640   +0.512      0.045  2.993 min
+  TIC r (raw)                        TIC r   Δ unal
+  Unaligned                         -0.017   +0.000
+  PCHIP (pooled anchors)             0.593   +0.610
+  COW-TIC                            0.160   +0.177
+  WarpTransformer                    0.746   +0.763
 ========================================================================================
 batch_jan2016 × batch_jul2016   n = 26×16 = 416   pooled anchors 6 (used in spline 6): [(44, 32), (53, 41), (72, 59), (109, 91), (121, 105), (161, 140)]
   Method                             TIC r   Δ unal  Study sil   Warp mag
   Unaligned                          0.112   +0.000      0.137          —
   PCHIP (pooled anchors)             0.503   +0.391      0.126  3.086 min
   COW-TIC                            0.566   +0.453      0.133  2.313 min
-  WarpTransformer                    0.647   +0.534      0.135  3.072 min
+  WarpTransformer                    0.644   +0.531      0.153  3.035 min
+  TIC r (raw)                        TIC r   Δ unal
+  Unaligned                         -0.034   +0.000
+  PCHIP (pooled anchors)             0.452   +0.486
+  COW-TIC                            0.248   +0.282
+  WarpTransformer                    0.507   +0.540
 ========================================================================================
 batch_sep2015 × batch_jan2016   n = 36×26 = 936   pooled anchors 6 (used in spline 6): [(44, 45), (72, 71), (108, 108), (115, 113), (162, 161), (194, 195)]
   Method                             TIC r   Δ unal  Study sil   Warp mag
   Unaligned                          0.823   +0.000      0.159          —
   PCHIP (pooled anchors)             0.629   -0.194      0.199  0.261 min
   COW-TIC                            0.832   +0.010      0.202  0.033 min
-  WarpTransformer                    0.689   -0.134      0.139  0.088 min
+  WarpTransformer                    0.689   -0.134      0.141  0.079 min
+  TIC r (raw)                        TIC r   Δ unal
+  Unaligned                          0.841   +0.000
+  PCHIP (pooled anchors)             0.442   -0.399
+  COW-TIC                            0.839   -0.002
+  WarpTransformer                    0.522   -0.318
 ========================================================================================
 batch_apr2016 × batch_jul2016   n = 10×16 = 160   pooled anchors 14 (used in spline 13): [(33, 32), (43, 43), (57, 57), (58, 58), (91, 91), (103, 103), (140, 140), (148, 148), (154, 154), (155, 155), (176, 176), (188, 188), (194, 194)]
   Method                             TIC r   Δ unal  Study sil   Warp mag
   Unaligned                          0.900   +0.000      0.149          —
   PCHIP (pooled anchors)             0.841   -0.059      0.210  0.041 min
   COW-TIC                            0.903   +0.003      0.199  0.024 min
-  WarpTransformer                    0.895   -0.005      0.166  0.228 min
+  WarpTransformer                    0.896   -0.004      0.158  0.227 min
+  TIC r (raw)                        TIC r   Δ unal
+  Unaligned                          0.862   +0.000
+  PCHIP (pooled anchors)             0.254   -0.607
+  COW-TIC                            0.715   -0.147
+  WarpTransformer                    0.635   -0.226
 
 ========================================================================================
 Summary (mean TIC r; WT − PCHIP is what the network adds beyond the same anchors)
   Pair                         anch   Unal  PCHIP    COW     WT  WT−PCHIP
-  batch_sep2015 × batch_jul2016    7  0.076  0.476  0.605  0.628    +0.152
-  batch_sep2015 × batch_apr2016    5  0.086  0.510  0.634  0.673    +0.163
-  batch_jan2016 × batch_apr2016    4  0.128  0.517  0.558  0.642    +0.125
-  batch_jan2016 × batch_jul2016    6  0.112  0.503  0.566  0.647    +0.144
+  batch_sep2015 × batch_jul2016    7  0.076  0.476  0.605  0.611    +0.135
+  batch_sep2015 × batch_apr2016    5  0.086  0.510  0.634  0.663    +0.153
+  batch_jan2016 × batch_apr2016    4  0.128  0.517  0.558  0.640    +0.123
+  batch_jan2016 × batch_jul2016    6  0.112  0.503  0.566  0.644    +0.141
   batch_sep2015 × batch_jan2016    6  0.823  0.629  0.832  0.689    +0.060  (excluded pair)
-  batch_apr2016 × batch_jul2016   13  0.900  0.841  0.903  0.895    +0.055  (excluded pair)
+  batch_apr2016 × batch_jul2016   13  0.900  0.841  0.903  0.896    +0.056  (excluded pair)
+
+Summary, raw TIC (same warps applied to the raw TIC; nan = not saved yet)
+  Pair                           Unal  PCHIP    COW     WT  WT−PCHIP
+  batch_sep2015 × batch_jul2016 -0.033  0.014  0.299  0.071    +0.058
+  batch_sep2015 × batch_apr2016 -0.008  0.282  0.257  0.287    +0.005
+  batch_jan2016 × batch_apr2016 -0.017  0.593  0.160  0.746    +0.153
+  batch_jan2016 × batch_jul2016 -0.034  0.452  0.248  0.507    +0.055
+  batch_sep2015 × batch_jan2016  0.841  0.442  0.839  0.522    +0.080  (excluded pair)
+  batch_apr2016 × batch_jul2016  0.862  0.254  0.715  0.635    +0.381  (excluded pair)
 
 Paired two-sided Wilcoxon, per A sample (r averaged over B_j). Holm family: the 4 evaluated batch pairs, corrected separately for each comparison below (family size 4).
 The paper's significance table (all 10 method pairs within a batch pair) is significance_tests.txt (script 21).
   WarpTransformer vs PCHIP (pooled anchors):
-    batch_sep2015 × batch_jul2016 n=36  p=2.91e-11  Holm p=1.16e-10  median Δr +0.1516
-    batch_sep2015 × batch_apr2016 n=36  p=2.91e-11  Holm p=1.16e-10  median Δr +0.1709
-    batch_jan2016 × batch_apr2016 n=26  p=2.98e-08  Holm p=5.96e-08  median Δr +0.1384
-    batch_jan2016 × batch_jul2016 n=26  p=2.98e-08  Holm p=5.96e-08  median Δr +0.1560
+    batch_sep2015 × batch_jul2016 n=36  p=2.91e-11  Holm p=1.16e-10  median Δr +0.1389
+    batch_sep2015 × batch_apr2016 n=36  p=2.91e-11  Holm p=1.16e-10  median Δr +0.1619
+    batch_jan2016 × batch_apr2016 n=26  p=2.98e-08  Holm p=5.96e-08  median Δr +0.1376
+    batch_jan2016 × batch_jul2016 n=26  p=2.98e-08  Holm p=5.96e-08  median Δr +0.1535
   COW-TIC vs PCHIP (pooled anchors):
     batch_sep2015 × batch_jul2016 n=36  p=2.91e-11  Holm p=1.16e-10  median Δr +0.1352
     batch_sep2015 × batch_apr2016 n=36  p=2.91e-11  Holm p=1.16e-10  median Δr +0.1214

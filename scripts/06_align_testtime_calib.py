@@ -1,9 +1,9 @@
 """
-16_align_testtime_calib.py — Anchor-supervised test-time calibration.
+06_align_testtime_calib.py — Anchor-supervised test-time calibration.
 
 Motivation
 ----------
-The cross-batch fine-tuned model (script 15) applies the wrong warp magnitude
+The cross-batch fine-tuned model (archive/15_finetune_cross_batch.py) applies the wrong warp magnitude
 because the training pair (jan2016 vs apr2016) may have had different lab
 conditions from the evaluation pair (sep2015 vs jul2016).  The model cannot
 know the correct magnitude without seeing the actual evaluation data.
@@ -55,8 +55,10 @@ from sklearn.decomposition import PCA
 from sklearn.metrics import silhouette_score
 
 sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
-from warp_transformer import ChromaWarpTransformer, warp_smoothness_loss, enable_cuda_determinism
-from alignment import load_chromas, align_pair, warp_chroma_2d, pooled_anchor_pchip, TIME_AXIS
+from warp_transformer import (ChromaWarpTransformer, apply_warp, warp_smoothness_loss,
+                              enable_cuda_determinism)
+from alignment import (load_chromas, load_tic_raw, align_pair, warp_chroma_2d, warp_tic,
+                       pooled_anchor_pchip, pearson_rows, TIME_AXIS)
 
 DATA_DIR    = Path(__file__).parent.parent / 'data'
 CKPT_DIR    = Path(__file__).parent.parent / 'checkpoints'
@@ -166,9 +168,16 @@ def set_seed(seed: int) -> None:
 
 
 def tic_r_per_pair(chromas_a: list, chromas_b: list) -> np.ndarray:
-    """Pearson TIC r for every (A_i, B_j), i-major: index i * n_b + j (same order as script 17)."""
+    """Pearson TIC r for every (A_i, B_j), i-major: index i * n_b + j (same order as script 05)."""
     return np.array([float(pearsonr(a.sum(1), b.sum(1))[0])
                      for a in chromas_a for b in chromas_b])
+
+
+def warp_tics_bins(tics: np.ndarray, warps: np.ndarray) -> np.ndarray:
+    """Apply [N, T] WarpTransformer warps (source bins) to 1-D TICs exactly as apply_warp does."""
+    out = apply_warp(torch.from_numpy(np.asarray(tics, dtype=np.float32)[:, :, None]),
+                     torch.from_numpy(np.asarray(warps, dtype=np.float32)))
+    return out[:, :, 0].numpy()
 
 
 def tic_correlations(chromas_a: list, chromas_b: list) -> float:
@@ -274,6 +283,8 @@ def main(study_a_dir: Path, study_b_dir: Path, label_a: str, label_b: str,
     chromas_a   = load_chromas(study_a_dir / 'chroma')
     chromas_b   = load_chromas(study_b_dir / 'chroma')
     n_a, n_b    = len(chromas_a), len(chromas_b)
+    raw_a       = load_tic_raw(study_a_dir / 'chroma')
+    raw_b       = load_tic_raw(study_b_dir / 'chroma')
     all_chromas = chromas_a + chromas_b
     study_ids   = torch.tensor([0]*n_a + [1]*n_b, dtype=torch.long, device=device)
     chromas_t   = torch.from_numpy(np.stack(all_chromas)).to(device)
@@ -341,6 +352,13 @@ def main(study_a_dir: Path, study_b_dir: Path, label_a: str, label_b: str,
     r_pc   = tic_r_per_pair(al_a_pc, chromas_b)
     sil_pc = study_silhouette(al_a_pc, chromas_b)
 
+    # Raw TIC: the same warps applied to the raw (pre-sqrt, pre-normalisation) TIC
+    wfn_pc, _ = pooled_anchor_pchip(anchors)
+    raw_r_unaligned = pearson_rows(raw_a, raw_b)
+    raw_r_pc = pearson_rows(np.stack([warp_tic(t, wfn_pc) for t in raw_a]), raw_b)
+    raw_wt   = warp_tics_bins(np.concatenate([raw_a, raw_b]), warps_np)
+    raw_r_wt = pearson_rows(raw_wt[:n_a], raw_wt[n_a:])
+
     r_wt     = tic_r_per_pair(al_a, al_b)
     tic_wt   = float(r_wt.mean())
     sil_wt   = study_silhouette(al_a, al_b)
@@ -363,10 +381,20 @@ def main(study_a_dir: Path, study_b_dir: Path, label_a: str, label_b: str,
         row('PCHIP (pooled anchors)', float(r_pc.mean()), sil_pc, mag_pc),
         row('WarpTransformer + anchor calib', tic_wt, sil_wt, warp_b),
         f"{'=' * w}",
+        f"{'TIC r (raw)':<40} {'TIC r':>7}  {'Δ unaligned':>12}",
+        f"{'-' * w}",
+        f"{'Unaligned':<40} {raw_r_unaligned.mean():>7.3f}  {'—':>12}",
+        f"{'PCHIP (pooled anchors)':<40} {raw_r_pc.mean():>7.3f}  "
+        f"{raw_r_pc.mean() - raw_r_unaligned.mean():>+12.3f}",
+        f"{'WarpTransformer + anchor calib':<40} {raw_r_wt.mean():>7.3f}  "
+        f"{raw_r_wt.mean() - raw_r_unaligned.mean():>+12.3f}",
+        f"{'=' * w}",
         f"TIC r: mean Pearson r over all {n_a}×{n_b} = {n_a * n_b} (A_i, B_j) pairs.",
         f"PCHIP: one spline through the WarpTransformer's pooled anchors ({len(used_pc)} used), applied to "
         f"every A_i; B unwarped.",
         f"Warp mag: PCHIP = mean |w(t) − t| of that spline; WarpTransformer = batch-B samples only.",
+        f"TIC r (raw): the same warps applied to the raw TIC (summed raw intensity of each binned "
+        f"apex scan, no sqrt or normalisation).",
         f"",
         f"Seed                         : {seed}",
         f"Checkpoint                   : {ckpt}",
@@ -391,6 +419,7 @@ def main(study_a_dir: Path, study_b_dir: Path, label_a: str, label_b: str,
     per_pair_dir.mkdir(exist_ok=True)
     np.savez(per_pair_dir / f'tic_r_calib_{label_a}_{label_b}{suffix}.npz',
              unaligned=r_unaligned, pchip_pooled=r_pc, warptransformer=r_wt,
+             unaligned_raw=raw_r_unaligned, pchip_pooled_raw=raw_r_pc, warptransformer_raw=raw_r_wt,
              pchip_warp_mag=mag_pc, anchors=np.array(anchors),
              n_a=n_a, n_b=n_b, seed=-1 if seed is None else seed,
              sil=np.array([sil_unaligned, sil_pc, sil_wt]),         # unaligned, PCHIP, WT

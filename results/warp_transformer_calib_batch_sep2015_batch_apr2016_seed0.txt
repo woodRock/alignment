@@ -3,22 +3,28 @@
 Method                                     TIC r   Δ unaligned   Study sil   Warp mag
 --------------------------------------------------------------------------------------
 Unaligned                                  0.086             —       0.128          —
-Raw cosine PCHIP (A_i → B[0])              0.477        +0.391       0.160     3.405m
-Raw cosine PCHIP (A_i → each B_j)          0.551        +0.465       0.160     3.234m
-WarpTransformer + anchor calib             0.673        +0.587       0.153     3.144m
+PCHIP (pooled anchors)                     0.510        +0.424       0.174     3.138m
+WarpTransformer + anchor calib             0.663        +0.577       0.178     3.102m
+======================================================================================
+TIC r (raw)                                TIC r   Δ unaligned
+--------------------------------------------------------------------------------------
+Unaligned                                 -0.008             —
+PCHIP (pooled anchors)                     0.282        +0.290
+WarpTransformer + anchor calib             0.287        +0.295
 ======================================================================================
 TIC r: mean Pearson r over all 36×10 = 360 (A_i, B_j) pairs.
-Study sil for both PCHIP rows uses A aligned to B[0] (the silhouette protocol of all baselines).
-Warp mag: PCHIP = mean |w(t) − t| over its A_i warps; WarpTransformer = batch-B samples only.
+PCHIP: one spline through the WarpTransformer's pooled anchors (5 used), applied to every A_i; B unwarped.
+Warp mag: PCHIP = mean |w(t) − t| of that spline; WarpTransformer = batch-B samples only.
+TIC r (raw): the same warps applied to the raw TIC (summed raw intensity of each binned apex scan, no sqrt or normalisation).
 
 Seed                         : 0
 Checkpoint                   : checkpoints/warp_transformer_baseline.pt
 Anchors used for calibration : 5 RANSAC pairs (raw cosine — no TIC leakage)
 Anchors (ref_bin, query_bin) : [(44, 34), (108, 90), (161, 139), (162, 140), (194, 187)]
 Calibration steps            : 500 (λ_anchor=1.0, λ_smooth=0.05)
-Calibration wall time        : 104.0 s on mps
+Calibration wall time        : 535.0 s on cpu
 
 WarpTransformer warp magnitudes (mean |warp(t)−t| in minutes):
-  All samples : 0.799 min
-  batch_sep2015         : 0.148 min
-  batch_apr2016         : 3.144 min
+  All samples : 0.822 min
+  batch_sep2015         : 0.189 min
+  batch_apr2016         : 3.102 min

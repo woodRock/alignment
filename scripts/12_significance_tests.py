@@ -1,12 +1,12 @@
 """
-21_significance_tests.py — Paired Wilcoxon signed-rank tests between all methods.
+12_significance_tests.py — Paired Wilcoxon signed-rank tests between all methods.
 
 Reads the per-sample-pair TIC r arrays written by
-  17_literature_baselines.py  → results/per_pair/tic_r_baselines_{A}_{B}.npz
+  05_literature_baselines.py  → results/per_pair/tic_r_baselines_{A}_{B}.npz
                                 (Unaligned, COW-TIC, icoshift)
-  16_align_testtime_calib.py  → results/per_pair/tic_r_calib_{A}_{B}_seed{S}.npz
+  06_align_testtime_calib.py  → results/per_pair/tic_r_calib_{A}_{B}_seed{S}.npz
                                 (WarpTransformer)
-  24_pchip_pooled_anchors.py  → results/per_pair/tic_r_pchip_pooled_{A}_{B}.npz
+  07_pchip_pooled_anchors.py  → results/per_pair/tic_r_pchip_pooled_{A}_{B}.npz
                                 (PCHIP through the WarpTransformer's pooled anchors)
 All arrays are indexed by the same (A_i, B_j) pair, i-major (index i * n_B + j), so the tests
 are paired. The Unaligned arrays from both scripts are checked to be identical.
@@ -56,7 +56,7 @@ def load_methods(a: str, b: str, seed: int) -> tuple[dict[str, np.ndarray], int,
     base  = np.load(PER_PAIR / f'tic_r_baselines_{a}_{b}.npz')
     calib = np.load(PER_PAIR / f'tic_r_calib_{a}_{b}_seed{seed}.npz')
     if not np.allclose(base['unaligned'], calib['unaligned'], atol=1e-6):
-        raise ValueError(f"{a}×{b}: Unaligned arrays from scripts 16 and 17 differ — pairing is broken")
+        raise ValueError(f"{a}×{b}: Unaligned arrays from scripts 05 and 06 differ — pairing is broken")
     data = {
         'Unaligned':        base['unaligned'],
         'icoshift':         base['icoshift'],
@@ -65,11 +65,11 @@ def load_methods(a: str, b: str, seed: int) -> tuple[dict[str, np.ndarray], int,
     }
     n_a, n_b = int(base['n_a']), int(base['n_b'])
     if not pooled_file(a, b).exists():
-        raise SystemExit(f"{a}×{b}: {pooled_file(a, b).name} missing — run script 24 first")
+        raise SystemExit(f"{a}×{b}: {pooled_file(a, b).name} missing — run script 07 first")
     pool = np.load(pooled_file(a, b))
     if (int(pool['n_a']), int(pool['n_b'])) != (n_a, n_b):
         raise ValueError(f"{a}×{b}: PCHIP arrays are {int(pool['n_a'])}×{int(pool['n_b'])}, "
-                         f"others {n_a}×{n_b} — rerun script 24")
+                         f"others {n_a}×{n_b} — rerun script 07")
     data[PCHIP] = pool['pchip_pooled']
     return data, n_a, n_b
 

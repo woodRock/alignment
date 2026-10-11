@@ -5,13 +5,13 @@ Loading chromatograms …
   COW-TIC      : n_segs=4  slack=±22 bins (±5.0 min)
   icoshift     : n_intervals=10  max_shift=±20 bins (±4.5 min)
 
-Unaligned baseline  TIC r = 0.086
+Unaligned baseline  TIC r = 0.086  TIC r (raw) = -0.008
 
 Evaluating: COW-TIC …
-  TIC r=0.634  warp_mag=3.061 min  study_sil=0.165
+  TIC r=0.634  TIC r (raw)=0.257  warp_mag=3.061 min  study_sil=0.165
 
 Evaluating: icoshift …
-  TIC r=0.172  warp_mag=0.713 min  study_sil=0.167
+  TIC r=0.172  TIC r (raw)=-0.002  warp_mag=0.713 min  study_sil=0.167
 
 ========================================================================
 Method                               TIC r   Δ unaligned   Study sil
@@ -20,7 +20,14 @@ Unaligned                            0.086             —       0.128
 COW-TIC                              0.634        +0.548       0.165
 icoshift                             0.172        +0.086       0.167
 ========================================================================
+TIC r (raw)                          TIC r   Δ unaligned
+------------------------------------------------------------------------
+Unaligned                           -0.008             —
+COW-TIC                              0.257        +0.265
+icoshift                            -0.002        +0.006
+========================================================================
 TIC r     : mean Pearson r across all batch_sep2015↔batch_apr2016 pairs  (n=360)
+TIC r (raw): same warps (optimised on the normalised TIC) applied to the raw TIC
 Δ unaligned: improvement over unaligned baseline
 Study sil : study-label silhouette in PCA-50  (lower = less batch effect)
 

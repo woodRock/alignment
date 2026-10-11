@@ -1,13 +1,13 @@
 """
 Account for every fish oil sample that does not reach one of the four evaluated batches.
 
-Mirrors the skip logic in preprocess_fish_oil_batches.py exactly (same filename regex,
+Mirrors the skip logic in 03_preprocess_fish_oil_batches.py exactly (same filename regex,
 blank detection, DATE_TO_BATCH table and tissue patterns) and cross-references the
 103-sample set used by ChromaDCNN, so that samples whose .txt export is missing from
 raw-subsetted-CVSs are also listed ("not in raw subset").
 
 Usage:
-  python scripts/audit_fish_oil_samples.py --raw-dir /path/to/raw-subsetted-CVSs
+  python scripts/04_audit_fish_oil_samples.py --raw-dir /path/to/raw-subsetted-CVSs
 Output: results/fish_oil_sample_audit.txt
 """
 
@@ -19,8 +19,11 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent))
-import preprocess_fish_oil_batches as pp
+import importlib.util
+_spec = importlib.util.spec_from_file_location(
+    'preprocess', Path(__file__).parent / '03_preprocess_fish_oil_batches.py')
+pp = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(pp)
 
 ROOT        = Path(__file__).resolve().parents[1]
 EVALUATED   = {"batch_sep2015", "batch_jan2016", "batch_apr2016", "batch_jul2016"}

@@ -75,7 +75,7 @@ The model has the following components:
 
 ### Synthetic pretraining
 
-Script: `13_train_warp_transformer.py`. No real fish oil data and no TIC correlation are
+Script: `02_train_warp_transformer.py`. No real fish oil data and no TIC correlation are
 used. The synthetic data is generated as follows:
 
 - FAME peak positions and intensities are sampled from distributions matched to the fish
@@ -129,7 +129,7 @@ spanning 0–45 min (0.225 min/bin) and 1000 integer-dalton *m/z* bins (1–1000
 ## Training
 
 ```bash
-python scripts/13_train_warp_transformer.py   # pretrain on synthetic GC-MS warps
+python scripts/02_train_warp_transformer.py   # pretrain on synthetic GC-MS warps
 ```
 
 Scripts auto-select CUDA → MPS → CPU. Checkpoints are saved to `checkpoints/`, which is
@@ -138,13 +138,37 @@ excluded from git.
 ## Evaluation
 
 ```bash
-python scripts/16_align_testtime_calib.py     # WarpTransformer + anchor calib, Raw cosine PCHIP
-python scripts/17_literature_baselines.py     # COW-TIC and icoshift
-python scripts/18_ablate_pretrain.py          # pretrained vs random-init ablation
+python scripts/06_align_testtime_calib.py     # WarpTransformer + anchor calib, Raw cosine PCHIP
+python scripts/05_literature_baselines.py     # COW-TIC and icoshift
+python scripts/08_ablate_pretrain.py          # pretrained vs random-init ablation
 ```
 
 Pass `--study-a` and `--study-b` (paths relative to `data/`) to select a batch pair, for
 example `--study-a fish_oil/batch_sep2015 --study-b fish_oil/batch_jul2016`.
+
+### Script order
+
+The scripts are numbered in the order they run; each depends only on lower-numbered ones.
+Paper runs use `--device cpu --ckpt checkpoints/warp_transformer_baseline.pt` and seeds 0–4.
+
+| Script | Purpose | Needs |
+|---|---|---|
+| `01_download_pretrain_data.py` | MoNA EI-MS spectra for synthetic pretraining | — |
+| `02_train_warp_transformer.py` | Pretrain the WarpTransformer on synthetic warps | 01 |
+| `03_preprocess_fish_oil_batches.py` | Raw fish-oil exports → per-batch `chroma` + `tic_raw` | raw data |
+| `04_audit_fish_oil_samples.py` | Account for every sample not in the four batches | 03 |
+| `05_literature_baselines.py` | icoshift and COW-TIC, per batch pair | 03 |
+| `06_align_testtime_calib.py` | WarpTransformer + anchor calibration, per pair and seed | 02, 03 |
+| `07_pchip_pooled_anchors.py` | PCHIP through the WarpTransformer's pooled anchors | 05, 06 |
+| `08_ablate_pretrain.py` | Pretrained vs random-init calibration, per pair and seed | 02, 03 |
+| `09_mechanism_ablation.py` | Where the gain over a spline comes from (seed 0) | 05–07 |
+| `10_heldout_anchor_error.py` | Leave-one-anchor-out RT error at known compounds | 05, 06, 09 |
+| `11_within_batch_ceiling.py` | Within-batch TIC r: an upper reference for TIC r | 03 |
+| `12_significance_tests.py` | Paired Wilcoxon tests with Holm correction, across seeds | 05–07 |
+| `13_aggregate_seeds.py` | Mean ± s.d. over seeds for the tables (`seed_summary.txt`) | 05–08 |
+| `14_generate_figures.py` | Paper figures | 05–07 |
+
+Unused earlier scripts are in `scripts/archive/`.
 
 ### Metrics
 

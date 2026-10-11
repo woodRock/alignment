@@ -1,15 +1,21 @@
 """
-22_heldout_anchor_error.py — Leave-one-anchor-out RT error at known compounds.
+10_heldout_anchor_error.py — Leave-one-anchor-out RT error at known compounds.
 
 For each evaluated batch pair, the calibration anchor set (ref_bin r in batch A, query_bin q
-in batch B[0]; observed drift d = q − r) is taken from script 16. Each anchor is held out in
+in batch B[0]; observed drift d = q − r) is taken from script 06. Each anchor is held out in
 turn and every method predicts its drift without it:
 
   WarpTransformer  recalibrated from the pretrained checkpoint on the remaining anchors
-                   (500 steps, same settings and seed as script 16), then
+                   (500 steps, same settings and seed as script 06), then
                    error = |(mean_j w_Bj(r) − mean_i w_Ai(r)) − d|
   PCHIP (pooled anchors) PCHIP spline through the remaining pooled anchors with the same end points as
                    align_pair ((0, 0) and (45, 45) min), evaluated at r: error = |q̂ − q|
+  Free warp (no network)
+                   one monotone warp per batch (script 09's free_warp: the WT head's
+                   parameterisation, same anchor + smoothness loss and optimisation loop, at
+                   100× the WT learning rate) fitted to the remaining anchors; error =
+                   |(w_B(r) − w_A(r)) − d|. Same anchors and loss as the WarpTransformer, so a
+                   gap between the two is what the network adds between anchors.
   COW-TIC          uses no anchors, so nothing is held out. COW aligns each of the A samples
                    used for anchor extraction (A_0..A_2) to B[0]; its inverse warp at r is
                    taken per sample and the median compared with q, mirroring how the anchors
@@ -46,16 +52,19 @@ def _load(name: str, filename: str):
     return mod
 
 
-calib16 = _load('calib16', '16_align_testtime_calib.py')
-base17  = _load('base17', '17_literature_baselines.py')
-from warp_transformer import ChromaWarpTransformer  # noqa: E402  (src on path via calib16)
+calib06 = _load('calib06', '06_align_testtime_calib.py')
+base05  = _load('base05', '05_literature_baselines.py')
+mech09  = _load('mech09', '09_mechanism_ablation.py')
+from warp_transformer import ChromaWarpTransformer  # noqa: E402  (src on path via calib06)
 from alignment import load_chromas                  # noqa: E402
 
-BIN_MIN = calib16.BIN_MIN
+BIN_MIN = calib06.BIN_MIN
 RUN_MIN = 45.0
 PAIRS = [('batch_sep2015', 'batch_jul2016'), ('batch_sep2015', 'batch_apr2016'),
          ('batch_jan2016', 'batch_apr2016'), ('batch_jan2016', 'batch_jul2016')]
-METHODS = ['No alignment', 'Constant shift', 'PCHIP (pooled anchors)', 'COW-TIC', 'WarpTransformer']
+FREE    = 'Free warp (no network)'
+METHODS = ['No alignment', 'Constant shift', 'PCHIP (pooled anchors)', 'COW-TIC', FREE,
+           'WarpTransformer']
 
 
 def wt_offset_at(model, chromas_t, study_ids, r_bins: list[int]) -> np.ndarray:
@@ -67,11 +76,17 @@ def wt_offset_at(model, chromas_t, study_ids, r_bins: list[int]) -> np.ndarray:
     return np.array([w[sid == 1, r].mean() - w[sid == 0, r].mean() for r in r_bins])
 
 
+def free_offset_at(n_a: int, n_b: int, anchors, r_bin: int, seed: int) -> float:
+    """Predicted drift (bins) at r_bin from the network-free per-batch warps: w_B(r) − w_A(r)."""
+    warps, _ = mech09.free_warp(n_a, n_b, anchors, lr=calib06.LR_CALIB * 100, seed=seed)
+    return float(warps[n_a, r_bin] - warps[0, r_bin])
+
+
 def calibrated_model(anchors, chromas_t, study_ids, device, ckpt, seed):
     model = ChromaWarpTransformer()
     model.load_state_dict(torch.load(ckpt, map_location=device))
     model.to(device)
-    calib16.calibrate(model, chromas_t, study_ids, anchors, device, seed=seed)
+    calib06.calibrate(model, chromas_t, study_ids, anchors, device, seed=seed)
     return model
 
 
@@ -87,7 +102,7 @@ def cow_predict(chromas_a, chromas_b, r_bins: list[int], n_ref: int) -> np.ndarr
     ref_tic = chromas_b[0].sum(axis=1)
     preds = []
     for i in range(min(n_ref, len(chromas_a))):
-        _, _, warp_fn = base17.cow_tic_align(chromas_a[i].sum(axis=1), ref_tic)
+        _, _, warp_fn = base05.cow_tic_align(chromas_a[i].sum(axis=1), ref_tic)
         b_times = np.linspace(0.0, RUN_MIN, 2001)          # B[0] time grid
         a_times = warp_fn(b_times)                          # COW maps B[0] time → A_i time
         preds.append(np.interp(np.array(r_bins) * BIN_MIN, a_times, b_times) / BIN_MIN)
@@ -95,7 +110,7 @@ def cow_predict(chromas_a, chromas_b, r_bins: list[int], n_ref: int) -> np.ndarr
 
 
 def main(ckpt: Path, seed: int, device_name: str) -> None:
-    device = calib16.pick_device(device_name)
+    device = calib06.pick_device(device_name)
     lines = [__doc__.strip().split('\n')[0], '',
              f"Checkpoint {ckpt}   seed {seed}   device {device}", '']
     saved = {}
@@ -107,7 +122,7 @@ def main(ckpt: Path, seed: int, device_name: str) -> None:
         n_a, n_b  = len(chromas_a), len(chromas_b)
         study_ids = torch.tensor([0] * n_a + [1] * n_b, dtype=torch.long, device=device)
         chromas_t = torch.from_numpy(np.stack(chromas_a + chromas_b)).to(device)
-        anchors   = calib16.extract_anchors(chromas_a, chromas_b)
+        anchors   = calib06.extract_anchors(chromas_a, chromas_b)
         r_bins    = [r for r, _ in anchors]
         drifts    = np.array([q - r for r, q in anchors], dtype=float)
         label     = f"{a.replace('batch_', '')} × {b.replace('batch_', '')}"
@@ -115,7 +130,7 @@ def main(ckpt: Path, seed: int, device_name: str) -> None:
 
         full = calibrated_model(anchors, chromas_t, study_ids, device, ckpt, seed)
         in_sample = np.abs(wt_offset_at(full, chromas_t, study_ids, r_bins) - drifts) * BIN_MIN
-        cow_q = cow_predict(chromas_a, chromas_b, r_bins, calib16.N_REF_PAIRS)
+        cow_q = cow_predict(chromas_a, chromas_b, r_bins, calib06.N_REF_PAIRS)
 
         err = {m: [] for m in METHODS}
         for k, (r, q) in enumerate(anchors):
@@ -125,6 +140,7 @@ def main(ckpt: Path, seed: int, device_name: str) -> None:
             err['Constant shift'].append(abs(np.median([qq - rr for rr, qq in rest]) - d) * BIN_MIN)
             err['PCHIP (pooled anchors)'].append(abs(pchip_predict(rest, r) - q) * BIN_MIN)
             err['COW-TIC'].append(abs(cow_q[k] - q) * BIN_MIN)
+            err[FREE].append(abs(free_offset_at(n_a, n_b, rest, r, seed) - d) * BIN_MIN)
             model = calibrated_model(rest, chromas_t, study_ids, device, ckpt, seed)
             pred = wt_offset_at(model, chromas_t, study_ids, [r])[0]
             err['WarpTransformer'].append(abs(pred - d) * BIN_MIN)
@@ -132,12 +148,12 @@ def main(ckpt: Path, seed: int, device_name: str) -> None:
                   '  '.join(f"{m}={err[m][-1]:.3f}" for m in METHODS), flush=True)
 
         lines += [f"{'=' * 92}", f"{label}   {len(anchors)} anchors (ref_bin, query_bin): {anchors}", '',
-                  f"  {'Method':<20} {'mean (min)':>11} {'max (min)':>10}   per anchor (min, in anchor order)"]
+                  f"  {'Method':<22} {'mean (min)':>11} {'max (min)':>10}   per anchor (min, in anchor order)"]
         for m in METHODS:
             e = np.array(err[m])
-            lines.append(f"  {m:<20} {e.mean():>11.3f} {e.max():>10.3f}   " +
+            lines.append(f"  {m:<22} {e.mean():>11.3f} {e.max():>10.3f}   " +
                          ' '.join(f"{x:.2f}" for x in e))
-        lines.append(f"  {'WT in-sample':<20} {in_sample.mean():>11.3f} {in_sample.max():>10.3f}   " +
+        lines.append(f"  {'WT in-sample':<22} {in_sample.mean():>11.3f} {in_sample.max():>10.3f}   " +
                      ' '.join(f"{x:.2f}" for x in in_sample) +
                      "   (calibrated on all anchors; not held out)")
         lines.append('')
@@ -148,9 +164,9 @@ def main(ckpt: Path, seed: int, device_name: str) -> None:
         saved[f"{a}_{b}_wt_in_sample"] = in_sample
 
     lines += [f"{'=' * 92}", "Summary: mean / max held-out error (min)",
-              f"  {'Pair':<20} " + ' '.join(f"{m:>18}" for m in METHODS)]
+              f"  {'Pair':<20} " + ' '.join(f"{m[:22]:>22}" for m in METHODS)]
     for label, s in summary:
-        lines.append(f"  {label:<20} " + ' '.join(f"{s[m][0]:>8.3f} / {s[m][1]:<7.3f}" for m in METHODS))
+        lines.append(f"  {label:<20} " + ' '.join(f"{s[m][0]:>12.3f} / {s[m][1]:<7.3f}" for m in METHODS))
     lines += ['', "With 4–8 anchors per pair, each mean is over 4–8 values; end anchors are",
               "extrapolated by every method once held out, so per-anchor values are listed above."]
 

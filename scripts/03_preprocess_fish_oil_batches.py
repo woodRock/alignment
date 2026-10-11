@@ -14,7 +14,8 @@ Samples are grouped into four acquisition batches:
 Instrument blanks (comment1 contains 'BLANK') are skipped automatically.
 
 Each batch directory written to data/fish_oil/ follows the alignment convention:
-  chroma/        per-sample [N_BINS, MZ_MAX] float32 chromatogram .npz files
+  chroma/        per-sample .npz files: chroma [N_BINS, MZ_MAX] float32 (sqrt + L2 per bin)
+                 and tic_raw [N_BINS] float32 (summed raw intensity of each selected apex scan)
   X.npy          [N, MZ_MAX] sqrt+L2-normalised sum spectra (for baselines)
   y.npy          [N] int64 tissue-type labels
   groups.txt     fish individual per sample (BCO4, BCO5, SNA1, …)
@@ -29,9 +30,9 @@ Tissue label encoding (written to data/fish_oil/tissue_labels.json):
   5 = Skin
 
 Usage:
-  python scripts/preprocess_fish_oil_batches.py
-  python scripts/preprocess_fish_oil_batches.py --raw-dir /path/to/raw-subsetted-CVSs
-  python scripts/preprocess_fish_oil_batches.py --n-bins 200 --mz-max 1000
+  python scripts/03_preprocess_fish_oil_batches.py
+  python scripts/03_preprocess_fish_oil_batches.py --raw-dir /path/to/raw-subsetted-CVSs
+  python scripts/03_preprocess_fish_oil_batches.py --n-bins 200 --mz-max 1000
 """
 
 from __future__ import annotations
@@ -297,12 +298,14 @@ def main(raw_dir: Path, output_dir: Path, n_bins: int, mz_max: int) -> None:
                 continue
 
             chroma    = bin_chromatogram(rec["spectra"], rec["tic"], n_bins)
+            # Raw TIC: summed intensity of each selected apex scan, before sqrt and normalisation
+            tic_raw   = chroma.sum(axis=1, dtype=np.float64).astype(np.float32)
             chroma    = sqrt_l2(chroma)
             sum_spec  = sqrt_l2(rec["spectra"].sum(axis=0, keepdims=True))[0]
 
             safe_stem = re.sub(r"[^\w]", "_", rec["stem"])
             out_npz   = chroma_dir / f"{safe_stem}.npz"
-            np.savez_compressed(out_npz, chroma=chroma)
+            np.savez_compressed(out_npz, chroma=chroma, tic_raw=tic_raw)
 
             X_list.append(sum_spec)
             y_list.append(tissue_label)

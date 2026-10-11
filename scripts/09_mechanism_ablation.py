@@ -1,7 +1,7 @@
 """
-25_mechanism_ablation.py — Where does the WarpTransformer's gain over a spline come from?
+09_mechanism_ablation.py — Where does the WarpTransformer's gain over a spline come from?
 
-Script 24 showed that a PCHIP spline through the WarpTransformer's own pooled anchors stays
+Script 07 showed that a PCHIP spline through the WarpTransformer's own pooled anchors stays
 ~0.15 TIC r below it, so anchor handling is not the explanation. This script separates the
 remaining candidates on the four evaluated pairs, all from one seeded calibration:
 
@@ -17,7 +17,7 @@ remaining candidates on the four evaluated pairs, all from one seeded calibratio
                        Per-sample free warps would receive identical gradients within a batch,
                        so per-batch parameters are equivalent. Run at the WT learning rate and
                        at a 100× larger one, so slow convergence cannot explain a gap.
-  Pooled PCHIP         script 24: spline through the same pooled anchors, A only
+  Pooled PCHIP         script 07: spline through the same pooled anchors, A only
   Pooled PCHIP + COW   pooled PCHIP, then a per-sample COW refinement (8 segments, ±4 bins) of
                        every A_i and B_j onto the mean batch-B TIC: classical per-sample
                        correction. Note COW optimises TIC correlation itself.
@@ -59,19 +59,19 @@ def _load(name: str, filename: str):
     return mod
 
 
-calib16 = _load('calib16', '16_align_testtime_calib.py')
-base17  = _load('base17', '17_literature_baselines.py')
-pool24  = _load('pool24', '24_pchip_pooled_anchors.py')
+calib06 = _load('calib06', '06_align_testtime_calib.py')
+base05  = _load('base05', '05_literature_baselines.py')
+pool07  = _load('pool07', '07_pchip_pooled_anchors.py')
 from warp_transformer import (ChromaWarpTransformer, apply_warp,           # noqa: E402
                               make_monotone_warp, warp_smoothness_loss)
 from alignment import load_chromas, warp_chroma_2d                          # noqa: E402
 
-N_BINS  = calib16.N_BINS
-BIN_MIN = calib16.BIN_MIN
+N_BINS  = calib06.N_BINS
+BIN_MIN = calib06.BIN_MIN
 PAIRS   = [('batch_sep2015', 'batch_jul2016'), ('batch_sep2015', 'batch_apr2016'),
            ('batch_jan2016', 'batch_apr2016'), ('batch_jan2016', 'batch_jul2016')]
 REFINE_SEGS, REFINE_SLACK = 8, 4
-FREE_LRS = (calib16.LR_CALIB, calib16.LR_CALIB * 100)
+FREE_LRS = (calib06.LR_CALIB, calib06.LR_CALIB * 100)
 
 
 # ── TIC helpers ───────────────────────────────────────────────────────────────
@@ -109,7 +109,7 @@ def calibrate_wt(chromas_a, chromas_b, anchors, ckpt, device, seed):
     model     = ChromaWarpTransformer()
     model.load_state_dict(torch.load(ckpt, map_location=device))
     model.to(device)
-    calib16.calibrate(model, x, study_ids, anchors, device, seed=seed)
+    calib06.calibrate(model, x, study_ids, anchors, device, seed=seed)
     with torch.no_grad():
         aligned, warps = model(x, study_ids)
         loss = final_loss(warps, study_ids, anchors, device)
@@ -117,28 +117,28 @@ def calibrate_wt(chromas_a, chromas_b, anchors, ckpt, device, seed):
 
 
 def final_loss(warps, study_ids, anchors, device) -> tuple[float, float]:
-    a = float(calib16.anchor_loss(warps, study_ids, anchors, device))
+    a = float(calib06.anchor_loss(warps, study_ids, anchors, device))
     s = float(warp_smoothness_loss(warps))
     return a, s
 
 
 def free_warp(n_a, n_b, anchors, lr, seed):
-    """One monotone warp per batch, same loss and optimisation loop as calib16.calibrate."""
-    calib16.set_seed(seed)
+    """One monotone warp per batch, same loss and optimisation loop as calib06.calibrate."""
+    calib06.set_seed(seed)
     dev       = torch.device('cpu')
     study_ids = torch.tensor([0] * n_a + [1] * n_b, dtype=torch.long)
     logits    = torch.zeros(2, N_BINS, requires_grad=True)
     opt       = optim.Adam([logits], lr=lr)
-    sched     = optim.lr_scheduler.CosineAnnealingLR(opt, T_max=calib16.N_CALIB_STEPS)
+    sched     = optim.lr_scheduler.CosineAnnealingLR(opt, T_max=calib06.N_CALIB_STEPS)
     best, best_logits = float('inf'), logits.detach().clone()
 
     def expand(lg):
         return make_monotone_warp(lg)[study_ids]                # [N, T]
 
-    for _ in range(calib16.N_CALIB_STEPS):
+    for _ in range(calib06.N_CALIB_STEPS):
         warps = expand(logits)
-        loss  = (calib16.LAMBDA_ANCHOR * calib16.anchor_loss(warps, study_ids, anchors, dev)
-                 + calib16.LAMBDA_SMOOTH * warp_smoothness_loss(warps))
+        loss  = (calib06.LAMBDA_ANCHOR * calib06.anchor_loss(warps, study_ids, anchors, dev)
+                 + calib06.LAMBDA_SMOOTH * warp_smoothness_loss(warps))
         opt.zero_grad()
         loss.backward()
         torch.nn.utils.clip_grad_norm_([logits], 1.0)
@@ -152,7 +152,7 @@ def free_warp(n_a, n_b, anchors, lr, seed):
 
 
 def cow_refine(tics: np.ndarray, ref: np.ndarray) -> np.ndarray:
-    return np.stack([base17.cow_tic_align(t, ref, n_segs=REFINE_SEGS, slack=REFINE_SLACK)[0]
+    return np.stack([base05.cow_tic_align(t, ref, n_segs=REFINE_SEGS, slack=REFINE_SLACK)[0]
                      for t in tics])
 
 
@@ -171,7 +171,7 @@ def holm(ps):
 
 
 def main(seed: int, device_name: str, ckpt: Path) -> None:
-    device = calib16.pick_device(device_name)
+    device = calib06.pick_device(device_name)
     per_pair = ROOT / 'results' / 'per_pair'
     lines = [__doc__.strip().splitlines()[0], '',
              f'Seed {seed}   device {device}   checkpoint {ckpt.relative_to(ROOT)}   '
@@ -184,7 +184,7 @@ def main(seed: int, device_name: str, ckpt: Path) -> None:
         n_a, n_b = len(ca), len(cb)
         ta = np.stack([c.sum(1) for c in ca])
         tb = np.stack([c.sum(1) for c in cb])
-        anchors = calib16.extract_anchors(ca, cb)
+        anchors = calib06.extract_anchors(ca, cb)
         print(f'\n{a} × {b}: {n_a}×{n_b}, {len(anchors)} anchors — calibrating WarpTransformer …',
               flush=True)
 
@@ -197,7 +197,7 @@ def main(seed: int, device_name: str, ckpt: Path) -> None:
         resid    = np.clip(resid, 0, N_BINS - 1)
         free     = {lr: free_warp(n_a, n_b, anchors, lr, seed) for lr in FREE_LRS}
 
-        pchip_fn, _ = pool24.pooled_pchip_warp(anchors)
+        pchip_fn, _ = pool07.pooled_pchip_warp(anchors)
         pa          = warp_tics_fn(ta, pchip_fn)
         ref_b       = tb.mean(0)
 
