@@ -14,9 +14,9 @@
 Jesse Wood, Bach Nguyen, Bing Xue, Mengjie Zhang, Kevin Shedlock, Alastair B. Ross and
 Daniel Killeen.
 
-> **Status.** The accompanying paper is **in preparation** for *IEEE Transactions on
-> Artificial Intelligence* (TAI). It has **not been submitted yet**. The results in this
-> repository are being regenerated after a code audit (see [Results](#results)).
+> **Status.** The accompanying paper is **in preparation** and has **not been submitted
+> yet**. The results in this repository are being regenerated after a code audit (see
+> [Results](#results)).
 
 ![](meme.png)
 
@@ -308,8 +308,8 @@ python3.11 -m mypy                     # types
 
 ## Citation
 
-If you use this code, please cite the software. The paper is in preparation; a full
-reference will be added once it is published.
+If you use this code, please cite the software. A reference to the paper will be added once
+it is published.
 
 ```bibtex
 @software{wood_gcmsalign_2026,
@@ -321,17 +321,6 @@ reference will be added once it is published.
   version = {2.0.0},
   url     = {https://github.com/woodRock/alignment},
   license = {MIT}
-}
-```
-
-```bibtex
-@unpublished{wood_warptransformer_2026,
-  author = {Wood, Jesse and Nguyen, Bach and Xue, Bing and Zhang, Mengjie and
-            Shedlock, Kevin and Ross, Alastair B. and Killeen, Daniel},
-  title  = {Test-Time Calibrated Warp Transformer for Within-Study {GC-MS}
-            Retention Time Alignment},
-  note   = {In preparation for IEEE Transactions on Artificial Intelligence},
-  year   = {2026}
 }
 ```
 
