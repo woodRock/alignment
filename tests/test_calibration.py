@@ -327,3 +327,13 @@ def test_fig1_aligns_a_onto_b_like_the_evaluation(batches, monkeypatch, tmp_path
     assert (tmp_path / 'f.pdf').exists() and len(calls) == 2
     for _, query, ref in calls:
         assert np.array_equal(query, a.tic[1]) and np.array_equal(ref, b.tic[0])
+
+
+def test_frame_term_stops_the_free_warp_translating_batch_a():
+    """With shift-like anchors the anchor loss pulls batch A's and batch B's offsets equally in
+    opposite directions; without the frame term batch A drifts by about +3 bins (measured).
+    With it, batch A stays on the identity and only batch B moves."""
+    warps, _ = free_warp(3, 2, ANCHORS, lr=0.05, seed=0, steps=300)
+    t = np.arange(T)
+    assert abs((warps[0] - t).mean()) < 0.5
+    assert (warps[3] - t).mean() < -4
