@@ -260,7 +260,7 @@ def fig3_calibration_curve(hist_pre, hist_rand, unaligned_r, title, out):
         ax2.plot(steps, [h['tic_r'] for h in hist], color=color, lw=1.8, ls=ls, label=label)
     ax2.axhline(unaligned_r, color='#bbbbbb', lw=1.2, ls=':', label='Unaligned')
     for ax, ylabel, t in (
-        (ax1, 'Loss (anchor MSE + smoothness)', 'Calibration loss'),
+        (ax1, 'Loss (anchor + smoothness + frame)', 'Calibration loss'),
         (ax2, 'Mean pairwise TIC r', 'Alignment quality (TIC r)'),
     ):
         ax.set_xlabel('Calibration step', fontsize=9)

@@ -1,17 +1,12 @@
-==========================================================================
-Method                            TIC r   Δ unaligned   Warp mag     Warp B
---------------------------------------------------------------------------
-Unaligned                        0.0758             —          —          —
-WarpTransformer (pretrained)     0.6098       +0.5341     1.161m     2.134m
-WarpTransformer (random init)    0.5334       +0.4576     1.229m     1.928m
-==========================================================================
-TIC r (raw)                       TIC r   Δ unaligned
---------------------------------------------------------------------------
-Unaligned                       -0.0328             —
-WarpTransformer (pretrained)     0.0710       +0.1038
-WarpTransformer (random init)    0.0670       +0.0998
-==========================================================================
-Warp mag: mean |w(t) − t| over all samples of both batches. Warp B: batch-B samples only.
-Seed 3   device mps   checkpoint checkpoints/warp_transformer_baseline.pt
-Anchors (7): [(53, 45), (108, 90), (162, 140), (177, 157), (184, 178), (194, 188), (199, 195)]
-Pretraining advantage: +0.0765 TIC r
+Step 08 — does pretraining matter, or does calibration do all the work?
+
+Sep15×Jul16   seed 3   device cpu   checkpoint /Users/woodj/Desktop/alignment/checkpoints/warp_transformer_v2.pt
+Anchors (8): [(48, 33), (64, 46), (69, 51), (75, 57), (86, 67), (118, 98), (129, 111), (165, 143)]
+
+  Arm           TIC r  Δ unal    raw r  Δ unal  pre all   pre A   pre B  post all  post A  post B
+  Unaligned    0.0544       —  -0.0324       —        —       —       —         —       —       —
+  pretrained   0.5388  0.4844   0.7540  0.7864   1.1866  0.3748  3.0131    1.3869  0.2465  3.9528
+  random init  0.5957  0.5413   0.7681  0.8005   0.0000  0.0000  0.0000    1.1598  0.0915  3.5635
+
+pre / post: warp magnitude (min) before and after calibration.
+Pretraining advantage: -0.0569 TIC r (-0.0141 raw)

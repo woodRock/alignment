@@ -231,8 +231,10 @@ class ChromaWarpTransformer(nn.Module):
         # (start offset, end shift) per sample, in bins
         self.ends_head = nn.Sequential(nn.LayerNorm(d_model), nn.Linear(d_model, 2))
         for head in (self.warp_head, self.ends_head):  # identity warp at init
-            nn.init.zeros_(head[-1].weight)
-            nn.init.zeros_(head[-1].bias)
+            last = head[-1]
+            assert isinstance(last, nn.Linear)
+            nn.init.zeros_(last.weight)
+            nn.init.zeros_(last.bias)
 
     @staticmethod
     def _sinusoidal_pe(n: int, d: int) -> Tensor:

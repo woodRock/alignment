@@ -1,21 +1,17 @@
-11_within_batch_ceiling.py — An upper reference for between-batch TIC r: within-batch TIC r.
+Step 11 — an upper reference for between-batch TIC r: within-batch TIC r.
 
 Per batch: mean (s.d.) Pearson r over all pairs of distinct samples, unaligned.
-  Batch              n  pairs     normalised TIC            raw TIC
-  batch_sep2015     36    630     0.934 (0.026)     0.921 (0.048)
-  batch_jan2016     26    325     0.944 (0.027)     0.918 (0.065)
-  batch_apr2016     10     45     0.937 (0.051)     0.882 (0.124)
-  batch_jul2016     16    120     0.941 (0.027)     0.961 (0.023)
+  Batch           n  pairs  normalised TIC        raw TIC
+  batch_sep2015  36    630   0.928 (0.029)  0.910 (0.054)
+  batch_jan2016  26    325   0.938 (0.033)  0.917 (0.065)
+  batch_apr2016  10     45   0.939 (0.049)  0.876 (0.127)
+  batch_jul2016  16    120   0.938 (0.029)  0.946 (0.034)
 
-Per batch pair: ceiling = mean of the two within-batch values; unaligned = mean between-batch r over all A×B pairs.
-                                         normalised TIC                     raw TIC           
-  Pair                              ceiling  unaligned      gap    ceiling  unaligned      gap
-  batch_sep2015 × batch_jul2016       0.937      0.076    0.862      0.941     -0.033    0.974
-  batch_sep2015 × batch_apr2016       0.936      0.086    0.850      0.902     -0.008    0.910
-  batch_jan2016 × batch_apr2016       0.941      0.128    0.813      0.900     -0.017    0.917
-  batch_jan2016 × batch_jul2016       0.943      0.112    0.830      0.939     -0.034    0.973
-  batch_sep2015 × batch_jan2016       0.939      0.823    0.116      0.919      0.841    0.078  (excluded pair)
-  batch_apr2016 × batch_jul2016       0.939      0.900    0.039      0.922      0.862    0.060  (excluded pair)
-
-gap = ceiling − unaligned: the improvement a between-batch alignment could at best deliver on this metric.
-Within-batch r is unaligned: residual within-batch drift, if any, makes it a conservative (low) ceiling.
+Per pair: ceiling = mean of the two within-batch values; gap = ceiling − unaligned (the most an alignment could add).
+  Pair         ceiling  unaligned    gap  raw ceiling  raw unaligned  raw gap
+  Sep15×Jul16    0.933      0.054  0.879        0.928         -0.032    0.961
+  Sep15×Apr16    0.934      0.041  0.893        0.893         -0.042    0.936
+  Jan16×Apr16    0.939      0.128  0.811        0.897         -0.046    0.942
+  Jan16×Jul16    0.938      0.126  0.812        0.932         -0.041    0.973
+  Sep15×Jan16    0.933      0.814  0.118        0.913          0.835    0.078  (excluded pair)
+  Apr16×Jul16    0.939      0.898  0.041        0.911          0.858    0.053  (excluded pair)

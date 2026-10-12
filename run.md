@@ -43,6 +43,8 @@ python3.11 scripts/11_within_batch_ceiling.py
 python3.11 scripts/12_significance_tests.py --seed 0 --seeds 0 1 2 3 4
 python3.11 scripts/13_aggregate_seeds.py --seeds 0 1 2 3 4
 python3.11 scripts/14_generate_figures.py --figs 1 2 3 4 5 --select median --seed 0
+# Figure pair changed to Jan16×Jul16 after the run (2026-10-12): Sep15×Jul16 is the weakest pair
+python3.11 scripts/14_generate_figures.py --study-a fish_oil/batch_jan2016 --study-b fish_oil/batch_jul2016 --figs 1 2 3 --select median --seed 0
 # then copy results/fig*.pdf to figs/ under the manuscript names
 ```
 

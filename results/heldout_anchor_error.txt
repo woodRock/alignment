@@ -1,62 +1,53 @@
-22_heldout_anchor_error.py — Leave-one-anchor-out RT error at known compounds.
+Step 10 — leave-one-anchor-out retention-time error at known compounds.
 
-Checkpoint checkpoints/warp_transformer_baseline.pt   seed 0   device cpu
+Note: anchors are step 06's pooled set, outlier- and slope-filtered with the held-out anchor included.
+Checkpoint /Users/woodj/Desktop/alignment/checkpoints/warp_transformer_v2.pt   seed 0   device cpu
 
-============================================================================================
-sep2015 × jul2016   7 anchors (ref_bin, query_bin): [(53, 45), (108, 90), (162, 140), (177, 157), (184, 178), (194, 188), (199, 195)]
+Sep15×Jul16   8 anchors (A bin, B bin): [(48, 33), (64, 46), (69, 51), (75, 57), (86, 67), (118, 98), (129, 111), (165, 143)]
+  Method                  mean (min)  max (min)                                                      per anchor (min)
+  No alignment                 4.162      4.950                               3.38 4.05 4.05 4.05 4.28 4.50 4.05 4.95
+  Constant shift               0.281      0.900                               0.68 0.00 0.00 0.00 0.23 0.45 0.00 0.90
+  PCHIP (pooled anchors)       0.355      0.900                               0.68 0.09 0.02 0.06 0.09 0.46 0.54 0.90
+  COW-TIC                      2.246      7.369                               0.18 0.21 0.54 0.55 0.07 1.95 7.37 7.09
+  Free warp (no network)       0.358      0.772                               0.49 0.24 0.01 0.15 0.01 0.55 0.65 0.77
+  WarpTransformer              0.403      1.266                               0.68 0.08 0.06 0.08 0.09 0.35 0.61 1.27
+  WT in-sample                 0.024      0.046  0.04 0.03 0.05 0.03 0.02 0.01 0.01 0.01  (calibrated on all anchors)
 
-  Method                  mean (min)  max (min)   per anchor (min, in anchor order)
-  No alignment                 2.700      4.950   1.80 4.05 4.95 4.50 1.35 1.35 0.90
-  Constant shift               2.121      3.375   0.90 2.48 3.38 2.93 1.57 1.57 2.02
-  PCHIP (pooled anchors)       0.945      2.212   0.52 0.17 1.02 2.21 1.98 0.11 0.60
-  COW-TIC                      0.667      1.400   0.95 0.13 0.17 0.47 1.40 0.43 1.12
-  Free warp (no network)       1.011      2.005   0.21 0.66 0.55 2.00 1.85 0.90 0.90
-  WarpTransformer              1.212      2.557   0.61 0.55 0.91 2.06 2.56 0.90 0.90
-  WT in-sample                 0.147      0.900   0.02 0.05 0.02 0.02 0.00 0.00 0.90   (calibrated on all anchors; not held out)
+Sep15×Apr16   8 anchors (A bin, B bin): [(48, 29), (64, 46), (69, 51), (75, 58), (86, 67), (91, 72), (118, 98), (165, 143)]
+  Method                  mean (min)  max (min)                                                      per anchor (min)
+  No alignment                 4.275      4.950                               4.28 4.05 4.05 3.83 4.28 4.28 4.50 4.95
+  Constant shift               0.225      0.675                               0.00 0.23 0.23 0.45 0.00 0.00 0.23 0.68
+  PCHIP (pooled anchors)       0.199      0.450                               0.23 0.12 0.14 0.30 0.16 0.11 0.10 0.45
+  COW-TIC                      1.329      7.167                               1.08 0.21 0.54 0.88 0.38 0.36 0.01 7.17
+  Free warp (no network)       0.240      0.609                               0.31 0.08 0.19 0.32 0.18 0.19 0.05 0.61
+  WarpTransformer              0.151      0.273                               0.18 0.06 0.13 0.27 0.20 0.03 0.06 0.26
+  WT in-sample                 0.019      0.048  0.01 0.01 0.04 0.01 0.00 0.00 0.04 0.05  (calibrated on all anchors)
 
-============================================================================================
-sep2015 × apr2016   5 anchors (ref_bin, query_bin): [(44, 34), (108, 90), (161, 139), (162, 140), (194, 187)]
+Jan16×Apr16   10 anchors (A bin, B bin): [(48, 31), (63, 46), (69, 51), (75, 57), (86, 67), (91, 72), (118, 98), (123, 102), (129, 111), (165, 143)]
+  Method                  mean (min)  max (min)                                                                per anchor (min)
+  No alignment                 4.253      4.950                               3.83 3.83 4.05 4.05 4.28 4.28 4.50 4.73 4.05 4.95
+  Constant shift               0.405      0.900                               0.45 0.45 0.23 0.23 0.23 0.23 0.45 0.68 0.23 0.90
+  PCHIP (pooled anchors)       0.312      0.900                               0.00 0.19 0.13 0.13 0.07 0.05 0.37 0.43 0.85 0.90
+  COW-TIC                      1.978      8.775                               0.97 0.07 0.01 0.09 0.00 0.07 0.19 2.36 8.78 7.24
+  Free warp (no network)       0.286      0.868                               0.03 0.07 0.11 0.10 0.16 0.18 0.04 0.49 0.87 0.82
+  WarpTransformer              0.298      0.849                               0.12 0.16 0.16 0.11 0.01 0.03 0.34 0.46 0.85 0.74
+  WT in-sample                 0.039      0.105  0.02 0.04 0.05 0.04 0.01 0.03 0.10 0.06 0.01 0.03  (calibrated on all anchors)
 
-  Method                  mean (min)  max (min)   per anchor (min, in anchor order)
-  No alignment                 3.555      4.950   2.25 4.05 4.95 4.95 1.57
-  Constant shift               1.845      2.925   2.25 0.45 1.80 1.80 2.93
-  PCHIP (pooled anchors)       0.130      0.272   0.27 0.14 0.03 0.04 0.18
-  COW-TIC                      0.234      0.658   0.03 0.13 0.18 0.17 0.66
-  Free warp (no network)       0.385      0.906   0.58 0.32 0.02 0.10 0.91
-  WarpTransformer              0.178      0.391   0.24 0.19 0.02 0.05 0.39
-  WT in-sample                 0.029      0.045   0.02 0.05 0.03 0.05 0.00   (calibrated on all anchors; not held out)
+Jan16×Jul16   10 anchors (A bin, B bin): [(48, 31), (55, 35), (63, 45), (69, 51), (75, 57), (86, 67), (118, 98), (123, 103), (129, 111), (165, 143)]
+  Method                  mean (min)  max (min)                                                                per anchor (min)
+  No alignment                 4.275      4.950                               3.83 4.50 4.05 4.05 4.05 4.28 4.50 4.50 4.05 4.95
+  Constant shift               0.383      0.900                               0.45 0.45 0.23 0.23 0.23 0.23 0.45 0.45 0.23 0.90
+  PCHIP (pooled anchors)       0.348      0.900                               0.68 0.53 0.29 0.06 0.06 0.14 0.14 0.21 0.48 0.90
+  COW-TIC                      2.094      8.775                               0.97 1.22 0.30 0.01 0.09 0.00 0.19 2.14 8.78 7.24
+  Free warp (no network)       0.365      0.919                               0.55 0.59 0.16 0.08 0.09 0.07 0.24 0.33 0.62 0.92
+  WarpTransformer              0.422      1.085                               0.69 0.56 0.36 0.09 0.17 0.42 0.09 0.27 0.49 1.09
+  WT in-sample                 0.037      0.061  0.03 0.04 0.06 0.03 0.02 0.03 0.05 0.06 0.01 0.02  (calibrated on all anchors)
 
-============================================================================================
-jan2016 × apr2016   4 anchors (ref_bin, query_bin): [(44, 33), (72, 59), (109, 91), (161, 140)]
-
-  Method                  mean (min)  max (min)   per anchor (min, in anchor order)
-  No alignment                 3.544      4.725   2.48 2.93 4.05 4.73
-  Constant shift               1.406      1.800   1.57 1.12 1.12 1.80
-  PCHIP (pooled anchors)       0.753      1.848   0.58 0.43 0.14 1.85
-  COW-TIC                      1.686      5.925   0.31 0.36 0.15 5.93
-  Free warp (no network)       1.073      3.015   0.67 0.23 0.38 3.02
-  WarpTransformer              0.375      0.509   0.51 0.45 0.38 0.17
-  WT in-sample                 0.031      0.041   0.02 0.03 0.04 0.03   (calibrated on all anchors; not held out)
-
-============================================================================================
-jan2016 × jul2016   6 anchors (ref_bin, query_bin): [(44, 32), (53, 41), (72, 59), (109, 91), (121, 105), (161, 140)]
-
-  Method                  mean (min)  max (min)   per anchor (min, in anchor order)
-  No alignment                 3.450      4.725   2.70 2.70 2.93 4.05 3.60 4.73
-  Constant shift               1.012      1.800   0.90 0.90 0.68 1.12 0.68 1.80
-  PCHIP (pooled anchors)       0.834      2.828   0.29 0.17 0.26 0.67 0.79 2.83
-  COW-TIC                      1.223      5.925   0.53 0.09 0.36 0.15 0.28 5.93
-  Free warp (no network)       0.825      2.971   0.45 0.07 0.23 0.62 0.61 2.97
-  WarpTransformer              0.555      1.447   0.20 0.15 0.28 0.59 0.65 1.45
-  WT in-sample                 0.042      0.056   0.04 0.04 0.04 0.06 0.04 0.04   (calibrated on all anchors; not held out)
-
-============================================================================================
 Summary: mean / max held-out error (min)
-  Pair                           No alignment         Constant shift PCHIP (pooled anchors)                COW-TIC Free warp (no network)        WarpTransformer
-  sep2015 × jul2016           2.700 / 4.950          2.121 / 3.375          0.945 / 2.212          0.667 / 1.400          1.011 / 2.005          1.212 / 2.557  
-  sep2015 × apr2016           3.555 / 4.950          1.845 / 2.925          0.130 / 0.272          0.234 / 0.658          0.385 / 0.906          0.178 / 0.391  
-  jan2016 × apr2016           3.544 / 4.725          1.406 / 1.800          0.753 / 1.848          1.686 / 5.925          1.073 / 3.015          0.375 / 0.509  
-  jan2016 × jul2016           3.450 / 4.725          1.012 / 1.800          0.834 / 2.828          1.223 / 5.925          0.825 / 2.971          0.555 / 1.447  
+  Pair          No alignment  Constant shift  PCHIP (pooled anchors)        COW-TIC  Free warp (no network)  WarpTransformer
+  Sep15×Jul16  4.162 / 4.950   0.281 / 0.900           0.355 / 0.900  2.246 / 7.369           0.358 / 0.772    0.403 / 1.266
+  Sep15×Apr16  4.275 / 4.950   0.225 / 0.675           0.199 / 0.450  1.329 / 7.167           0.240 / 0.609    0.151 / 0.273
+  Jan16×Apr16  4.253 / 4.950   0.405 / 0.900           0.312 / 0.900  1.978 / 8.775           0.286 / 0.868    0.298 / 0.849
+  Jan16×Jul16  4.275 / 4.950   0.383 / 0.900           0.348 / 0.900  2.094 / 8.775           0.365 / 0.919    0.422 / 1.085
 
-With 4–8 anchors per pair, each mean is over 4–8 values; end anchors are
-extrapolated by every method once held out, so per-anchor values are listed above.
+End anchors are extrapolated by every method once held out; read the per-anchor values, not only the means.

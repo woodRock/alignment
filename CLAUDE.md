@@ -72,9 +72,10 @@ All constants (time axis, evaluation window, batch pairs, anchor and calibration
   files. Batches: Sep 2015 (36), Jan 2016 (26), Apr 2016 (10), Jul 2016 (16).
 - The full paper run (four pairs × five seeds, ablations, figures) is in `run.md`; logs and stage
   scripts go in `logs/run_v2/`. v1 results for comparison are in `results/v1_before_fixes/`.
-- **Figures.** All pair-specific figures use Sep15×Jul16, seed 0, median sample
-  (`14_generate_figures.py --select median --seed 0`). Copy them from `results/` to `figs/` under
-  the manuscript names (`fig1_warp_functions.pdf`, `fig2_tic_overlays.pdf`,
+- **Figures.** All pair-specific figures (fig1–3) use Jan16×Jul16, seed 0, median sample
+  (`14_generate_figures.py --study-a fish_oil/batch_jan2016 --study-b fish_oil/batch_jul2016
+  --select median --seed 0`); the step's default pair is still Sep15×Jul16, so pass the pair.
+  Copy them from `results/` to `figs/` under the manuscript names (`fig1_warp_functions.pdf`, `fig2_tic_overlays.pdf`,
   `fig3_calibration_curve.pdf`, `fig4_per_pair_distributions.pdf`, `fig5_silhouette_scatter.pdf`).
   Repo→paper numbering: fig4 = Fig 2, fig2 = Fig 3, fig1 = Fig 4, fig3 = Fig 5.
 - The paper is written separately (Claude web client) from a handover message; it must state what
