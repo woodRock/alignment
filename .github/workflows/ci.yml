@@ -17,6 +17,7 @@ concurrency:
 
 env:
   PYTHON_VERSION: '3.11'
+  TORCH_VERSION: '2.7.1'  # the version the paper results were produced with
   TORCH_INDEX: https://download.pytorch.org/whl/cpu  # CPU wheels: no CUDA download
 
 jobs:
@@ -42,7 +43,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
           cache-dependency-path: pyproject.toml
-      - run: pip install torch --index-url $TORCH_INDEX
+      - run: pip install torch==$TORCH_VERSION --index-url $TORCH_INDEX
       - run: pip install -e . mypy==2.4.0
       - run: mypy
 
@@ -57,7 +58,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
           cache-dependency-path: pyproject.toml
-      - run: pip install torch --index-url $TORCH_INDEX
+      - run: pip install torch==$TORCH_VERSION --index-url $TORCH_INDEX
       - run: pip install -e ".[dev]"
       - run: python -m coverage run -m pytest -m "not slow"
       - run: python -m coverage report
@@ -74,6 +75,6 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
           cache-dependency-path: pyproject.toml
-      - run: pip install torch --index-url $TORCH_INDEX
+      - run: pip install torch==$TORCH_VERSION --index-url $TORCH_INDEX
       - run: pip install -e ".[dev]"
       - run: python -m pytest -m slow
