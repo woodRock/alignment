@@ -1,0 +1,27 @@
+Raw .txt files scanned : 103  (/Users/woodj/Desktop/fish-data-analysis/engr489/src/data/raw-subsetted-CVSs)
+Samples considered     : 103
+
+Counts by outcome:
+    36  OK -> batch_sep2015
+    26  OK -> batch_jan2016
+    16  OK -> batch_jul2016
+    13  instrument blank
+    10  OK -> batch_apr2016
+     2  assigned to batch_aug2015 (not an evaluated batch)
+
+Excluded samples (15):
+  1 - SNA1 Frame A                         instrument blank
+  1 - SNA1 Frame B                         instrument blank
+  1 - SNA1 Frame C                         instrument blank
+  3 - TAR3 Frame A                         instrument blank
+  3 - TAR3 Frame B                         instrument blank
+  3 - TAR3 Frame C                         instrument blank
+  4 - BCO4 Frame A                         instrument blank
+  4 - BCO4 Frame B                         instrument blank
+  4 - BCO4 Frame C                         instrument blank
+  4 - BCO4 Head A                          assigned to batch_aug2015 (not an evaluated batch)
+  4 - BCO4 Head B                          assigned to batch_aug2015 (not an evaluated batch)
+  5 - BCO5 Gonad Male A                    instrument blank
+  5 - BCO5 Rest of Guts A                  instrument blank
+  5 - BCO5 Rest of Guts B                  instrument blank
+  5 - BCO5 Rest of Guts C                  instrument blank

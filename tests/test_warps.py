@@ -2,6 +2,7 @@
 
 import numpy as np
 import pytest
+
 from gcmsalign.config import BIN_MIN, N_BINS, TIME_AXIS
 from gcmsalign.warps import (
     invert_src,

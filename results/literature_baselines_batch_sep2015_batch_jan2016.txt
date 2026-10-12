@@ -1,45 +1,16 @@
-Loading chromatograms …
-  batch_sep2015: 36 samples
-  batch_jan2016: 26 samples
-  Total pairs  : 936
-  COW-TIC      : n_segs=4  slack=±22 bins (±5.0 min)
-  icoshift     : n_intervals=10  max_shift=±20 bins (±4.5 min)
+Step 05 — COW-TIC and icoshift on one batch pair.
 
-Unaligned baseline  TIC r = 0.823  TIC r (raw) = 0.841
+Sep15×Jan16: batch_sep2015 (36) × batch_jan2016 (26) = 936 pairs
+COW-TIC: 4 segments, slack ±22 bins (±5.0 min); icoshift: 10 intervals, max shift ±20 bins
 
-Evaluating: COW-TIC …
-    500/936 pairs …
-  TIC r=0.832  TIC r (raw)=0.839  warp_mag=0.033 min  study_sil=0.202
+  Method     TIC r  Δ unal  raw r  Δ unal  Study sil  Warp mag  outside  r in range
+  Unaligned  0.814   0.000  0.835   0.000      0.166    0.000m     0.0%       0.814
+  COW-TIC    0.826   0.012  0.848   0.013      0.184    0.035m     0.0%       0.826
+  icoshift   0.825   0.011  0.835   0.000      0.168    0.053m     0.0%       0.825
+outside: share of evaluated (bin, sample) values whose warped source lies outside the run's acquired range; r in range: TIC r with those values masked out.
 
-Evaluating: icoshift …
-    500/936 pairs …
-  TIC r=0.775  TIC r (raw)=0.831  warp_mag=0.195 min  study_sil=0.212
-
-========================================================================
-Method                               TIC r   Δ unaligned   Study sil
-------------------------------------------------------------------------
-Unaligned                            0.823             —       0.159
-COW-TIC                              0.832        +0.010       0.202
-icoshift                             0.775        -0.048       0.212
-========================================================================
-TIC r (raw)                          TIC r   Δ unaligned
-------------------------------------------------------------------------
-Unaligned                            0.841             —
-COW-TIC                              0.839        -0.002
-icoshift                             0.831        -0.010
-========================================================================
-TIC r     : mean Pearson r across all batch_sep2015↔batch_jan2016 pairs  (n=936)
-TIC r (raw): same warps (optimised on the normalised TIC) applied to the raw TIC
-Δ unaligned: improvement over unaligned baseline
-Study sil : study-label silhouette in PCA-50  (lower = less batch effect)
-
-======================================================================
-Paired Wilcoxon signed-rank tests (n=936 pairs, two-sided)
-----------------------------------------------------------------------
-Comparison                                      stat       p-value    sig
-----------------------------------------------------------------------
-  COW-TIC              vs Unaligned               50.0     1.278e-85    ***
-  icoshift             vs Unaligned            28938.0     1.303e-67    ***
-  icoshift             vs COW-TIC                522.0    5.486e-137    ***
-======================================================================
-Significance: *** p<0.001  ** p<0.01  * p<0.05  ns not significant
+Paired two-sided Wilcoxon over sample pairs (not independent; descriptive):
+  Comparison                     p
+  COW-TIC vs Unaligned   1.70e-103
+  icoshift vs Unaligned  1.63e-137
+  icoshift vs COW-TIC     4.52e-06

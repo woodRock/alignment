@@ -23,10 +23,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
 
-# softplus(u + _UNIT) = 1 at u = 0, so zero logits give unit increments (the identity warp)
-_UNIT = math.log(math.e - 1.0)
-
-
 # ── Reproducibility ───────────────────────────────────────────────────────────
 
 
@@ -58,16 +54,29 @@ def apply_warp(chromas: Tensor, warps: Tensor) -> Tensor:
     return (1.0 - alpha) * lo + alpha * hi  # exact at alpha = 0 and alpha = 1
 
 
-def make_monotone_warp(raw: Tensor, start: Tensor) -> Tensor:
-    """Unconstrained increments raw [N, T] and start offsets start [N] → monotone warps [N, T].
+def make_monotone_warp(raw: Tensor, start: Tensor, end_shift: Tensor | None = None) -> Tensor:
+    """Unconstrained logits raw [N, T], start offsets [N] and end shifts [N] → monotone warps.
 
-    δ(t) = softplus(raw(t) + c) with c = log(e − 1), so δ = 1 at raw = 0; w(0) = start and
-    w(t) = start + Σ_{τ=1..t} δ(τ). Strictly increasing, and neither end is pinned, so drift at
-    the start or end of the run can be represented. raw = 0, start = 0 is exactly the identity.
-    (raw[:, 0] does not affect the warp.)"""
-    deltas = F.softplus(raw[:, 1:] + _UNIT)
-    zero = torch.zeros_like(raw[:, :1])
-    return start.unsqueeze(-1) + torch.cat([zero, deltas.cumsum(dim=-1)], dim=-1)
+    Shape: u(t) = (C(t) − C(0)) / (C(T−1) − C(0)) with C = cumsum softplus(raw), running exactly
+    from 0 to 1 (the network learns *relative* increments, as in v1). Ends: w(t) = start +
+    span · u(t) with span = (T − 1) · exp(end_shift / (T − 1)), so w(0) = start and
+    w(T − 1) = start + span: both ends move, independently (drift at the start and at the end of
+    the run can differ). end_shift is in bins (span ≈ T − 1 + end_shift for small shifts), so its
+    gradient has the same scale as start's; a log-span parameter had a gradient ~T times larger,
+    which dominated gradient-norm clipping and stalled the other parameters.
+    raw = 0, start = 0, end_shift = 0 is the identity (to float precision; raw[:, 0] has no
+    effect).
+
+    Why this form: an absolute-increment construction, w(t) = start + Σ softplus(·), also has
+    free ends but did not learn in pretraining (loss stayed at the no-warp level), while v1's
+    normalised increments learn quickly; this keeps v1's shape and frees the ends."""
+    T = raw.shape[-1]
+    c = F.softplus(raw).cumsum(dim=-1)
+    u = (c - c[:, :1]) / (c[:, -1:] - c[:, :1]).clamp(min=1e-6)
+    if end_shift is None:
+        end_shift = torch.zeros_like(start)
+    span = (T - 1) * torch.exp(end_shift / (T - 1))
+    return start.unsqueeze(-1) + span.unsqueeze(-1) * u
 
 
 def warp_smoothness_loss(warps: Tensor) -> Tensor:
@@ -219,8 +228,9 @@ class ChromaWarpTransformer(nn.Module):
             nn.GELU(),
             nn.Linear(d_model // 2, 1),
         )
-        self.start_head = nn.Sequential(nn.LayerNorm(d_model), nn.Linear(d_model, 1))
-        for head in (self.warp_head, self.start_head):  # identity warp at init
+        # (start offset, end shift) per sample, in bins
+        self.ends_head = nn.Sequential(nn.LayerNorm(d_model), nn.Linear(d_model, 2))
+        for head in (self.warp_head, self.ends_head):  # identity warp at init
             nn.init.zeros_(head[-1].weight)
             nn.init.zeros_(head[-1].bias)
 
@@ -243,8 +253,8 @@ class ChromaWarpTransformer(nn.Module):
     def warps(self, chromas: Tensor, study_ids: Tensor) -> Tensor:
         enc = self.encode(chromas, study_ids)
         raw = self.warp_head(enc).squeeze(-1)  # [N, T]
-        start = self.start_head(enc.mean(dim=1)).squeeze(-1)  # [N]
-        return make_monotone_warp(raw, start)
+        start, end_shift = self.ends_head(enc.mean(dim=1)).unbind(dim=-1)  # [N] each
+        return make_monotone_warp(raw, start, end_shift)
 
     def forward(self, chromas: Tensor, study_ids: Tensor) -> tuple[Tensor, Tensor]:
         """Returns (aligned [N, T, M], warps [N, T])."""

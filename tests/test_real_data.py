@@ -2,6 +2,7 @@
 
 import numpy as np
 import pytest
+
 from gcmsalign.anchors import detect_peaks, extract_anchors
 from gcmsalign.config import BIN_MIN, EVAL_PAIRS, EVAL_START_BIN, EXCLUDED_PAIRS, Paths
 
@@ -94,7 +95,7 @@ def test_anchors_are_monotone_plausible_and_consistent(batches, pair):
     assert np.all((slope >= 0.5) & (slope <= 2.0))
     drift = (q - r) * BIN_MIN
     if pair in EVAL_PAIRS:
-        assert r.max() * BIN_MIN > 35          # the trend filter keeps the 37.1-min anchor
+        assert r.max() * BIN_MIN > 35  # the trend filter keeps the 37.1-min anchor
     if pair in EVAL_PAIRS:  # true drift across Jan–Apr 2016: about −4 min
         assert np.all((drift < -3.0) & (drift > -5.5))
     else:

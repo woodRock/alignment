@@ -85,7 +85,7 @@ def write_dataset(root: Path, n_per_batch: int = 4, seed: int = 0) -> dict:
         )
         d = root / 'data' / 'fish_oil' / name / 'chroma'
         d.mkdir(parents=True, exist_ok=True)
-        for i, (c, r) in enumerate(zip(chromas, raws)):
+        for i, (c, r) in enumerate(zip(chromas, raws, strict=False)):
             np.savez_compressed(d / f'sample_{i:02d}.npz', chroma=c, tic_raw=r)
         out[name] = (chromas, raws)
     return out

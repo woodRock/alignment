@@ -174,31 +174,41 @@ def free_warp(
     n_a: int, n_b: int, anchors: list, lr: float, seed: int, steps: int = N_CALIB_STEPS
 ) -> tuple[np.ndarray, tuple[float, float, float]]:
     """Network-free control: one monotone warp per batch with the WarpTransformer head's
-    parameterisation (increments and a start offset, zero-initialised = identity), fitted with
-    the same loss and optimisation loop as calibrate. Per-sample warps would get identical
-    gradients within a batch, so per-batch parameters are equivalent. CPU.
+    parameterisation (shape logits, start offset, end shift), fitted with the same loss and
+    optimisation loop as calibrate. Per-sample warps would get identical gradients within a
+    batch, so per-batch parameters are equivalent. CPU.
+
+    Initialisation: batch A at the identity and batch B at the best constant shift, the anchors'
+    median drift (start offset = median(q − r), end shift 0, so w_B(t) = t + drift). The loop then
+    only learns deviations from that shift. Started at the identity instead, Adam stopped at
+    warps that fit the anchors by bending between them although a pure shift scores lower on
+    the same loss, which would handicap the control and overstate what the network adds.
     Returns (warps [n_a + n_b, T], (anchor, smoothness, frame) losses)."""
     set_seed(seed)
     study_ids = torch.tensor([0] * n_a + [1] * n_b, dtype=torch.long)
-    raw = torch.zeros(2, N_BINS, requires_grad=True)
-    start = torch.zeros(2, requires_grad=True)
-    opt = optim.Adam([raw, start], lr=lr)
+    drift = float(np.median([q - r for r, q in anchors])) if anchors else 0.0
+    params = [
+        torch.zeros(2, N_BINS, requires_grad=True),  # shape logits
+        torch.tensor([0.0, drift], requires_grad=True),  # start offsets: A identity, B shifted
+        torch.zeros(2, requires_grad=True),  # end shifts (bins)
+    ]
+    opt = optim.Adam(params, lr=lr)
     sched = optim.lr_scheduler.CosineAnnealingLR(opt, T_max=steps)
 
-    def warps_of(r, s):
-        return make_monotone_warp(r, s)[study_ids]
+    def warps_of(ps: list[torch.Tensor]) -> torch.Tensor:
+        return make_monotone_warp(*ps)[study_ids]
 
-    best, best_params = float('inf'), (raw.detach().clone(), start.detach().clone())
+    best, best_params = float('inf'), [p.detach().clone() for p in params]
     for _ in range(steps):
-        w = warps_of(raw, start)
+        w = warps_of(params)
         loss, _ = calibration_objective(w, study_ids, anchors)
         if float(loss) < best:
-            best, best_params = float(loss), (raw.detach().clone(), start.detach().clone())
+            best, best_params = float(loss), [p.detach().clone() for p in params]
         opt.zero_grad()
         loss.backward()
-        torch.nn.utils.clip_grad_norm_([raw, start], 1.0)
+        torch.nn.utils.clip_grad_norm_(params, 1.0)
         opt.step()
         sched.step()
     with torch.no_grad():
-        w = warps_of(*best_params)
+        w = warps_of(best_params)
     return w.numpy(), final_losses(w, study_ids, anchors)

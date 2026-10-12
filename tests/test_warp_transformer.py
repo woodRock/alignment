@@ -3,6 +3,7 @@
 import numpy as np
 import pytest
 import torch
+
 from gcmsalign.warp_transformer import (
     ChromaWarpTransformer,
     anchor_loss_approx,
@@ -69,6 +70,28 @@ def test_warp_is_strictly_increasing_and_ends_are_free():
 def test_constant_shift_is_representable():
     w = make_monotone_warp(torch.zeros(1, T), torch.tensor([6.0]))
     assert torch.allclose(w, ident(1, torch.float32) + 6.0)
+
+
+def test_start_and_end_move_independently():
+    """Drift at the start and at the end of the run can differ (fix 8a)."""
+    start = torch.tensor([2.0], dtype=torch.float64)
+    end_shift = torch.tensor([6.0], dtype=torch.float64)
+    w = make_monotone_warp(torch.zeros(1, T, dtype=torch.float64), start, end_shift)
+    assert float(w[0, 0]) == pytest.approx(2.0)
+    assert float(w[0, -1]) == pytest.approx(2.0 + (T - 1) * np.exp(6.0 / (T - 1)))
+    assert float(w[0, -1] - (T - 1)) == pytest.approx(8.0, abs=0.1)  # ≈ start + end_shift
+    assert (w[:, 1:] > w[:, :-1]).all()
+
+
+def test_end_parameter_gradient_has_the_scale_of_the_start_gradient():
+    """A log-span parameter had a gradient ~T times the start's, which dominated gradient-norm
+    clipping and stalled the other parameters; the end shift is measured in bins instead."""
+    raw = torch.zeros(1, T, dtype=torch.float64)
+    start = torch.zeros(1, dtype=torch.float64, requires_grad=True)
+    end_shift = torch.zeros(1, dtype=torch.float64, requires_grad=True)
+    make_monotone_warp(raw, start, end_shift)[0, -1].backward()
+    assert float(start.grad) == pytest.approx(1.0)
+    assert float(end_shift.grad) == pytest.approx(1.0)
 
 
 def test_smoothness_loss_zero_for_any_shift_positive_otherwise():
@@ -187,8 +210,8 @@ def test_untrained_model_predicts_identity(small_model):
     x = torch.rand(5, T, 16)
     sid = torch.tensor([0, 0, 0, 1, 1])
     aligned, warps = small_model(x, sid)
-    assert torch.allclose(warps, ident(5, torch.float32))
-    assert torch.allclose(aligned, x)
+    assert torch.allclose(warps, ident(5, torch.float32), atol=1e-4)  # float32 normalisation
+    assert torch.allclose(aligned, x, atol=1e-4)
 
 
 def test_model_is_equivariant_to_sample_order(small_model):
@@ -212,4 +235,4 @@ def test_default_model_state_dict_round_trip(tmp_path):
     torch.save(m.state_dict(), tmp_path / 'm.pt')
     m2 = ChromaWarpTransformer()
     m2.load_state_dict(torch.load(tmp_path / 'm.pt'))
-    assert {k for k in m2.state_dict()} >= {'start_head.1.weight', 'warp_head.3.weight'}
+    assert set(m2.state_dict()) >= {'ends_head.1.weight', 'warp_head.3.weight'}

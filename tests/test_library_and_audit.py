@@ -16,7 +16,6 @@ from gcmsalign.steps import audit
 from gcmsalign.steps import download_library as dl
 from gcmsalign.steps import preprocess as pp
 
-
 # ── 01 ────────────────────────────────────────────────────────────────────────
 
 MB_RECORD = '''ACCESSION: TEST000001

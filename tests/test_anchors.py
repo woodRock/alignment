@@ -5,16 +5,17 @@ import itertools
 import numpy as np
 import pytest
 import synth
+
 from gcmsalign.anchors import (
     MATCH_STAGES,
     POOL_STAGES,
     detect_peaks,
     drift_outlier_filter,
-    merge_close,
     extract_anchors,
     fingerprint,
     longest_increasing_subsequence,
     match_anchors,
+    merge_close,
     monotone_subset,
     pool_anchors,
     slope_filter,
@@ -68,7 +69,7 @@ def test_lis_is_increasing_and_maximal(seed):
     v = r.integers(0, 12, size=r.integers(0, 10)).tolist()
     idx = longest_increasing_subsequence(v)
     assert idx == sorted(idx)
-    assert all(v[a] < v[b] for a, b in zip(idx, idx[1:]))
+    assert all(v[a] < v[b] for a, b in itertools.pairwise(idx))
     assert len(idx) == _brute_lis_len(v)
 
 
@@ -110,11 +111,15 @@ def test_pool_anchors_median_outlier_and_stages():
         [(40, 31), (80, 73)],
     ]
     anchors, counts, removed_outlier, removed_slope = pool_anchors(per_sample)
-    assert anchors == [(40, 32), (80, 72), (120, 112)]           # median q per r
+    assert anchors == [(40, 32), (80, 72), (120, 112)]  # median q per r
     assert removed_outlier == [(150, 60)] and removed_slope == []
     assert list(counts) == list(POOL_STAGES)
-    assert counts == {'pooled': 4, 'after merging': 4, 'after outlier filter': 3,
-                      'after slope filter': 3}
+    assert counts == {
+        'pooled': 4,
+        'after merging': 4,
+        'after outlier filter': 3,
+        'after slope filter': 3,
+    }
 
 
 def test_pool_anchors_identical_drifts_are_kept():
@@ -134,6 +139,7 @@ def test_pool_anchors_empty():
 
 # ── merge_close (round-3 review, issue 4) ─────────────────────────────────────
 
+
 def test_merge_close_combines_neighbours_one_or_two_bins_apart():
     anchors = [(40, 30), (63, 46), (64, 46), (100, 80), (161, 139), (162, 140), (164, 141)]
     # (164, 141) is 3 bins from its group's first anchor (161, 139): kept separate
@@ -145,7 +151,7 @@ def test_merge_close_leaves_separated_anchors_and_sorts():
     assert merge_close(anchors) == [(40, 30), (70, 55), (100, 80)]
     assert merge_close([]) == []
     assert merge_close([(10, 5), (13, 8)], max_gap=2) == [(10, 5), (13, 8)]
-    assert merge_close([(10, 5), (13, 8)], max_gap=3) == [(12, 7)]   # 11.5, 6.5 rounded up
+    assert merge_close([(10, 5), (13, 8)], max_gap=3) == [(12, 7)]  # 11.5, 6.5 rounded up
 
 
 def test_merge_close_does_not_average_a_wrong_match_into_a_right_one():
@@ -153,8 +159,9 @@ def test_merge_close_does_not_average_a_wrong_match_into_a_right_one():
     (162, 150), must stay two anchors (drift −22 vs −12) for the filters to judge; averaging
     gave an invented (162, 144) 5 bins from both."""
     assert merge_close([(161, 139), (162, 150)]) == [(161, 139), (162, 150)]
-    kept, *_ = pool_anchors([[(40, 32), (80, 72), (120, 112), (161, 153)],
-                             [(40, 32), (80, 72), (120, 112), (162, 120)]])
+    kept, *_ = pool_anchors(
+        [[(40, 32), (80, 72), (120, 112), (161, 153)], [(40, 32), (80, 72), (120, 112), (162, 120)]]
+    )
     assert (162, 120) not in kept and all(q - r == -8 for r, q in kept)
 
 
@@ -164,12 +171,12 @@ def test_merge_close_does_not_chain_neighbouring_compounds():
     run = [(100, 90), (102, 92), (104, 94), (106, 96), (108, 98)]
     merged = merge_close(run)
     assert len(merged) == 3
-    assert all(abs(b[0] - a[0]) > 2 for a, b in zip(merged, merged[1:], strict=False))
+    assert all(abs(b[0] - a[0]) > 2 for a, b in itertools.pairwise(merged))
 
 
 def test_merge_close_rounds_half_up():
-    assert merge_close([(100, 90), (101, 91)]) == [(101, 91)]     # 100.5 → 101 (not 100)
-    assert merge_close([(101, 91), (102, 92)]) == [(102, 92)]     # 101.5 → 102
+    assert merge_close([(100, 90), (101, 91)]) == [(101, 91)]  # 100.5 → 101 (not 100)
+    assert merge_close([(101, 91), (102, 92)]) == [(102, 92)]  # 101.5 → 102
 
 
 def test_slope_filter_no_longer_sees_rounding_slopes():
@@ -192,11 +199,11 @@ def test_trending_drift_keeps_both_end_anchors():
     assert kept == TRENDING and removed == []
     d = np.array([q - r for r, q in TRENDING], float)
     sd = max(d.std(), 1.0)
-    assert any(abs(x - d.mean()) > 1.5 * sd for x in d)       # the old rule would drop some
+    assert any(abs(x - d.mean()) > 1.5 * sd for x in d)  # the old rule would drop some
 
 
 def test_anchor_far_from_the_trend_is_removed():
-    bad = (100, 60)                                           # drift −40 among −15 … −22
+    bad = (100, 60)  # drift −40 among −15 … −22
     kept, removed = drift_outlier_filter([*TRENDING, bad])
     assert removed == [bad] and kept == TRENDING
 
@@ -212,7 +219,7 @@ def test_robust_to_a_gross_outlier_at_the_end():
 def test_drift_outlier_filter_small_and_unsorted_inputs():
     assert drift_outlier_filter([]) == ([], [])
     assert drift_outlier_filter([(80, 10), (40, 30)]) == ([(40, 30), (80, 10)], [])
-    three = [(40, 32), (80, 72), (120, 10)]                  # < 4: nothing to judge against
+    three = [(40, 32), (80, 72), (120, 10)]  # < 4: nothing to judge against
     assert drift_outlier_filter(three) == (three, [])
     kept, _ = drift_outlier_filter(list(reversed(TRENDING)))
     assert kept == TRENDING
@@ -255,7 +262,7 @@ def test_recovers_a_known_shift(synthetic_pair):
 
 def test_peaks_come_from_the_raw_tic(synthetic_pair):
     """Fix 1: with a raw TIC whose only peaks are at 60 and 140, anchors can only sit there."""
-    (ca, _), (cb, _) = synthetic_pair
+    (ca, _), (_cb, _) = synthetic_pair
     t = np.arange(200)
     tic = 10 * np.exp(-0.5 * ((t - 60) / 1.0) ** 2) + 10 * np.exp(-0.5 * ((t - 140) / 1.0) ** 2)
     anchors, _ = match_anchors(ca[0], ca[0], tic, tic)
@@ -280,6 +287,7 @@ def test_extract_anchors_too_few_peaks():
 
 def test_pooled_median_rounds_half_up_like_merging():
     """A median that falls on .5 (two samples, q = 40 and 41) rounds up, as merged anchors do."""
-    kept, *_ = pool_anchors([[(50, 40), (90, 80), (130, 120), (170, 160)],
-                             [(50, 41), (90, 80), (130, 120), (170, 160)]])
+    kept, *_ = pool_anchors(
+        [[(50, 40), (90, 80), (130, 120), (170, 160)], [(50, 41), (90, 80), (130, 120), (170, 160)]]
+    )
     assert (50, 41) in kept

@@ -1,4 +1,4 @@
-Raw .txt files scanned : 103  (/Users/woodj/Desktop/fish-data-analysis/engr489/src/data/raw-subsetted-CVSs)
+Raw .txt files scanned : 103
 Samples considered     : 103
 
 Counts by outcome:

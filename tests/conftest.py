@@ -1,11 +1,11 @@
 """Shared fixtures: synthetic data and a tiny model."""
+
 from __future__ import annotations
 
 from pathlib import Path
 
 import numpy as np
 import pytest
-
 import synth
 
 REPO = Path(__file__).resolve().parent.parent
@@ -32,6 +32,9 @@ def synthetic_pair():
 def batches(synthetic_pair):
     """The synthetic pair as gcmsalign Batch objects."""
     from gcmsalign.data import Batch
+
     (ca, ra), (cb, rb) = synthetic_pair
-    return (Batch('a', ca, ra, tuple(f'a{i}' for i in range(len(ca)))),
-            Batch('b', cb, rb, tuple(f'b{i}' for i in range(len(cb)))))
+    return (
+        Batch('a', ca, ra, tuple(f'a{i}' for i in range(len(ca)))),
+        Batch('b', cb, rb, tuple(f'b{i}' for i in range(len(cb)))),
+    )

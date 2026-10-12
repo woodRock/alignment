@@ -1,30 +1,23 @@
+Step 06 — WarpTransformer with anchor-supervised test-time calibration, on one batch pair.
 
-======================================================================================
-Method                                     TIC r   Δ unaligned   Study sil   Warp mag
---------------------------------------------------------------------------------------
-Unaligned                                  0.076             —       0.209          —
-PCHIP (pooled anchors)                     0.476        +0.401       0.249     2.856m
-WarpTransformer + anchor calib             0.612        +0.537       0.212     2.112m
-======================================================================================
-TIC r (raw)                                TIC r   Δ unaligned
---------------------------------------------------------------------------------------
-Unaligned                                 -0.033             —
-PCHIP (pooled anchors)                     0.014        +0.046
-WarpTransformer + anchor calib             0.066        +0.099
-======================================================================================
-TIC r: mean Pearson r over all 36×16 = 576 (A_i, B_j) pairs.
-PCHIP: one spline through the WarpTransformer's pooled anchors (7 used), applied to every A_i; B unwarped.
-Warp mag: PCHIP = mean |w(t) − t| of that spline; WarpTransformer = batch-B samples only.
-TIC r (raw): the same warps applied to the raw TIC (summed raw intensity of each binned apex scan, no sqrt or normalisation).
+Sep15×Jul16: batch_sep2015 (36) × batch_jul2016 (16) = 576 pairs
+Seed 4   device cpu   checkpoint /Users/woodj/Desktop/alignment/checkpoints/warp_transformer_v2.pt
 
-Seed                         : 4
-Checkpoint                   : checkpoints/warp_transformer_baseline.pt
-Anchors used for calibration : 7 RANSAC pairs (raw cosine — no TIC leakage)
-Anchors (ref_bin, query_bin) : [(53, 45), (108, 90), (162, 140), (177, 157), (184, 178), (194, 188), (199, 195)]
-Calibration steps            : 500 (λ_anchor=1.0, λ_smooth=0.05)
-Calibration wall time        : 360.1 s on cpu
+  Method                          TIC r  Δ unal   raw r  Δ unal  Study sil  Warp mag  outside  r in range
+  Unaligned                       0.054   0.000  -0.032   0.000      0.180         —     0.0%       0.054
+  PCHIP (pooled anchors)          0.518   0.464   0.729   0.762      0.189    4.296m     8.6%       0.587
+  WarpTransformer + anchor calib  0.534   0.479   0.737   0.769      0.185    3.974m     1.4%       0.598
 
-WarpTransformer warp magnitudes (mean |warp(t)−t| in minutes):
-  All samples : 1.167 min
-  batch_sep2015         : 0.748 min
-  batch_jul2016         : 2.112 min
+TIC r: mean Pearson r over all A×B pairs on the common window; raw r: the same warps applied to the raw TIC.
+Warp mag: PCHIP = its one warp; WarpTransformer = batch-B samples.
+outside: share of evaluated (bin, sample) values read outside a run's acquired range; r in range: TIC r with those values masked out.
+
+Anchors (8, (A bin, B bin)): [(48, 33), (64, 46), (69, 51), (75, 57), (86, 67), (118, 98), (129, 111), (165, 143)]
+Anchor stages (match stages summed over the A samples): proposed 39 → above threshold 30 → after RANSAC 19 → after monotone 19 → pooled 8 → after merging 8 → after outlier filter 8 → after slope filter 8
+Removed by the drift outlier filter: []
+Removed by the slope filter: []
+Calibration: 500 steps, lr 0.0005, λ_anchor 1.0, λ_smooth 0.05, best loss 0.0038, 746.0 s
+
+  WarpTransformer warp magnitude (min)    all      A      B
+  before calibration                    1.187  0.375  3.013
+  after calibration                     1.390  0.242  3.974

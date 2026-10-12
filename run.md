@@ -1,3 +1,55 @@
+# Paper run v2 (2026-10-12): every result and figure, after the code audit
+
+All steps on **CPU** (bit-reproducible under a seed), checkpoint `checkpoints/warp_transformer_v2.pt`
+(the default), data time-binned by step 03 (`results/scan_time_audit.txt`). The v1 results are
+backed up in `results/v1_before_fixes/`. Logs: `logs/run_v2/`.
+
+**Stage 1** (`logs/run_v2/stage1.sh`, ~2 h), then a check before stage 2: WarpTransformer TIC r
+above PCHIP on every pair, batch-A warp magnitude small, "outside" fraction near 0 %, calibration
+loss falling.
+
+```bash
+python3.11 scripts/04_audit_fish_oil_samples.py --raw-dir <raw-subsetted-CVSs>
+python3.11 scripts/02_train_warp_transformer.py --device cpu          # → checkpoints/warp_transformer_v2.pt
+for p in "sep2015 jul2016" "sep2015 apr2016" "jan2016 apr2016" "jan2016 jul2016" \
+         "sep2015 jan2016" "apr2016 jul2016"; do set -- $p
+  python3.11 scripts/05_literature_baselines.py --study-a fish_oil/batch_$1 --study-b fish_oil/batch_$2
+done
+for p in "sep2015 jul2016" "sep2015 apr2016" "jan2016 apr2016" "jan2016 jul2016"; do set -- $p
+  python3.11 scripts/06_align_testtime_calib.py --study-a fish_oil/batch_$1 --study-b fish_oil/batch_$2 --seed 0
+done
+```
+
+**Stage 2** (~6–8 h, two parallel lanes; parallelism does not change CPU results)
+
+```bash
+P4='"sep2015 jul2016" "sep2015 apr2016" "jan2016 apr2016" "jan2016 jul2016"'
+# Lane 1: calibration seeds 1–4 and the excluded pairs (seed 0)
+for s in 1 2 3 4; do for p in <P4>; do set -- $p
+  python3.11 scripts/06_align_testtime_calib.py --study-a fish_oil/batch_$1 --study-b fish_oil/batch_$2 --seed $s
+done; done
+for p in "sep2015 jan2016" "apr2016 jul2016"; do set -- $p
+  python3.11 scripts/06_align_testtime_calib.py --study-a fish_oil/batch_$1 --study-b fish_oil/batch_$2 --seed 0
+done
+# Lane 2: pretraining ablation, 4 pairs × 5 seeds (CPU)
+for s in 0 1 2 3 4; do for p in <P4>; do set -- $p
+  python3.11 scripts/08_ablate_pretrain.py --study-a fish_oil/batch_$1 --study-b fish_oil/batch_$2 --seed $s
+done; done
+# After both lanes
+python3.11 scripts/07_pchip_pooled_anchors.py --seed 0
+python3.11 scripts/09_mechanism_ablation.py --seed 0
+python3.11 scripts/10_heldout_anchor_error.py --seed 0
+python3.11 scripts/11_within_batch_ceiling.py
+python3.11 scripts/12_significance_tests.py --seed 0 --seeds 0 1 2 3 4
+python3.11 scripts/13_aggregate_seeds.py --seeds 0 1 2 3 4
+python3.11 scripts/14_generate_figures.py --figs 1 2 3 4 5 --select median --seed 0
+# then copy results/fig*.pdf to figs/ under the manuscript names
+```
+
+---
+
+# Earlier plans (history; superseded by the run above)
+
 # Three experiments for the WarpTransformer paper (one day on an Apple M2)
 
 The draft rests on one GPU run, a whole-chromatogram metric computed on a normalised TIC,

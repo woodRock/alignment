@@ -26,8 +26,12 @@ from gcmsalign.steps import (
 )
 from gcmsalign.warp_transformer import ChromaWarpTransformer
 
-PAIRS = [('sep2015', 'jul2016'), ('sep2015', 'apr2016'), ('jan2016', 'apr2016'),
-         ('jan2016', 'jul2016')]
+PAIRS = [
+    ('sep2015', 'jul2016'),
+    ('sep2015', 'apr2016'),
+    ('jan2016', 'apr2016'),
+    ('jan2016', 'jul2016'),
+]
 EXCL = [('sep2015', 'jan2016'), ('apr2016', 'jul2016')]
 pytestmark = pytest.mark.slow
 
@@ -65,8 +69,12 @@ def run_root(tmp_path_factory):
 
 @pytest.mark.parametrize('script', sorted(p.name for p in SCRIPTS.glob('[01]*.py')))
 def test_numbered_scripts_run(script):
-    res = subprocess.run([sys.executable, str(SCRIPTS / script), '--help'], capture_output=True,
-                         text=True, timeout=120)
+    res = subprocess.run(
+        [sys.executable, str(SCRIPTS / script), '--help'],
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
     assert res.returncode == 0, res.stderr
     assert '--root' in res.stdout
 
@@ -136,9 +144,11 @@ def test_arrays_are_paired_and_consistent_across_scripts(run_root):
         assert np.allclose(pool['pchip_pooled'], cal['pchip_pooled'])
         assert np.array_equal(cal['anchors'], cal1['anchors'])
         assert cal['wt_warp_mag_pre'].shape == (3,) and cal['warps'].shape[1] == 200
-        assert cal['outside'].shape == (3,) and np.all((cal['outside'] >= 0) & (cal['outside'] <= 1))
+        assert cal['outside'].shape == (3,) and np.all(
+            (cal['outside'] >= 0) & (cal['outside'] <= 1)
+        )
         assert cal['warptransformer_valid'].shape == (n,) and base['cow_tic_valid'].shape == (n,)
-        assert base['outside'][0] == 0.0                     # unaligned reads nothing outside
+        assert base['outside'][0] == 0.0  # unaligned reads nothing outside
 
 
 def test_pchip_through_the_true_drift_aligns(run_root):
@@ -151,7 +161,7 @@ def test_seed_summary_checks_pass_and_reports_both_arms(run_root):
     text = res(run_root, 'seed_summary.txt')
     assert 'Checks: all passed' in text
     assert 'warp before (all)' in text and 'warp after (all)' in text
-    ablation = text[text.index('Pretraining ablation'):]
+    ablation = text[text.index('Pretraining ablation') :]
     assert '\n    pretrained ' in ablation and '\n    random init ' in ablation
     assert 'before calibration' in text and 'after calibration' in text
 

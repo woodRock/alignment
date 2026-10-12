@@ -4,6 +4,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+
 from gcmsalign.steps import audit
 from gcmsalign.steps import preprocess as pp
 
@@ -13,16 +14,18 @@ def write_raw(path: Path, date: str, times, peaks_per_scan, blank=False):
     lines = [
         '',
         'RunHeaderInfo',
-        f'first_scan = 1, last_scan = {len(times)}, start_time = {times[0]:.6f}, end_time = {times[-1]:.6f}',
+        f'first_scan = 1, last_scan = {len(times)}, '
+        f'start_time = {times[0]:.6f}, end_time = {times[-1]:.6f}',
         f'comment1 = {date}{" BLANK012" if blank else ""}',
         '',
     ]
-    for i, (t, peaks) in enumerate(zip(times, peaks_per_scan), start=1):
+    for i, (t, peaks) in enumerate(zip(times, peaks_per_scan, strict=False), start=1):
         lines += [
             f'ScanHeader # {i}',
             f'position = {i}, start_mass= 50.000000, end_mass = 550.000000',
             f'start_time = {t:.6f}, end_time = 0.000000, packet_type = 2',
-            f'num_readings = {len(peaks)}, integ_intens = {sum(peaks.values()):.6f}, data packet pos = 0',
+            f'num_readings = {len(peaks)}, '
+            f'integ_intens = {sum(peaks.values()):.6f}, data packet pos = 0',
             'DataPeaks',
             '',
         ]

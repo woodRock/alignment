@@ -1,7 +1,10 @@
 """baselines.py: COW-TIC and icoshift."""
 
+import itertools
+
 import numpy as np
 import pytest
+
 from gcmsalign.baselines import cow_tic_align, icoshift_align
 from gcmsalign.metrics import pearson
 from gcmsalign.warps import warp_signal
@@ -12,7 +15,13 @@ T = 200
 def peaks(positions, width=1.5, heights=None):
     t = np.arange(T)
     heights = heights if heights is not None else np.linspace(1, 3, len(positions))
-    return sum(h * np.exp(-0.5 * ((t - p) / width) ** 2) for p, h in zip(positions, heights)) + 0.01
+    return (
+        sum(
+            h * np.exp(-0.5 * ((t - p) / width) ** 2)
+            for p, h in zip(positions, heights, strict=False)
+        )
+        + 0.01
+    )
 
 
 POS = [35, 60, 90, 120, 150, 175]
@@ -54,7 +63,7 @@ def test_cow_recovers_a_shift_at_interior_nodes(shift):
     al = cow_tic_align(q, r)
     rn, qn = al.details['r_nodes'], al.details['q_nodes']
     assert all(
-        abs((b - a) - shift) <= 2 for a, b in zip(rn[1:-1], qn[1:-1])
+        abs((b - a) - shift) <= 2 for a, b in zip(rn[1:-1], qn[1:-1], strict=False)
     )  # nodes sit between peaks
     assert pearson(al.warped, r) > pearson(q, r) + 0.3
 
@@ -64,7 +73,9 @@ def test_icoshift_sign_convention():
     used t + lag)."""
     q, r = peaks([p + 4 for p in CENTRES], width=1.0), peaks(CENTRES, width=1.0)
     al = icoshift_align(q, r)
-    for lo, hi, lag in zip(al.details['bounds'][:-1], al.details['bounds'][1:], al.details['lags']):
+    for lo, hi, lag in zip(
+        al.details['bounds'][:-1], al.details['bounds'][1:], al.details['lags'], strict=False
+    ):
         k = np.arange(lo, hi)
         assert np.allclose(al.src[lo:hi], np.clip(k - lag, 0, T - 1))
     assert al.details['lags'][3] == -4
@@ -81,8 +92,8 @@ def test_cow_nodes_are_monotone_and_within_slack():
     al = cow_tic_align(q, r, n_segs=4, slack=10)
     rn, qn = al.details['r_nodes'], al.details['q_nodes']
     assert rn[0] == qn[0] == 0 and rn[-1] == qn[-1] == T - 1
-    assert all(b > a for a, b in zip(qn, qn[1:]))
-    assert all(abs(a - b) <= 10 for a, b in zip(rn[1:-1], qn[1:-1]))
+    assert all(b > a for a, b in itertools.pairwise(qn))
+    assert all(abs(a - b) <= 10 for a, b in zip(rn[1:-1], qn[1:-1], strict=False))
     assert np.allclose(al.src, np.interp(np.arange(T), rn, qn))
 
 

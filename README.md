@@ -3,6 +3,7 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.x-EE4C2C?logo=pytorch&logoColor=white)](https://pytorch.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
+[![CI](https://github.com/woodRock/alignment/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/woodRock/alignment/actions/workflows/ci.yml)
 [![Tests: pytest](https://img.shields.io/badge/tests-pytest-0A9EDC?logo=pytest&logoColor=white)](#testing-and-code-quality)
 [![Lint: Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![Types: mypy](https://img.shields.io/badge/types-mypy-2A6DB2)](https://mypy-lang.org/)
@@ -213,10 +214,12 @@ sample's time axis.
 - **Attention.** Layers alternate *local* attention, along time within a sample, with
   *global* attention, across samples at each time bin. There is no position encoding over
   samples, so their order does not matter.
-- **Monotone warp with free ends.** Increments are δ(t) = softplus(u(t) + log(e − 1)),
-  which is 1 when u = 0. They are summed from a per-sample start offset predicted by a
-  second head. The warp is strictly increasing and neither end is pinned. Both heads are
-  zero-initialised, so an untrained model is exactly the identity.
+- **Monotone warp with free ends.** The warp's shape comes from normalised cumulative
+  increments, u(t) = (C(t) − C(0)) / (C(T−1) − C(0)) with C = cumsum softplus(logits), as in v1.
+  A second head predicts a start offset and an end shift (in bins), so
+  w(t) = start + span · u(t): both ends move, independently. All heads are zero-initialised, so
+  an untrained model is the identity. (Absolute increments, an earlier free-end form, did not
+  learn in pretraining.)
 - **Resampling.** The warp is applied by linear interpolation, clamped to the run.
 
 ### Synthetic pretraining
@@ -238,6 +241,8 @@ Calibration runs 500 Adam steps on two losses:
 - **The exact anchor loss.** A compound at batch-A bin *r* and batch-B bin *q* must reach
   the same consensus bin: w_B(w̄_A⁻¹(*r*)) = *q*, where w̄_A is the mean batch-A warp.
 - **A smoothness penalty** on the warp velocity, with weight 0.05.
+- **A frame term** that fixes the shared consensus frame's free translation (batch A's mean
+  warp has no net offset); it does not constrain the warps' shape.
 
 The parameters with the lowest loss are kept. The setting is transductive: metrics are
 computed over all A × B sample pairs, including those that supplied the anchors. The only
@@ -251,6 +256,7 @@ supervision is spectral similarity, never TIC correlation.
 | icoshift | 10 equal intervals, each shifted by the integer lag (±20 bins) that maximises cross-correlation |
 | COW-TIC | Correlation optimised warping: 4 segments, interior nodes free within ±22 bins; maximises summed segment-wise TIC r, the evaluation metric itself |
 | PCHIP (pooled anchors) | A monotone spline through exactly the WarpTransformer's anchors, continued with slope 1 beyond them; no network |
+| Free warp (control) | One monotone warp per batch with the WarpTransformer's parameterisation and calibration loss, but no network; initialised at the anchors' median shift (used in steps 09 and 10) |
 
 ### Metrics
 
@@ -286,11 +292,15 @@ numbers remain in the git history.
 python3.11 -m pytest -m "not slow"     # unit tests, ~10 s
 python3.11 -m pytest                   # + every step end to end on synthetic data, ~3–4 min
 python3.11 -m coverage run -m pytest && python3.11 -m coverage report
-python3.11 -m ruff check src scripts   # lint
+python3.11 -m ruff check .             # lint
+python3.11 -m ruff format --check .    # formatting
 python3.11 -m mypy                     # types
 ```
 
-- **Size and coverage.** 252 tests, with about 93% branch coverage of `gcmsalign`.
+- **Continuous integration.** GitHub Actions ([`ci.yml`](.github/workflows/ci.yml)) runs ruff,
+  mypy and the fast tests on every push and pull request, and the slow end-to-end tests weekly
+  and on demand. CI never has the private data, so the `real` tests skip there.
+- **Size and coverage.** 282 tests (257 fast, 25 slow), with about 93% branch coverage of `gcmsalign`.
 - **What they check.** Exact warp identities, the exact anchor loss (including a
   `gradcheck`), recovery of known drifts on synthetic GC-MS data, and seeded
   reproducibility.

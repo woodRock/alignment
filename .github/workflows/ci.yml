@@ -1,0 +1,79 @@
+name: CI
+
+# Lint, type-check and the fast test suite on every push and pull request. The slow end-to-end
+# tests run weekly and on demand. The private fish-oil data is never available here, so the
+# `real` tests skip themselves.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 3 * * 1'  # Mondays 03:00 UTC: slow tests
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: '3.11'
+  TORCH_INDEX: https://download.pytorch.org/whl/cpu  # CPU wheels: no CUDA download
+
+jobs:
+  lint:
+    name: Lint (ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install ruff==0.17.0
+      - run: ruff check .
+      - run: ruff format --check .
+
+  types:
+    name: Types (mypy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - run: pip install torch --index-url $TORCH_INDEX
+      - run: pip install -e . mypy==2.4.0
+      - run: mypy
+
+  tests:
+    name: Tests (fast)
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - run: pip install torch --index-url $TORCH_INDEX
+      - run: pip install -e ".[dev]"
+      - run: python -m coverage run -m pytest -m "not slow"
+      - run: python -m coverage report
+
+  slow-tests:
+    name: Tests (slow, end-to-end)
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - run: pip install torch --index-url $TORCH_INDEX
+      - run: pip install -e ".[dev]"
+      - run: python -m pytest -m slow

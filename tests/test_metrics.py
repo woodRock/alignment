@@ -2,6 +2,7 @@
 
 import numpy as np
 import pytest
+
 from gcmsalign.config import (
     BIN_MIN,
     EVAL_BINS,

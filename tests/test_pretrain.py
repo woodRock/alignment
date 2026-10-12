@@ -4,6 +4,7 @@ import h5py
 import numpy as np
 import pytest
 import torch
+
 from gcmsalign.steps import download_library as dl
 from gcmsalign.steps import pretrain as tr
 from gcmsalign.steps.pretrain import SyntheticConfig, TrainConfig
@@ -46,8 +47,14 @@ def test_build_chromatogram_applies_sqrt_once():
     """8b: a single compound's bins are proportional to sqrt(its intensity spectrum)."""
     spec = np.zeros((1, 1000), np.float32)
     spec[0, [100, 200]] = [0.8, 0.6]  # intensities (L2 = 1)
-    c = tr.build_chromatogram(spec, np.array([100]), np.array([1.0]), np.array([1.0]),
-                              np.random.default_rng(0), SyntheticConfig(noise_scale=0.0))
+    c = tr.build_chromatogram(
+        spec,
+        np.array([100]),
+        np.array([1.0]),
+        np.array([1.0]),
+        np.random.default_rng(0),
+        SyntheticConfig(noise_scale=0.0),
+    )
     expect = np.sqrt([0.8, 0.6]) / np.linalg.norm(np.sqrt([0.8, 0.6]))
     assert np.allclose(c[100, [100, 200]], expect, atol=1e-6)
 
@@ -84,8 +91,8 @@ def test_mini_dataset_shapes_and_targets():
     assert np.all(np.diff(w, axis=1) > 0)
     norms = np.linalg.norm(x, axis=2)
     assert np.isfinite(x).all()
-    assert np.all(np.isclose(norms, 1.0, atol=1e-4) | (norms == 0))   # unit bins or empty start
-    assert np.all(np.diff((norms > 0).astype(int), axis=1) >= 0)       # zeros only at the start
+    assert np.all(np.isclose(norms, 1.0, atol=1e-4) | (norms == 0))  # unit bins or empty start
+    assert np.all(np.diff((norms > 0).astype(int), axis=1) >= 0)  # zeros only at the start
 
 
 def test_training_runs_and_is_reproducible():
@@ -96,7 +103,8 @@ def test_training_runs_and_is_reproducible():
     m2, h2 = tr.train(lib, torch.device('cpu'), cfg)
     assert h1 == h2 and len(h1) == 2 and all(np.isfinite(h1))
     assert all(
-        torch.equal(p, q) for p, q in zip(m1.state_dict().values(), m2.state_dict().values())
+        torch.equal(p, q)
+        for p, q in zip(m1.state_dict().values(), m2.state_dict().values(), strict=False)
     )
 
 
@@ -104,8 +112,12 @@ def test_run_writes_checkpoint_and_report(tmp_path):
     with h5py.File(tmp_path / 'lib.h5', 'w') as f:
         f['spectra'] = np.sqrt(_library())
         f['split'] = np.array([b'train'] * 40)
-    hist = tr.run(tmp_path / 'lib.h5', tmp_path / 'ck.pt', 'cpu',
-                  TrainConfig(iterations=2, seed=0, log_every=2))
+    hist = tr.run(
+        tmp_path / 'lib.h5',
+        tmp_path / 'ck.pt',
+        'cpu',
+        TrainConfig(iterations=2, seed=0, log_every=2),
+    )
     report = (tmp_path / 'ck.txt').read_text()
     assert (
         (tmp_path / 'ck.pt').exists() and 'final loss' in report and '40 training spectra' in report
@@ -147,9 +159,9 @@ def test_mini_dataset_has_an_empty_start_per_batch():
     for seed in range(20):
         x, _, sid = tr.mini_dataset(_library(), 6, np.random.default_rng(seed))
         for study in (0, 1):
-            nz = np.abs(x[sid == study]).sum(axis=2) > 0          # [n, T]
+            nz = np.abs(x[sid == study]).sum(axis=2) > 0  # [n, T]
             first = nz.argmax(axis=1)
-            assert len(set(first.tolist())) == 1                   # one start per batch
+            assert len(set(first.tolist())) == 1  # one start per batch
             s = int(first[0])
             assert s <= CFG.max_acquisition_start
             assert np.all(x[sid == study][:, :s] == 0) and np.all(nz[:, s:])
@@ -158,6 +170,29 @@ def test_mini_dataset_has_an_empty_start_per_batch():
 
 
 def test_acquisition_start_can_be_switched_off():
-    x, _, _ = tr.mini_dataset(_library(), 4, np.random.default_rng(0),
-                              SyntheticConfig(max_acquisition_start=0))
+    x, _, _ = tr.mini_dataset(
+        _library(), 4, np.random.default_rng(0), SyntheticConfig(max_acquisition_start=0)
+    )
     assert np.all(np.abs(x).sum(axis=2) > 0)
+
+
+@pytest.mark.slow
+def test_pretraining_learns_well_below_the_no_warp_loss():
+    """Regression test for the free-end warp that stopped pretraining learning: on v1-like
+    synthetic data (wide peaks, no empty starts), 400 iterations must take the warp loss well
+    below what predicting no warp scores (v1's model and the current one reach ~0.3 of it).
+    Uses the real spectral library when present, otherwise the synthetic one."""
+    from gcmsalign.config import Paths
+
+    h5 = Paths().pretrain_h5
+    lib = tr.load_library(h5) if h5.exists() else _library(400)
+    cfg = SyntheticConfig(sigma_range=(2.5, 2.5), max_acquisition_start=0)
+    rng = np.random.default_rng(1)
+    no_warp = []
+    for _ in range(60):
+        d = tr.mini_dataset(lib, int(rng.integers(4, 17)), rng, cfg)
+        if d is not None:
+            no_warp.append(np.mean(((d[1] - np.arange(T)) / (T - 1)) ** 2))
+    torch.set_num_threads(4)
+    _, hist = tr.train(lib, torch.device('cpu'), TrainConfig(iterations=400, log_every=100), cfg)
+    assert hist[-1] < 0.6 * float(np.mean(no_warp)), (hist, float(np.mean(no_warp)))
