@@ -1,6 +1,10 @@
 """Evaluating the anchor-based methods on a batch pair (normalised and raw TIC r, silhouette,
 warp magnitude, coverage), shared by the calibration, PCHIP, ablation and figure scripts.
 
+Smoothed TIC r: every PairEval also reports normalised and raw TIC r after smoothing both
+batches' TICs with the same Gaussian (config.SMOOTH_SIGMAS), so methods that resample
+differently are compared on equal terms.
+
 Coverage: an output bin of a warped sample is *outside* the acquired range if its source
 position lies before that sample's acquisition start (it reads zeros) or past the last bin (it
 reads the repeated edge value). Every PairEval reports the fraction of evaluated (output bin,
@@ -8,14 +12,20 @@ sample) values that are outside, and TIC r with them masked out (r_valid)."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 
-from .config import EVAL_BINS, N_BINS
+from .config import EVAL_BINS, N_BINS, SMOOTH_SIGMAS
 from .data import Batch
-from .metrics import pearson_rows, pearson_rows_masked, study_silhouette, warp_magnitude
-from .warps import pchip_warp, src_from_fn, warp_rows
+from .metrics import (
+    pearson_rows,
+    pearson_rows_masked,
+    pearson_rows_smoothed,
+    study_silhouette,
+    warp_magnitude,
+)
+from .warps import WarpFn, constant_shift_warp, linear_warp, pchip_warp, src_from_fn, warp_rows
 
 
 @dataclass
@@ -26,6 +36,8 @@ class PairEval:
     warp_mag: float  # minutes (method-specific; see the producing function)
     outside: float  # fraction of evaluated (bin, sample) values read outside the run
     r_valid: np.ndarray  # per-pair normalised TIC r on in-range bins only
+    r_smooth: dict[float, np.ndarray] = field(default_factory=dict)  # σ → per-pair r, smoothed
+    r_raw_smooth: dict[float, np.ndarray] = field(default_factory=dict)
 
     @property
     def mean(self) -> float:
@@ -38,6 +50,21 @@ class PairEval:
     @property
     def mean_valid(self) -> float:
         return float(np.nanmean(self.r_valid))
+
+
+def smooth_key(key: str, sigma: float) -> str:
+    """Saved-array name of a smoothed metric: smooth_key('cow_tic_raw', 1.0) = 'cow_tic_raw_s1'."""
+    return f'{key}_s{sigma:g}'
+
+
+def smoothed_arrays(
+    key: str, r_smooth: dict[float, np.ndarray], r_raw_smooth: dict[float, np.ndarray]
+) -> dict[str, np.ndarray]:
+    """Smoothed per-pair r as saved arrays: <key>_s<σ> and <key>_raw_s<σ>."""
+    return {
+        **{smooth_key(key, s): r for s, r in r_smooth.items()},
+        **{smooth_key(f'{key}_raw', s): r for s, r in r_raw_smooth.items()},
+    }
 
 
 def in_range(src: np.ndarray, start: np.ndarray) -> np.ndarray:
@@ -73,13 +100,15 @@ def unaligned(a: Batch, b: Batch) -> PairEval:
         0.0,
         outside,
         r_valid,
+        pearson_rows_smoothed(a.tic, b.tic, SMOOTH_SIGMAS),
+        pearson_rows_smoothed(a.tic_raw, b.tic_raw, SMOOTH_SIGMAS),
     )
 
 
-def pchip(a: Batch, b: Batch, anchors) -> PairEval:
-    """PCHIP through the pooled anchors: one warp applied to every batch-A sample (A → B frame),
-    B unwarped. warp_mag = mean |w(t) − t| of that warp."""
-    src = src_from_fn(pchip_warp(anchors))
+def anchor_warp(a: Batch, b: Batch, warp_fn: WarpFn | None) -> PairEval:
+    """One anchor-derived warp (batch-B minutes → batch-A minutes) applied to every batch-A
+    sample (A → B frame), B unwarped. warp_mag = mean |w(t) − t| of that warp."""
+    src = src_from_fn(warp_fn)
     al_tic = warp_rows(a.tic, src)
     al_raw = warp_rows(a.tic_raw, src)
     outside, r_valid = coverage(
@@ -95,7 +124,24 @@ def pchip(a: Batch, b: Batch, anchors) -> PairEval:
         warp_magnitude(src),
         outside,
         r_valid,
+        pearson_rows_smoothed(al_tic, b.tic, SMOOTH_SIGMAS),
+        pearson_rows_smoothed(al_raw, b.tic_raw, SMOOTH_SIGMAS),
     )
+
+
+def pchip(a: Batch, b: Batch, anchors) -> PairEval:
+    """PCHIP through the pooled anchors (warps.pchip_warp), applied as anchor_warp."""
+    return anchor_warp(a, b, pchip_warp(anchors))
+
+
+def constant_shift(a: Batch, b: Batch, anchors) -> PairEval:
+    """Batch A shifted by the median anchor drift (warps.constant_shift_warp)."""
+    return anchor_warp(a, b, constant_shift_warp(anchors))
+
+
+def linear(a: Batch, b: Batch, anchors) -> PairEval:
+    """The least-squares line through the anchors (warps.linear_warp)."""
+    return anchor_warp(a, b, linear_warp(anchors))
 
 
 def warped_pair(
@@ -122,6 +168,8 @@ def warped_pair(
         warp_magnitude(warps[n_a:]),
         outside,
         r_valid,
+        pearson_rows_smoothed(tic[:n_a], tic[n_a:], SMOOTH_SIGMAS),
+        pearson_rows_smoothed(raw[:n_a], raw[n_a:], SMOOTH_SIGMAS),
     )
 
 

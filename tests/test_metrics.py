@@ -123,3 +123,27 @@ def test_paired_wilcoxon_identical_and_different(rng):
     assert paired_wilcoxon(x, x) == (0.0, 1.0)
     stat, p = paired_wilcoxon(x + 1.0, x)
     assert p < 1e-4 and stat == 0.0
+
+
+def test_smooth_rows_sigma_zero_is_identity_and_smoothing_keeps_the_sum(rng):
+    from gcmsalign.metrics import smooth_rows
+
+    x = rng.random((3, 200))
+    assert np.array_equal(smooth_rows(x, 0), x)
+    x[:, :20] = 0.0
+    y = smooth_rows(x, 2.0)
+    assert np.allclose(y[:, :10], 0.0)  # an empty run start stays empty
+    assert np.allclose(y[:, 30:170].sum(1), x[:, 30:170].sum(1), rtol=0.05)
+
+
+def test_smoothing_both_signals_removes_sub_bin_misregistration():
+    """One-bin peaks offset by half a bin correlate poorly unsmoothed, well after smoothing."""
+    from gcmsalign.metrics import pearson_rows_smoothed
+    from gcmsalign.warps import warp_rows
+
+    x = np.zeros((1, 200))
+    x[0, 40:190:15] = 1.0
+    shifted = warp_rows(x, np.arange(200) - 0.5)
+    raw = pearson_rows(shifted, x)[0]
+    sm = pearson_rows_smoothed(shifted, x, (1.0, 2.0))
+    assert raw < 0.75 and sm[1.0][0] > raw + 0.2 and sm[2.0][0] > sm[1.0][0]

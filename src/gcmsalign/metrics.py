@@ -5,6 +5,7 @@ from __future__ import annotations
 from itertools import combinations
 
 import numpy as np
+from scipy.ndimage import gaussian_filter1d
 from scipy.stats import wilcoxon
 from sklearn.decomposition import PCA
 from sklearn.metrics import silhouette_score
@@ -27,6 +28,20 @@ def pearson_rows(a: np.ndarray, b: np.ndarray, bins: slice | None = EVAL_BINS) -
     with np.errstate(invalid='ignore', divide='ignore'):
         r = (az / na) @ (bz / nb).T
     return np.clip(r, -1.0, 1.0).ravel()
+
+
+def smooth_rows(x: np.ndarray, sigma: float) -> np.ndarray:
+    """Gaussian smoothing along time (the last axis) with σ = sigma bins; sigma 0 = unchanged.
+    Edges are padded with the end value, so a zero-filled run start stays zero."""
+    x = np.asarray(x, dtype=np.float64)
+    return gaussian_filter1d(x, sigma, axis=-1, mode='nearest') if sigma > 0 else x
+
+
+def pearson_rows_smoothed(
+    a: np.ndarray, b: np.ndarray, sigmas: tuple[float, ...]
+) -> dict[float, np.ndarray]:
+    """pearson_rows after smoothing both a and b with the same Gaussian, for each σ in sigmas."""
+    return {s: pearson_rows(smooth_rows(a, s), smooth_rows(b, s)) for s in sigmas}
 
 
 def pearson_rows_masked(

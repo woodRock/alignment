@@ -5,7 +5,11 @@ import pytest
 
 from gcmsalign.config import BIN_MIN, N_BINS, TIME_AXIS
 from gcmsalign.warps import (
+    anchor_drift,
+    anchor_line,
+    constant_shift_warp,
     invert_src,
+    linear_warp,
     monotone_interp,
     pchip_warp,
     predict_query_bin,
@@ -141,3 +145,26 @@ def test_invert_src_round_trip(rng):
     # beyond the ends: slope-1 continuation
     assert np.isclose(invert_src(src, np.array([src[0] - 4.0]))[0], -4.0)
     assert np.isclose(invert_src(src, np.array([src[-1] + 2.0]))[0], N_BINS - 1 + 2.0)
+
+
+def test_constant_shift_warp_uses_the_median_drift():
+    anchors = [(40, 30), (80, 70), (120, 109), (160, 150)]  # drifts −10, −10, −11, −10
+    assert anchor_drift(anchors) == -10.0
+    src = src_from_fn(constant_shift_warp(anchors))
+    assert np.allclose(src, np.arange(N_BINS) + 10)  # B bin t reads A at t + 10
+    assert constant_shift_warp([]) is None and anchor_drift([]) == 0.0
+
+
+def test_linear_warp_recovers_an_exact_line_and_maps_anchors_onto_each_other():
+    anchors = [(r, int(0.96 * r) - 15) for r in (50, 75, 100, 125, 150)]  # exact: q = 0.96 r − 15
+    slope, intercept = anchor_line(anchors)
+    assert slope == pytest.approx(0.96) and intercept == pytest.approx(-15)
+    fn = linear_warp(anchors)
+    assert fn is not None
+    q = np.array([qq for _, qq in anchors], dtype=float)
+    assert np.allclose(fn(q * BIN_MIN) / BIN_MIN, [r for r, _ in anchors])
+
+
+def test_anchor_line_with_one_anchor_is_a_constant_shift():
+    assert anchor_line([(50, 40)]) == (1.0, -10.0)
+    assert anchor_line([]) == (1.0, 0.0)

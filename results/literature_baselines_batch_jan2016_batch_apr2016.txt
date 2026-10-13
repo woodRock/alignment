@@ -9,6 +9,12 @@ COW-TIC: 4 segments, slack ±22 bins (±5.0 min); icoshift: 10 intervals, max sh
   icoshift   0.202   0.074   0.207   0.253      0.030    0.274m     0.0%       0.202
 outside: share of evaluated (bin, sample) values whose warped source lies outside the run's acquired range; r in range: TIC r with those values masked out.
 
+TIC r after smoothing both batches with the same Gaussian (σ in bins):
+  Method     TIC r σ1  TIC r σ2   raw r  raw r σ1  raw r σ2
+  Unaligned     0.153     0.207  -0.046    -0.063     0.036
+  COW-TIC       0.614     0.656   0.482     0.716     0.754
+  icoshift      0.230     0.254   0.207     0.286     0.301
+
 Paired two-sided Wilcoxon over sample pairs (not independent; descriptive):
   Comparison                    p
   COW-TIC vs Unaligned   2.13e-44

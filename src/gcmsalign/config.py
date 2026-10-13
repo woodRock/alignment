@@ -29,6 +29,10 @@ LAST_MIN = (N_BINS - 1) * BIN_MIN  # 44.775 min, the last bin
 COMMON_START_MIN = 5.0
 EVAL_START_BIN = int(COMMON_START_MIN // BIN_MIN)  # 22: first bin with data in every run
 EVAL_BINS = slice(EVAL_START_BIN, N_BINS)
+# Raw TICs of apex-scan bins are dominated by one-bin-wide peaks, so resampling a signal at
+# fractional positions (any warp) lowers its raw TIC r even without misalignment. Every method's
+# TICs are therefore also compared after the same Gaussian smoothing of both batches (σ in bins).
+SMOOTH_SIGMAS = (1.0, 2.0)
 
 # ── Batches and pairs ─────────────────────────────────────────────────────────
 BATCHES = ('batch_sep2015', 'batch_jan2016', 'batch_apr2016', 'batch_jul2016')

@@ -92,6 +92,40 @@ def pchip_warp(anchors: list[tuple[int, int]]) -> WarpFn | None:
     return monotone_interp(q, r)
 
 
+def anchor_drift(anchors: list[tuple[int, int]]) -> float:
+    """Median drift q − r of (r, q) anchors, in bins (0 without anchors)."""
+    return float(np.median([q - r for r, q in anchors])) if anchors else 0.0
+
+
+def anchor_line(anchors: list[tuple[int, int]]) -> tuple[float, float]:
+    """Least-squares line q = slope · r + intercept through (r, q) anchors, in bins. One anchor
+    gives slope 1 (a constant shift); none gives the identity."""
+    if len(anchors) < 2:
+        return 1.0, anchor_drift(anchors)
+    r, q = np.array(anchors, dtype=np.float64).T
+    slope, intercept = np.polyfit(r, q, 1)
+    return float(slope), float(intercept)
+
+
+def constant_shift_warp(anchors: list[tuple[int, int]]) -> WarpFn | None:
+    """The constant-shift baseline: batch-A time = batch-B time − the median anchor drift.
+    Same direction as pchip_warp (batch-B minutes → batch-A minutes); None without anchors."""
+    if not anchors:
+        return None
+    d = anchor_drift(anchors) * BIN_MIN
+    return lambda t: np.asarray(t, dtype=np.float64) - d
+
+
+def linear_warp(anchors: list[tuple[int, int]]) -> WarpFn | None:
+    """The linear-warp baseline: the least-squares line q = a·r + b through the anchors,
+    inverted to map batch-B minutes → batch-A minutes (as pchip_warp). None without anchors."""
+    if not anchors:
+        return None
+    slope, intercept = anchor_line(anchors)
+    b = intercept * BIN_MIN
+    return lambda t: (np.asarray(t, dtype=np.float64) - b) / slope
+
+
 def predict_query_bin(anchors: list[tuple[int, int]], r_bin: float) -> float:
     """PCHIP prediction of the batch-B bin of a compound at batch-A bin r_bin, through the
     (r, q) anchors (same construction as pchip_warp, in the A → B direction)."""

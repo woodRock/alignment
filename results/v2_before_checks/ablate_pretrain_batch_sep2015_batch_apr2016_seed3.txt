@@ -1,0 +1,12 @@
+Step 08 — does pretraining matter, or does calibration do all the work?
+
+Sep15×Apr16   seed 3   device cpu   checkpoint /Users/woodj/Desktop/alignment/checkpoints/warp_transformer_v2.pt
+Anchors (8): [(48, 29), (64, 46), (69, 51), (75, 58), (86, 67), (91, 72), (118, 98), (165, 143)]
+
+  Arm           TIC r  Δ unal    raw r  Δ unal  pre all   pre A   pre B  post all  post A  post B
+  Unaligned    0.0408       —  -0.0423       —        —       —       —         —       —       —
+  pretrained   0.6513  0.6105   0.7415  0.7838   0.9473  0.3742  3.0105    1.1444  0.2225  4.4634
+  random init  0.6049  0.5641   0.6915  0.7338   0.0000  0.0000  0.0000    0.9413  0.1427  3.8164
+
+pre / post: warp magnitude (min) before and after calibration.
+Pretraining advantage: +0.0464 TIC r (+0.0500 raw)

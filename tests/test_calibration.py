@@ -375,3 +375,24 @@ def test_free_warp_still_fits_non_constant_drift():
     ).mean(0)
     assert a_loss < 0.05
     assert np.allclose(pred.numpy(), [q for _, q in trending], atol=0.5)
+
+
+def test_anchor_baselines_report_smoothed_r_and_recover_the_shift(batches):
+    """Constant shift and linear warp through the true anchors align the synthetic pair (a pure
+    shift) about as well as PCHIP, and every PairEval carries the smoothed metrics."""
+    from gcmsalign import evaluation
+    from gcmsalign.config import SMOOTH_SIGMAS
+
+    a, b = batches
+    un = evaluation.unaligned(a, b)
+    evs = {
+        'pchip': evaluation.pchip(a, b, ANCHORS),
+        'shift': evaluation.constant_shift(a, b, ANCHORS),
+        'linear': evaluation.linear(a, b, ANCHORS),
+    }
+    for ev in (un, *evs.values()):
+        assert set(ev.r_smooth) == set(ev.r_raw_smooth) == set(SMOOTH_SIGMAS)
+        assert all(r.shape == ev.r.shape for r in ev.r_raw_smooth.values())
+    for ev in evs.values():
+        assert ev.mean > un.mean + 0.2
+        assert abs(ev.mean - evs['pchip'].mean) < 0.05

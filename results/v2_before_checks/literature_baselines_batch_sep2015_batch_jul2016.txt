@@ -1,0 +1,16 @@
+Step 05 — COW-TIC and icoshift on one batch pair.
+
+Sep15×Jul16: batch_sep2015 (36) × batch_jul2016 (16) = 576 pairs
+COW-TIC: 4 segments, slack ±22 bins (±5.0 min); icoshift: 10 intervals, max shift ±20 bins
+
+  Method     TIC r  Δ unal   raw r  Δ unal  Study sil  Warp mag  outside  r in range
+  Unaligned  0.054   0.000  -0.032   0.000      0.180    0.000m     0.0%       0.054
+  COW-TIC    0.534   0.479   0.356   0.388      0.243    2.939m     0.0%       0.534
+  icoshift   0.153   0.098   0.140   0.173      0.172    0.254m     0.0%       0.152
+outside: share of evaluated (bin, sample) values whose warped source lies outside the run's acquired range; r in range: TIC r with those values masked out.
+
+Paired two-sided Wilcoxon over sample pairs (not independent; descriptive):
+  Comparison                    p
+  COW-TIC vs Unaligned   4.94e-96
+  icoshift vs Unaligned  4.94e-96
+  icoshift vs COW-TIC    4.94e-96
