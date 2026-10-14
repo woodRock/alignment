@@ -12,6 +12,8 @@ turn and each method predicts q from r without it:
   COW-TIC                  uses no anchors, so nothing is held out: COW aligns each of A[0..2]
                            (the samples the anchors come from) onto B[0]; its warp is inverted
                            at r and the median taken, as the anchors themselves are pooled
+  Linear warp              the least-squares line q = a·r + b through the remaining anchors
+                           (warps.anchor_line), as step 07's linear-warp baseline
   References               no alignment (q̂ = r) and a constant shift (median drift of the rest)
 Also reported: the WT's in-sample residual (calibrated on all anchors). Errors in minutes.
 
@@ -44,7 +46,7 @@ from ..config import (
 )
 from ..data import Batch, load_batch
 from ..warp_transformer import predict_query_bins
-from ..warps import invert_src, predict_query_bin
+from ..warps import anchor_drift, anchor_line, invert_src, predict_query_bin
 from ._common import (
     add_model_args,
     ckpt_or_default,
@@ -61,6 +63,7 @@ FREE = 'Free warp (no network)'
 METHODS = (
     'No alignment',
     'Constant shift',
+    'Linear warp',
     'PCHIP (pooled anchors)',
     'COW-TIC',
     FREE,
@@ -124,7 +127,8 @@ def compute_pair(
         w_free = free_warp(n_a, n_b, rest, FREE_WARP_LR, seed, calib_steps)[0]
         pred = {
             'No alignment': float(r),
-            'Constant shift': r + float(np.median([qq - rr for rr, qq in rest])),
+            'Constant shift': r + anchor_drift(rest),
+            'Linear warp': float(np.polyval(anchor_line(rest), r)),
             'PCHIP (pooled anchors)': predict_query_bin(rest, r),
             'COW-TIC': float(cow_q[k]),
             FREE: float(warps_predict(w_free, n_a, [r])[0]),

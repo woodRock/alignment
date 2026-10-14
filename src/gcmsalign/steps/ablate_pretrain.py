@@ -29,6 +29,7 @@ from ._common import (
     batch_name_of,
     ckpt_or_default,
     parser,
+    save_npz,
     setup_logging,
     table,
     title,
@@ -63,6 +64,10 @@ class AblationResult:
     @property
     def gain_raw(self) -> float:
         return self.arms['pretrained'].eval.mean_raw - self.arms['random init'].eval.mean_raw
+
+    def gain_of(self, sfx: str) -> float:
+        """Pretraining gain on one metric (evaluation.METRICS suffix)."""
+        return self.arms['pretrained'].eval.m(sfx) - self.arms['random init'].eval.m(sfx)
 
 
 def run_arm(
@@ -149,6 +154,18 @@ def format_report(res: AblationResult) -> list[str]:
         '',
         'pre / post: warp magnitude (min) before and after calibration.',
         f'Pretraining advantage: {res.gain:+.4f} TIC r ({res.gain_raw:+.4f} raw)',
+        '',
+        'Every TIC metric (σ: both batches smoothed with the same Gaussian, in bins):',
+        *table(
+            ['Arm', *evaluation.METRICS],
+            [
+                [k, *(e.m(sfx) for sfx in evaluation.METRICS.values())]
+                for k, e in (('Unaligned', un), *((k, a.eval) for k, a in res.arms.items()))
+            ],
+            floatfmt='.4f',
+        ),
+        '  gain: '
+        + '  '.join(f'{k} {res.gain_of(sfx):+.4f}' for k, sfx in evaluation.METRICS.items()),
     ]
 
 
@@ -156,18 +173,18 @@ def save(res: AblationResult, paths: Paths) -> None:
     suffix = '' if res.seed is None else f'_seed{res.seed}'
     pre, rnd = res.arms['pretrained'], res.arms['random init']
     paths.ensure_results()
-    np.savez(
+    save_npz(
         paths.per_pair / f'tic_r_ablate_{res.name_a}_{res.name_b}{suffix}.npz',
-        pretrained=pre.eval.r,
-        random_init=rnd.eval.r,
-        pretrained_raw=pre.eval.r_raw,
-        random_init_raw=rnd.eval.r_raw,
-        warp_mag=np.array([pre.mags[0], rnd.mags[0]]),
-        warp_mag_b=np.array([pre.mags[2], rnd.mags[2]]),
-        warp_mag_pre=np.array([pre.mags_pre, rnd.mags_pre]),  # [arm, (all, A, B)]
-        anchors=np.array(res.anchors).reshape(-1, 2),
-        seed=-1 if res.seed is None else res.seed,
-        device=res.device,
+        dict(
+            **pre.eval.arrays('pretrained'),
+            **rnd.eval.arrays('random_init'),
+            warp_mag=np.array([pre.mags[0], rnd.mags[0]]),
+            warp_mag_b=np.array([pre.mags[2], rnd.mags[2]]),
+            warp_mag_pre=np.array([pre.mags_pre, rnd.mags_pre]),  # [arm, (all, A, B)]
+            anchors=np.array(res.anchors).reshape(-1, 2),
+            seed=-1 if res.seed is None else res.seed,
+            device=res.device,
+        ),
     )
     write_report(
         paths.results / f'ablate_pretrain_{res.name_a}_{res.name_b}{suffix}.txt', format_report(res)

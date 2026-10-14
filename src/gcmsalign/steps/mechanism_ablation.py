@@ -16,9 +16,13 @@ On the four evaluated pairs, from one seeded calibration (step 06's settings):
                        both batches of Unaligned, and of batch B of Pooled PCHIP: the WT
                        resamples both batches, the baselines only A
 
-Reports between-batch TIC r (the paper's metric), within-batch TIC r, the WT's within-batch
-warp spread and the final losses. Warping is linear interpolation along RT, which commutes with
-the sum over m/z, so every variant is evaluated on warped TICs.
+Reports between-batch TIC r (the paper's metric, and every other metric of
+evaluation.METRICS: raw, smoothed), within-batch TIC r, the WT's within-batch warp spread, the
+final losses, and each variant's warp smoothness loss (mean squared deviation of the warp
+velocity from 1, the calibration's smoothness term), so a variant that scores higher only
+because its warps are smoother shows it. Warping is linear interpolation along RT, which
+commutes with the sum over m/z, so every variant is evaluated on warped TICs; the raw TIC is
+warped by the same source positions.
 
 Output: results/mechanism_ablation.txt, results/per_pair/mechanism_ablation_<A>_<B>.npz
 """
@@ -26,6 +30,7 @@ Output: results/mechanism_ablation.txt, results/per_pair/mechanism_ablation_<A>_
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -54,7 +59,9 @@ from ..config import (
     pair_label,
 )
 from ..data import load_batch
+from ..evaluation import METRICS, tic_metrics
 from ..metrics import holm, paired_wilcoxon, pearson_rows, per_a_mean, within_batch_r
+from ..warp_transformer import warp_smoothness_loss
 from ..warps import pchip_warp, src_from_fn, warp_rows
 from ._common import (
     add_model_args,
@@ -82,8 +89,9 @@ Tics = tuple[np.ndarray, np.ndarray]
 
 
 def cow_refine(tics: np.ndarray, ref: np.ndarray) -> np.ndarray:
+    """Per-sample COW source positions [N, T] aligning each of tics onto ref."""
     return np.stack(
-        [cow_tic_align(t, ref, n_segs=REFINE_SEGS, slack=REFINE_SLACK).warped for t in tics]
+        [cow_tic_align(t, ref, n_segs=REFINE_SEGS, slack=REFINE_SLACK).src for t in tics]
     )
 
 
@@ -104,6 +112,17 @@ def residual_only(w: np.ndarray, n_a: int) -> np.ndarray:
     return np.clip(dev + np.arange(N_BINS), 0, N_BINS - 1)
 
 
+@dataclass
+class Variant:
+    a: Callable[[np.ndarray], np.ndarray]  # batch-A TICs [n_a, T] → transformed
+    b: Callable[[np.ndarray], np.ndarray]
+    warps: np.ndarray | None  # [n_a + n_b, T] source positions, if one warp per sample
+
+
+def by_warps(w: np.ndarray, n_a: int) -> Variant:
+    return Variant(lambda x: warp_rows(x, w[:n_a]), lambda x: warp_rows(x, w[n_a:]), w)
+
+
 def variants(
     ta: np.ndarray,
     tb: np.ndarray,
@@ -111,33 +130,41 @@ def variants(
     anchors: list[tuple[int, int]],
     seed: int,
     calib_steps: int,
-) -> tuple[dict[str, Tics], dict[float, tuple[float, float, float]]]:
-    """name → (A TICs, B TICs), and each free warp's final (anchor, smoothness) loss."""
+) -> tuple[dict[str, Variant], dict[float, tuple[float, float, float]]]:
+    """name → Variant (fitted on the normalised TICs ta, tb; applied to any TIC), and each
+    free warp's final (anchor, smoothness) loss."""
     n_a, n_b = len(ta), len(tb)
-    both = np.concatenate([ta, tb])
-
-    def split(x: np.ndarray) -> Tics:
-        return x[:n_a], x[n_a:]
-
-    pa = warp_rows(ta, src_from_fn(pchip_warp(anchors)))
-    out: dict[str, Tics] = {
-        'Unaligned': (ta, tb),
-        'WT original': split(warp_rows(both, w_wt)),
-        'WT batch-shared': split(warp_rows(both, batch_shared(w_wt, n_a))),
-        'WT residual only': split(warp_rows(both, residual_only(w_wt, n_a))),
+    ident = np.tile(np.arange(N_BINS, dtype=np.float64), (n_a + n_b, 1))
+    src_p = src_from_fn(pchip_warp(anchors))
+    w_pchip = np.concatenate([np.tile(src_p, (n_a, 1)), ident[n_a:]])
+    out: dict[str, Variant] = {
+        'Unaligned': by_warps(ident, n_a),
+        'WT original': by_warps(w_wt, n_a),
+        'WT batch-shared': by_warps(batch_shared(w_wt, n_a), n_a),
+        'WT residual only': by_warps(residual_only(w_wt, n_a), n_a),
     }
     losses = {}
     for lr in FREE_LRS:
         w_free, losses[lr] = free_warp(n_a, n_b, anchors, lr, seed, calib_steps)
-        out[f'Free warp (lr {lr:g})'] = split(warp_rows(both, w_free))
+        out[f'Free warp (lr {lr:g})'] = by_warps(w_free, n_a)
+    out['Pooled PCHIP'] = by_warps(w_pchip, n_a)
     ref_b = tb.mean(0)
-    out['Pooled PCHIP'] = (pa, tb)
-    out['Pooled PCHIP + COW refine'] = (cow_refine(pa, ref_b), cow_refine(tb, ref_b))
-    out['Control: unaligned, both ½-bin shifted'] = split(
-        warp_rows(both, half_bin_shift(n_a + n_b))
+    cow_a = cow_refine(warp_rows(ta, src_p), ref_b)
+    cow_b = cow_refine(tb, ref_b)
+    out['Pooled PCHIP + COW refine'] = Variant(
+        lambda x: warp_rows(warp_rows(x, src_p), cow_a), lambda x: warp_rows(x, cow_b), None
     )
-    out['Control: pooled PCHIP, B ½-bin shifted'] = (pa, warp_rows(tb, half_bin_shift(n_b)))
+    half = half_bin_shift(n_a + n_b)
+    out['Control: unaligned, both ½-bin shifted'] = by_warps(half, n_a)
+    out['Control: pooled PCHIP, B ½-bin shifted'] = by_warps(
+        np.concatenate([w_pchip[:n_a], half[n_a:]]), n_a
+    )
     return out, losses
+
+
+def smoothness(w: np.ndarray | None) -> float | None:
+    """The calibration's smoothness term of warps w (None if the variant has none)."""
+    return None if w is None else float(warp_smoothness_loss(torch.as_tensor(w)))
 
 
 @dataclass
@@ -149,7 +176,9 @@ class PairResult:
     anchors: list[tuple[int, int]]
     w_wt: np.ndarray
     tics: dict[str, Tics]
-    r: dict[str, np.ndarray]
+    r: dict[str, np.ndarray]  # normalised TIC r per sample pair
+    metrics: dict[str, dict[str, np.ndarray]]  # variant → METRICS suffix → per sample pair
+    smooth_loss: dict[str, float | None]  # variant → smoothness loss of its warps
     loss_wt: tuple[float, float, float]  # anchor, smoothness, frame
     loss_free: dict[float, tuple[float, float, float]]
 
@@ -170,8 +199,14 @@ def compute_pair(
     x, sid = batch_tensors(a.chromas, b.chromas, device)
     calibrate(model, x, sid, anchors, seed=seed, steps=calib_steps)
     aligned, w_wt = predict(model, x, sid)
-    tics, loss_free = variants(a.tic, b.tic, w_wt, anchors, seed, calib_steps)
-    r = {k: pearson_rows(xa, xb) for k, (xa, xb) in tics.items()}
+    var, loss_free = variants(a.tic, b.tic, w_wt, anchors, seed, calib_steps)
+    tics = {k: (v.a(a.tic), v.b(b.tic)) for k, v in var.items()}
+    metrics = {}
+    for k, v in var.items():
+        raw_a, raw_b = v.a(a.tic_raw), v.b(b.tic_raw)
+        ones_a, ones_b = np.ones(raw_a.shape, bool), np.ones(raw_b.shape, bool)
+        metrics[k] = tic_metrics(*tics[k], raw_a, raw_b, ones_a, ones_b)[0]
+    r = {k: m[''] for k, m in metrics.items()}
     model_tic = aligned.sum(-1)
     if not np.allclose(
         r['WT original'], pearson_rows(model_tic[: len(a)], model_tic[len(a) :]), atol=1e-4
@@ -186,6 +221,8 @@ def compute_pair(
         w_wt,
         tics,
         r,
+        metrics,
+        {k: smoothness(v.warps) for k, v in var.items()},
         final_losses(w_wt, sid, anchors),
         loss_free,
     )
@@ -225,7 +262,15 @@ def format_report(results: list[PairResult], seed: int, device: str, ckpt: Path)
             f'  Final anchor / smoothness / frame loss: WT {p.loss_wt[0]:.4f} / '
             f'{p.loss_wt[1]:.5f} / {p.loss_wt[2]:.5f}; {free}',
             *table(
-                ['Variant', 'TIC r A×B', 'Δ unal', 'within A', 'within B'],
+                [
+                    'Variant',
+                    'TIC r A×B',
+                    'Δ unal',
+                    'within A',
+                    'within B',
+                    'smooth loss',
+                    *(lab for lab in METRICS if lab != 'TIC r' and 'range' not in lab),
+                ],
                 [
                     [
                         k,
@@ -233,24 +278,48 @@ def format_report(results: list[PairResult], seed: int, device: str, ckpt: Path)
                         p.r[k].mean() - u,
                         within_batch_r(xa)[0],
                         within_batch_r(xb)[0],
+                        None if p.smooth_loss[k] is None else f'{p.smooth_loss[k]:.5f}',
+                        *(
+                            float(np.nanmean(p.metrics[k][sfx]))
+                            for lab, sfx in METRICS.items()
+                            if lab != 'TIC r' and 'range' not in lab
+                        ),
                     ]
                     for k, (xa, xb) in p.tics.items()
                 ],
             ),
         ]
+    for label, sfx in (('TIC r', ''), ('raw TIC r σ1', '_raw_s1'), ('TIC r σ1', '_s1')):
+        lines += [
+            '',
+            f'Summary: mean between-batch {label}',
+            *table(
+                ['Variant', *(pair_label(p.name_a, p.name_b) for p in results)],
+                [[k, *(float(p.metrics[k][sfx].mean()) for p in results)] for k in results[0].r],
+            ),
+        ]
     lines += [
         '',
-        'Summary: mean between-batch TIC r',
+        'Summary: smoothness loss of each variant\'s warps (— = no single warp per sample)',
         *table(
             ['Variant', *(pair_label(p.name_a, p.name_b) for p in results)],
-            [[k, *(p.r[k].mean() for p in results)] for k in results[0].r],
+            [
+                [
+                    k,
+                    *(
+                        None if p.smooth_loss[k] is None else f'{p.smooth_loss[k]:.5f}'
+                        for p in results
+                    ),
+                ]
+                for k in results[0].r
+            ],
         ),
     ]
     lines += [
         '',
         'Paired two-sided Wilcoxon per A sample (r averaged over B_j); Holm over the 4 '
         'evaluated pairs, separately per comparison.',
-        'Diagnostic tests; not part of the 10-comparison family of significance_tests.txt.',
+        'Diagnostic tests; not part of the 21-comparison family of significance_tests.txt.',
     ]
     for x, y in COMPARISONS:
         lines += [
@@ -263,7 +332,16 @@ def format_report(results: list[PairResult], seed: int, device: str, ckpt: Path)
 def save(results: list[PairResult], lines: list[str], paths: Paths) -> None:
     paths.ensure_results()
     for p in results:
-        arrays: dict[str, object] = {k.replace(' ', '_'): v for k, v in p.r.items()}
+        arrays: dict[str, object] = {
+            k.replace(' ', '_') + sfx: v for k, m in p.metrics.items() for sfx, v in m.items()
+        }
+        arrays.update(
+            {
+                f'{k.replace(" ", "_")}_smooth_loss': v
+                for k, v in p.smooth_loss.items()
+                if v is not None
+            }
+        )
         arrays.update(w_wt=p.w_wt, anchors=np.array(p.anchors).reshape(-1, 2), n_a=p.n_a, n_b=p.n_b)
         save_npz(paths.per_pair / f'mechanism_ablation_{p.name_a}_{p.name_b}.npz', arrays)
     write_report(paths.results / 'mechanism_ablation.txt', lines)

@@ -1,4 +1,4 @@
-Step 05 — COW-TIC and icoshift on one batch pair.
+Step 05 — COW-TIC and icoshift on one batch pair, and the resampling control.
 
 Sep15×Apr16: batch_sep2015 (36) × batch_apr2016 (10) = 360 pairs
 COW-TIC: 4 segments, slack ±22 bins (±5.0 min); icoshift: 10 intervals, max shift ±20 bins
@@ -9,11 +9,19 @@ COW-TIC: 4 segments, slack ±22 bins (±5.0 min); icoshift: 10 intervals, max sh
   icoshift   0.169   0.128   0.214   0.256      0.096    0.337m     0.0%       0.169
 outside: share of evaluated (bin, sample) values whose warped source lies outside the run's acquired range; r in range: TIC r with those values masked out.
 
-TIC r after smoothing both batches with the same Gaussian (σ in bins):
-  Method     TIC r σ1  TIC r σ2   raw r  raw r σ1  raw r σ2
-  Unaligned     0.058     0.107  -0.042    -0.056     0.046
-  COW-TIC       0.606     0.627   0.374     0.703     0.775
-  icoshift      0.182     0.197   0.214     0.294     0.298
+Every TIC metric (σ: both batches smoothed with the same Gaussian, in bins; non-empty: bins with raw TIC > 0 in both samples):
+  Method     TIC r  TIC r σ1  TIC r σ2   raw r  raw r σ1  raw r σ2  r in range  r non-empty  raw r non-empty
+  Unaligned  0.041     0.058     0.107  -0.042    -0.056     0.046       0.041        0.018           -0.048
+  COW-TIC    0.552     0.606     0.627   0.374     0.703     0.775       0.552        0.527            0.370
+  icoshift   0.169     0.182     0.197   0.214     0.294     0.298       0.169        0.150            0.208
+
+Resampling control (no alignment; linear interpolation at a fractional shift):
+  Control             TIC r  TIC r σ1  TIC r σ2   raw r  raw r σ1  raw r σ2  r in range  r non-empty  raw r non-empty
+  Unaligned           0.041     0.058     0.107  -0.042    -0.056     0.046       0.041        0.018           -0.048
+  A shifted ¼ bin     0.043     0.056     0.104  -0.047    -0.056     0.034       0.043        0.044           -0.052
+  A shifted ½ bin     0.044     0.054     0.100  -0.049    -0.055     0.022       0.044        0.045           -0.054
+  A shifted ¾ bin     0.042     0.051     0.096  -0.045    -0.054     0.009       0.042        0.043           -0.050
+  both shifted ½ bin  0.048     0.063     0.111  -0.069    -0.045     0.051       0.048        0.037           -0.077
 
 Paired two-sided Wilcoxon over sample pairs (not independent; descriptive):
   Comparison                    p

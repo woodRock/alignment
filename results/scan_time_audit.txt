@@ -101,3 +101,106 @@ Scan-time audit: one row per non-blank run, then per-batch summaries.
 
 Decision:
   Runs DIFFER in scan count and/or acquisition time range (by more than one scan interval). Binning by scan index would stretch runs relative to each other, so step 03 bins by retention time on a fixed 0–45 min grid.
+
+Empty-window audit: windows inside each run's acquired range (first scan → 44.99 min) with no ions.
+scans 0 readings: the export has the scans, every one with num_readings = 0; no scans: the window has no scan at all.
+
+  Batch                           Sample  start bin  empty  share  no scans  early  mid  late  runs  longest
+  batch_apr2016          1 - SNA1 Head 2         13      0   0.0%         0      0    0     0     0        0
+  batch_apr2016          1 - SNA1 Head A         13      0   0.0%         0      0    0     0     0        0
+  batch_apr2016          1 - SNA1 Skin A         13      0   0.0%         0      0    0     0     0        0
+  batch_apr2016          1 - SNA1 Skin B         13      0   0.0%         0      0    0     0     0        0
+  batch_apr2016        2 - GUR2  Frame A         13      0   0.0%         0      0    0     0     0        0
+  batch_apr2016         2 - GUR2 Frame B         13      0   0.0%         0      0    0     0     0        0
+  batch_apr2016  2 - GUR2 Rest of Guts A         13      0   0.0%         0      0    0     0     0        0
+  batch_apr2016  2 - GUR2 Rest of Guts B         13      0   0.0%         0      0    0     0     0        0
+  batch_apr2016          2 - GUR2 Skin A         13      0   0.0%         0      0    0     0     0        0
+  batch_apr2016          2 - GUR2 Skin B         13      0   0.0%         0      0    0     0     0        0
+  batch_jan2016         5 - BCO5 Frame A         22     11   6.2%         0      2    2     7     9        3
+  batch_jan2016         5 - BCO5 Frame B         22     19  10.7%         0      1    7    11    13        4
+  batch_jan2016         5 - BCO5 Frame C         22     20  11.2%         0      2    8    10    13        3
+  batch_jan2016  5 - BCO5 Gonad Female A         22      8   4.5%         0      0    3     5     8        1
+  batch_jan2016  5 - BCO5 Gonad Female B         22     10   5.6%         0      3    3     4    10        1
+  batch_jan2016  5 - BCO5 Gonad Female C         22     18  10.1%         0      3    3    12    13        5
+  batch_jan2016    5 - BCO5 Gonad Male B         22      2   1.1%         0      2    0     0     2        1
+  batch_jan2016    5 - BCO5 Gonad Male C         22      8   4.5%         0      1    2     5     8        1
+  batch_jan2016  5 - BCO5 Liver Female A         22      9   5.1%         0      2    3     4     9        1
+  batch_jan2016  5 - BCO5 Liver Female B         22      9   5.1%         0      1    3     5     8        2
+  batch_jan2016  5 - BCO5 Liver Female C         22     18  10.1%         0      1    6    11    14        3
+  batch_jan2016    5 - BCO5 Liver Male A         22      4   2.2%         0      1    1     2     4        1
+  batch_jan2016    5 - BCO5 Liver Male B         22      6   3.4%         0      1    2     3     6        1
+  batch_jan2016    5 - BCO5 Liver Male C         22      4   2.2%         0      3    1     0     3        2
+  batch_jan2016  6 - BCO6 Gonad Female A         22     18  10.1%         0      2    5    11    13        4
+  batch_jan2016  6 - BCO6 Gonad Female B         22     19  10.7%         0      3    6    10    13        3
+  batch_jan2016  6 - BCO6 Gonad Female C         22     21  11.8%         0      1    6    14    11        4
+  batch_jan2016    6 - BCO6 Gonad Male A         22     27  15.2%         0      3    8    16    10        6
+  batch_jan2016    6 - BCO6 Gonad Male B         22     25  14.0%         0      4    7    14    12        5
+  batch_jan2016    6 - BCO6 Gonad Male C         22     26  14.6%         0      2    8    16    10        6
+  batch_jan2016          6 - BCO6 Head A         22     25  14.0%         0      4    8    13    12        5
+  batch_jan2016          6 - BCO6 Head B         22     19  10.7%         0      3    6    10    11        4
+  batch_jan2016          6 - BCO6 Head C         22     29  16.3%         0      5    9    15    15        5
+  batch_jan2016          6 - BCO6 Skin A         22     12   6.7%         0      3    2     7     8        3
+  batch_jan2016          6 - BCO6 Skin B         22     17   9.6%         0      4    3    10    12        4
+  batch_jan2016          6 - BCO6 Skin C         22     15   8.4%         0      4    4     7    11        2
+  batch_jul2016          3 - TAR3 Skin A         13      0   0.0%         0      0    0     0     0        0
+  batch_jul2016          3 - TAR3 Skin B         13      0   0.0%         0      0    0     0     0        0
+  batch_jul2016          4 - BCO4 Skin A         13      0   0.0%         0      0    0     0     0        0
+  batch_jul2016          4 - BCO4 Skin B         13      0   0.0%         0      0    0     0     0        0
+  batch_jul2016          5 - BCO5 Head A         13      0   0.0%         0      0    0     0     0        0
+  batch_jul2016          5 - BCO5 Head B         13      0   0.0%         0      0    0     0     0        0
+  batch_jul2016          5 - BCO5 Skin A         13      0   0.0%         0      0    0     0     0        0
+  batch_jul2016          5 - BCO5 Skin B         13      0   0.0%         0      0    0     0     0        0
+  batch_jul2016         6 - BCO6 Frame A         13      0   0.0%         0      0    0     0     0        0
+  batch_jul2016         6 - BCO6 Frame B         13      0   0.0%         0      0    0     0     0        0
+  batch_jul2016  6 - BCO6 Liver Female A         13      0   0.0%         0      0    0     0     0        0
+  batch_jul2016  6 - BCO6 Liver Female B         13      0   0.0%         0      0    0     0     0        0
+  batch_jul2016      6 - BCO6 Liver Male         13      0   0.0%         0      0    0     0     0        0
+  batch_jul2016    6 - BCO6 Liver Male B         13      0   0.0%         0      0    0     0     0        0
+  batch_jul2016  6 - BCO6 Rest of Guts A         13      0   0.0%         0      0    0     0     0        0
+  batch_jul2016  6 - BCO6 Rest of Guts B         13      0   0.0%         0      0    0     0     0        0
+  batch_sep2015         1 - SNA1 Gonad A         22     44  24.7%         0      1   16    27    17       11
+  batch_sep2015         1 - SNA1 Gonad B         22     54  30.3%         0      0   20    34    12       17
+  batch_sep2015  1 - SNA1 Liver Female A         22     41  23.0%         0      3   14    24    19        8
+  batch_sep2015  1 - SNA1 Liver Female B         22     25  14.0%         0      1    5    19    12        7
+  batch_sep2015    1 - SNA1 Liver Male A         22     20  11.2%         0      0    3    17     7        7
+  batch_sep2015    1 - SNA1 Liver Male B         22     31  17.4%         0      2    6    23    13        7
+  batch_sep2015  1 - SNA1 Rest of Guts A         22     27  15.2%         0      2    5    20    13        4
+  batch_sep2015  1 - SNA1 Rest of Guts B         22     20  11.2%         0      0    2    18     9        4
+  batch_sep2015         2 - GUR2 Gonad A         22     37  20.8%         0      1    9    27     9       17
+  batch_sep2015         2 - GUR2 Gonad B         22     43  24.2%         0      3   13    27    13       17
+  batch_sep2015          2 - GUR2 Head A         22      0   0.0%         0      0    0     0     0        0
+  batch_sep2015          2 - GUR2 Head B         22      0   0.0%         0      0    0     0     0        0
+  batch_sep2015         2 - GUR2 Liver A         22     28  15.7%         0      0    8    20    11        6
+  batch_sep2015         2 - GUR2 Liver B         22     22  12.4%         0      0    5    17    10        4
+  batch_sep2015           2 - GUR2 ROG A         22     30  16.9%         0      2    6    22    12        9
+  batch_sep2015           2 - GUR2 ROG B         22     23  12.9%         0      2    4    17    11        5
+  batch_sep2015  3 - TAR3 Gonad Female A         22     30  16.9%         0      0    6    24     8       17
+  batch_sep2015  3 - TAR3 Gonad Female B         22     27  15.2%         0      0    5    22     9       10
+  batch_sep2015    3 - TAR3 Gonad Male A         22     19  10.7%         0      0    4    15     8        9
+  batch_sep2015    3 - TAR3 Gonad Male B         22     28  15.7%         0      0    6    22    10        9
+  batch_sep2015          3 - TAR3 Head A         22      0   0.0%         0      0    0     0     0        0
+  batch_sep2015          3 - TAR3 Head B         22      0   0.0%         0      0    0     0     0        0
+  batch_sep2015  3 - TAR3 Liver Female A         22     31  17.4%         0      0    9    22    11       16
+  batch_sep2015  3 - TAR3 Liver Female B         22     27  15.2%         0      0    7    20     8       16
+  batch_sep2015    3 - TAR3 Liver Male A         22     30  16.9%         0      1    8    21    13        9
+  batch_sep2015    3 - TAR3 Liver Male B         22     41  23.0%         0      1   16    24    16       10
+  batch_sep2015  3 - TAR3 Rest of Guts A         22     20  11.2%         0      0    3    17     7        9
+  batch_sep2015  3 - TAR3 Rest of Guts B         22     24  13.5%         0      0    4    20     9        9
+  batch_sep2015         4 - BCO4 Gonad A         22     34  19.1%         0      0   10    24    12       10
+  batch_sep2015         4 - BCO4 Gonad B         22     35  19.7%         0      0   11    24    12       10
+  batch_sep2015  4 - BCO4 Liver Female A         22     37  20.8%         0      2   10    25    15       10
+  batch_sep2015  4 - BCO4 Liver Female B         22     34  19.1%         0      2   10    22    16        9
+  batch_sep2015    4 - BCO4 Liver Male A         22     28  15.7%         0      0    9    19    10       16
+  batch_sep2015    4 - BCO4 Liver Male B         22     26  14.6%         0      1    5    20    11        9
+  batch_sep2015  4 - BCO4 Rest of Guts A         22     27  15.2%         0      0    8    19     9       11
+  batch_sep2015  4 - BCO4 Rest of Guts B         22     27  15.2%         0      0    8    19     9       11
+
+Per batch: share of acquired-range windows that are empty; by region, the share of that region's windows; contiguous runs per sample (mean) and the longest (windows).
+  Batch          runs  empty  no-scan windows  early    mid   late  runs/sample  longest  empty in ≥ half the runs: span (windows)
+  batch_apr2016    10   0.0%                0   0.0%   0.0%   0.0%          0.0        0                                         —
+  batch_jan2016    26   8.6%                0   5.2%   6.7%  12.9%          9.9        6                         9.0–36.0 min (13)
+  batch_jul2016    16   0.0%                0   0.0%   0.0%   0.0%          0.0        0                                         —
+  batch_sep2015    36  15.1%                0   1.5%  10.6%  29.1%         10.0       17                        24.5–39.8 min (30)
+
+Comparison with step 03's data (acquisition start = first non-zero bin):
+  all 88 runs agree: data.acquisition_start = the window of the first scan, and the empty windows are exactly the zero raw-TIC bins.

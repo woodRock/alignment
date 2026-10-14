@@ -235,3 +235,19 @@ def test_icoshift_tiny_intervals_are_left_alone():
     x = np.arange(12, dtype=float)
     al = icoshift_align(x, x[::-1].copy(), n_intervals=4)  # 3-bin intervals < 4
     assert al.details['lags'] == [0, 0, 0, 0] and np.allclose(al.src, np.arange(12))
+
+
+def test_audit_empty_windows_tells_zero_reading_scans_from_missing_scans(tmp_path):
+    """Window 23 (5.175–5.4 min) has scans with no readings; window 25 has no scans at all."""
+    times = [t for t in np.arange(5.0, 6.0, 0.01) if not 5.625 <= t < 5.85]
+    peaks = [{} if 5.175 <= t < 5.4 else {100.0: 1.0} for t in times]
+    f = tmp_path / '4 - BCO4 Liver A.txt'
+    write_raw(f, '150916', times, peaks)
+    (e,) = map(audit.empty_windows, audit.run_times([f]))
+    assert e.start_bin == 22
+    assert np.flatnonzero(e.empty[:27]).tolist() == [23, 25]
+    assert np.flatnonzero(e.no_scans[:27]).tolist() == [25]
+    assert e.segments()[:2] == [(23, 1), (25, 1)]
+    assert e.empty[27:].all()  # past the last scan: nothing acquired, every window empty
+    text = '\n'.join(audit.empty_window_report([f]))
+    assert 'batch_sep2015' in text and 'not compared' in text

@@ -12,6 +12,7 @@ import synth
 import torch
 from conftest import SCRIPTS
 
+from gcmsalign.evaluation import METRICS
 from gcmsalign.steps import (
     ablate_pretrain,
     aggregate_seeds,
@@ -144,11 +145,34 @@ def test_arrays_are_paired_and_consistent_across_scripts(run_root):
         assert np.allclose(pool['pchip_pooled'], cal['pchip_pooled'])
         assert np.array_equal(cal['anchors'], cal1['anchors'])
         assert cal['wt_warp_mag_pre'].shape == (3,) and cal['warps'].shape[1] == 200
-        assert cal['outside'].shape == (3,) and np.all(
+        assert cal['outside'].shape == (5,) and np.all(
             (cal['outside'] >= 0) & (cal['outside'] <= 1)
         )
         assert cal['warptransformer_valid'].shape == (n,) and base['cow_tic_valid'].shape == (n,)
         assert base['outside'][0] == 0.0  # unaligned reads nothing outside
+        # every metric of every method, in every file that carries it
+        for sfx in METRICS.values():
+            for z, key in (
+                (base, 'unaligned'),
+                (base, 'cow_tic'),
+                (base, 'shift_a_q2'),
+                (cal, 'warptransformer'),
+                (cal, 'constant_shift'),
+                (pool, 'linear'),
+                (pool, 'unaligned'),
+            ):
+                assert z[key + sfx].shape == (n,)
+            for key in ('constant_shift', 'linear', 'pchip_pooled'):
+                assert np.allclose(pool[key + sfx], cal[key + sfx], equal_nan=True)
+
+
+def test_resampling_control_and_smoothing(run_root):
+    """A half-bin shift lowers raw TIC r of the unaligned pair; smoothing both batches
+    (σ = 1 bin) restores most of it."""
+    z = npz(run_root, 'tic_r_baselines_batch_apr2016_batch_jul2016.npz')
+    drop = z['unaligned_raw'].mean() - z['shift_a_q2_raw'].mean()
+    drop_s1 = z['unaligned_raw_s1'].mean() - z['shift_a_q2_raw_s1'].mean()
+    assert drop > 0 and drop_s1 < drop
 
 
 def test_pchip_through_the_true_drift_aligns(run_root):
@@ -177,6 +201,7 @@ def test_heldout_report_lists_every_method_and_the_filter_note(run_root):
     for m in (
         'No alignment',
         'Constant shift',
+        'Linear warp',
         'PCHIP (pooled anchors)',
         'COW-TIC',
         'Free warp (no network)',
@@ -192,14 +217,22 @@ def test_heldout_report_lists_every_method_and_the_filter_note(run_root):
 
 def test_mechanism_ablation_text(run_root):
     text = res(run_root, 'mechanism_ablation.txt')
-    assert '10-comparison family' in text and '15-comparison' not in text
+    assert '21-comparison family' in text and '10-comparison' not in text
     assert 'Control: unaligned, both ½-bin shifted' in text
+    assert 'smooth loss' in text and 'Summary: mean between-batch raw TIC r σ1' in text
 
 
 def test_ceiling_and_significance(run_root):
     assert 'Sep15×Jul16' in res(run_root, 'within_batch_ceiling.txt')
+    ceil = npz(run_root, 'within_batch_ceiling.npz')
+    assert 'batch_sep2015_batch_jul2016_ceiling_raw_s1' in ceil.files
     sig = res(run_root, 'significance_tests.txt')
     assert 'Seeds available: [0, 1]' in sig and 'Holm' in sig
+    assert 'Methods (7)' in sig and 'all 21 pairwise' in sig
+    assert 'Linear warp vs Constant shift' in sig and 'r in range' in sig
+    summary = res(run_root, 'seed_summary.txt')
+    assert 'WT − Constant shift' in summary and 'Share of the gap' in summary
+    assert '(excluded pair)' in summary
 
 
 def test_figure_selection_file(run_root):

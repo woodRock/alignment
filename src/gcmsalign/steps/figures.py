@@ -296,7 +296,7 @@ def load_saved(paths: Paths, fig_seed: int) -> dict:
             'icoshift': (base['icoshift'], sil_ico),
             'COW-TIC': (base['cow_tic'], sil_cow),
             'PCHIP (pooled anchors)': (pchip['pchip_pooled'], float(pchip['sil'])),
-            'WarpTransformer': (calib['warptransformer'], float(calib['sil'][2])),
+            'WarpTransformer': (calib['warptransformer'], float(calib['sil'][-1])),
         }
     return out
 

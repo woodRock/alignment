@@ -9,8 +9,9 @@ The pretrained model is calibrated for --calib-steps Adam steps on the exact anc
 anchor's A and B positions must map to the same consensus bin) plus a smoothness penalty. TIC r
 is never used for calibration, only for evaluation.
 
-Reported: Unaligned, PCHIP through the same pooled anchors, and the WarpTransformer — TIC r
-(normalised and raw, common window), study silhouette, warp magnitude — and the warp
+Reported: Unaligned, the anchor baselines through the same pooled anchors (constant shift,
+linear warp, PCHIP) and the WarpTransformer — TIC r (normalised and raw, common window, and
+every other metric of evaluation.METRICS), study silhouette, warp magnitude — and the warp
 magnitudes before calibration.
 
 Output: results/warp_transformer_calib_<A>_<B>_seed<S>.txt,
@@ -37,6 +38,7 @@ from ._common import (
     batch_name_of,
     ckpt_or_default,
     parser,
+    save_npz,
     setup_logging,
     table,
     title,
@@ -58,12 +60,15 @@ class CalibResult:
     calib_steps: int
     anchors: AnchorResult
     unaligned: evaluation.PairEval
-    pchip: evaluation.PairEval
+    baselines: dict[str, evaluation.PairEval]  # evaluation.ANCHOR_BASELINES
     wt: evaluation.PairEval
     warps: np.ndarray
     mags: tuple[float, float, float]  # after calibration: all, A, B (min)
     mags_pre: tuple[float, float, float]  # before calibration
     log: CalibrationLog
+
+    def evals(self) -> dict[str, evaluation.PairEval]:
+        return {'Unaligned': self.unaligned, **self.baselines, 'WarpTransformer': self.wt}
 
 
 def compute(
@@ -105,7 +110,7 @@ def compute(
         calib_steps,
         anc,
         evaluation.unaligned(a, b),
-        evaluation.pchip(a, b, anc.anchors),
+        {k: fn(a, b, anc.anchors) for k, (_, fn) in evaluation.ANCHOR_BASELINES.items()},
         evaluation.warped_pair(a, b, warps, aligned),
         warps,
         evaluation.warp_mags(warps, len(a)),
@@ -151,14 +156,24 @@ def format_report(res: CalibResult) -> list[str]:
             ],
             [
                 row('Unaligned', un, None),
-                row('PCHIP (pooled anchors)', res.pchip, f'{res.pchip.warp_mag:.3f}m'),
+                *(row(k, e, f'{e.warp_mag:.3f}m') for k, e in res.baselines.items()),
                 row('WarpTransformer + anchor calib', res.wt, f'{res.wt.warp_mag:.3f}m'),
+            ],
+        ),
+        '',
+        'Every TIC metric (σ: both batches smoothed with the same Gaussian, in bins; non-empty: '
+        'bins with raw TIC > 0 in both samples):',
+        *table(
+            ['Method', *evaluation.METRICS],
+            [
+                [k, *(e.m(sfx) for sfx in evaluation.METRICS.values())]
+                for k, e in res.evals().items()
             ],
         ),
         '',
         'TIC r: mean Pearson r over all A×B pairs on the common window; raw r: the same '
         'warps applied to the raw TIC.',
-        'Warp mag: PCHIP = its one warp; WarpTransformer = batch-B samples.',
+        'Warp mag: anchor baselines = their one warp; WarpTransformer = batch-B samples.',
         "outside: share of evaluated (bin, sample) values read outside a run's acquired range; "
         'r in range: TIC r with those values masked out.',
         '',
@@ -181,31 +196,33 @@ def format_report(res: CalibResult) -> list[str]:
 def save(res: CalibResult, paths: Paths) -> None:
     suffix = '' if res.seed is None else f'_seed{res.seed}'
     paths.ensure_results()
-    np.savez(
+    keys = {'Unaligned': 'unaligned', 'WarpTransformer': 'warptransformer'}
+    keys |= {k: key for k, (key, _) in evaluation.ANCHOR_BASELINES.items()}
+    evals = res.evals()
+    arrays: dict[str, object] = {}
+    for name, e in evals.items():
+        arrays.update(e.arrays(keys[name]))
+    for name, (key, _) in evaluation.ANCHOR_BASELINES.items():
+        arrays[f'{key}_warp_mag'] = evals[name].warp_mag
+    save_npz(
         paths.per_pair / f'tic_r_calib_{res.name_a}_{res.name_b}{suffix}.npz',
-        unaligned=res.unaligned.r,
-        pchip_pooled=res.pchip.r,
-        warptransformer=res.wt.r,
-        unaligned_raw=res.unaligned.r_raw,
-        pchip_pooled_raw=res.pchip.r_raw,
-        warptransformer_raw=res.wt.r_raw,
-        pchip_warp_mag=res.pchip.warp_mag,
-        anchors=np.array(res.anchors.anchors).reshape(-1, 2),
-        anchor_stages=np.array(list(res.anchors.stages.values())),
-        anchor_stage_names=np.array(list(res.anchors.stages)),
-        n_a=res.n_a,
-        n_b=res.n_b,
-        seed=-1 if res.seed is None else res.seed,
-        sil=np.array([res.unaligned.sil, res.pchip.sil, res.wt.sil]),
-        wt_warp_mag=np.array(res.mags),
-        wt_warp_mag_pre=np.array(res.mags_pre),
-        warps=res.warps,
-        outside=np.array([res.unaligned.outside, res.pchip.outside, res.wt.outside]),
-        unaligned_valid=res.unaligned.r_valid,
-        pchip_pooled_valid=res.pchip.r_valid,
-        warptransformer_valid=res.wt.r_valid,
-        calib_seconds=res.log.seconds,
-        calib_steps=res.calib_steps,
+        dict(
+            arrays,
+            anchors=np.array(res.anchors.anchors).reshape(-1, 2),
+            anchor_stages=np.array(list(res.anchors.stages.values())),
+            anchor_stage_names=np.array(list(res.anchors.stages)),
+            n_a=res.n_a,
+            n_b=res.n_b,
+            seed=-1 if res.seed is None else res.seed,
+            methods=np.array([keys[k] for k in evals]),
+            sil=np.array([e.sil for e in evals.values()]),  # in the order of methods
+            outside=np.array([e.outside for e in evals.values()]),
+            wt_warp_mag=np.array(res.mags),
+            wt_warp_mag_pre=np.array(res.mags_pre),
+            warps=res.warps,
+            calib_seconds=res.log.seconds,
+            calib_steps=res.calib_steps,
+        ),
     )
     write_report(
         paths.results / f'warp_transformer_calib_{res.name_a}_{res.name_b}{suffix}.txt',

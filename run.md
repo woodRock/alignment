@@ -1,3 +1,29 @@
+# v2 checks rerun (2026-10-14): v2_checks.md
+
+Same checkpoint and binned data as the v2 run below (steps 02 and 03 not rerun). The previous
+results are in git (commit 2ec54ea) and in `results/v2_before_checks/`. Script:
+`logs/run_v2/checks_run.sh`, progress `logs/run_v2/checks_progress.log`, step logs
+`logs/run_v2/checks/`. Three lanes as stage 2 below (~8.5 h, held-out and ablation are the long
+poles), then 07, 11, 12, 13 and the paper figures (fig4–5, and fig1–3 on Jan16×Jul16).
+
+What changed in the code:
+- Every method on every pair reports the full metric set (`evaluation.METRICS`): normalised and
+  raw TIC r, both smoothed with σ = 1 and 2 bins, r in range, and r on non-empty bins.
+- Constant-shift and linear-warp baselines through the pooled anchors (steps 06, 07, 10, 12, 13).
+  Step 12's family is 7 methods / 21 comparisons per pair, plus a raw-σ1 family and the masked
+  WT-vs-PCHIP test.
+- Step 05 adds the resampling control (A shifted ¼, ½, ¾ bin; both ½ bin; no alignment).
+- Step 04 adds the empty-window audit to `scan_time_audit.txt`.
+- Step 09 adds raw/smoothed TIC r and each variant's warp smoothness loss.
+- Step 11 writes smoothed ceilings and `per_pair/within_batch_ceiling.npz`; step 13 reports the
+  ceiling share, rankings per metric and the excluded pairs.
+
+```bash
+nohup caffeinate -is bash logs/run_v2/checks_run.sh > logs/run_v2/checks_progress.log 2>&1 &
+```
+
+---
+
 # Paper run v2 (2026-10-12): every result and figure, after the code audit
 
 All steps on **CPU** (bit-reproducible under a seed), checkpoint `checkpoints/warp_transformer_v2.pt`

@@ -147,3 +147,33 @@ def test_smoothing_both_signals_removes_sub_bin_misregistration():
     raw = pearson_rows(shifted, x)[0]
     sm = pearson_rows_smoothed(shifted, x, (1.0, 2.0))
     assert raw < 0.75 and sm[1.0][0] > raw + 0.2 and sm[2.0][0] > sm[1.0][0]
+
+
+def test_pearson_paired_matches_pearson_rows_and_masks(rng):
+    from gcmsalign.metrics import all_pairs, pearson_paired
+
+    a, b = rng.normal(size=(3, 200)), rng.normal(size=(4, 200))
+    xa, xb = all_pairs(a, b)
+    assert np.allclose(pearson_paired(xa, xb), pearson_rows(a, b))
+    m = np.ones(xa.shape, bool)
+    m[:, 150:] = False
+    assert np.allclose(pearson_paired(xa, xb, m), pearson_rows(a[:, :150], b[:, :150]))
+    m[0, 25:] = False  # 3 bins (22–24) left: defined; 2 bins: NaN
+    assert np.isfinite(pearson_paired(xa, xb, m)[0])
+    m[0, 24] = False
+    assert np.isnan(pearson_paired(xa, xb, m)[0])
+
+
+def test_tic_metrics_non_empty_bins_drop_shared_zeros(rng):
+    """Bins empty (raw TIC 0) in a sample are left out of the non-empty metrics only."""
+    from gcmsalign.evaluation import METRICS, tic_metrics
+
+    a, b = rng.random((2, 200)) + 0.1, rng.random((3, 200)) + 0.1
+    a[0, 100:140] = 0.0
+    ones_a, ones_b = np.ones(a.shape, bool), np.ones(b.shape, bool)
+    met, outside = tic_metrics(a, b, a, b, ones_a, ones_b)
+    assert set(met) == set(METRICS.values()) and outside == 0.0
+    keep = np.r_[0:100, 140:200]
+    assert np.allclose(met['_nonempty'][:3], pearson_rows(a[:1, keep], b[:, keep]))
+    assert np.allclose(met['_nonempty'][3:], met[''][3:])
+    assert np.allclose(met['_valid'], met[''])

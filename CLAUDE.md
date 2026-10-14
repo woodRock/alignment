@@ -5,7 +5,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 `gcmsalign`: cross-batch GC-MS retention-time alignment. A transformer (`ChromaWarpTransformer`),
 pretrained on synthetic chromatograms, predicts one monotone warp per sample and is calibrated at
 test time on spectrally matched anchors. The repo holds the method, the baselines (COW-TIC, icoshift,
-PCHIP through the same anchors) and every experiment and figure of a paper in preparation.
+and constant shift, linear warp and PCHIP through the same anchors) and every experiment and
+figure of a paper in preparation.
 
 ## Commands
 
@@ -42,7 +43,11 @@ All constants (time axis, evaluation window, batch pairs, anchor and calibration
   metrics are computed on `EVAL_BINS` (bins 22–199, 5–45 min). Each sample's
   `acquisition_start` drives the coverage metric ("outside" fraction, "r in range").
 - **Two TIC metrics.** `tic` (summed normalised spectra) is the primary metric; `tic_raw` is a
-  robustness check, not an ablation.
+  robustness check, not an ablation. Raw TIC r of apex-scan bins drops under any sub-bin
+  resampling, so every method is also scored after smoothing both batches (σ = 1, 2 bins). The
+  full per-pair metric set is `evaluation.METRICS`; saved arrays are `<method key><suffix>`.
+- **Empty windows.** Sep 2015 (15%) and Jan 2016 (9%) runs have scans with zero readings
+  (mostly 22–40 min), binned to exact zeros; `r non-empty` excludes them.
 - **Warp frames.** The WarpTransformer warps both batches into a shared frame; PCHIP, COW-TIC and
   icoshift warp batch A onto B. Baselines return source positions (`TicAlignment.src`).
 - **Warp parameterisation** (`warp_transformer.make_monotone_warp`): normalised cumulative softplus

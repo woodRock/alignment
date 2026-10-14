@@ -44,22 +44,41 @@ def pearson_rows_smoothed(
     return {s: pearson_rows(smooth_rows(a, s), smooth_rows(b, s)) for s in sigmas}
 
 
+def all_pairs(a: np.ndarray, b: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Rows of a [n_a, ...] and b [n_b, ...] expanded to every (a_i, b_j), i-major: row
+    i · n_b + j of the results is (a_i, b_j)."""
+    a, b = np.atleast_2d(a), np.atleast_2d(b)
+    return np.repeat(a, len(b), axis=0), np.tile(b, (len(a),) + (1,) * (b.ndim - 1))
+
+
+def pearson_paired(
+    a: np.ndarray, b: np.ndarray, mask: np.ndarray | None = None, bins: slice | None = EVAL_BINS
+) -> np.ndarray:
+    """Pearson r of each row pair (a_k, b_k) of a, b [K, T], on the time bins `bins` and, if
+    given, only where mask [K, T] is True. NaN for fewer than 3 bins or a constant row."""
+    a = np.atleast_2d(np.asarray(a, dtype=np.float64))
+    b = np.atleast_2d(np.asarray(b, dtype=np.float64))
+    m = np.ones(a.shape, dtype=bool) if mask is None else np.atleast_2d(np.asarray(mask, bool))
+    if bins is not None:
+        a, b, m = a[:, bins], b[:, bins], m[:, bins]
+    w = m.astype(np.float64)
+    n = w.sum(axis=1, keepdims=True)
+    with np.errstate(invalid='ignore', divide='ignore'):
+        az = (a - (a * w).sum(axis=1, keepdims=True) / n) * w
+        bz = (b - (b * w).sum(axis=1, keepdims=True) / n) * w
+        r = (az * bz).sum(axis=1) / np.sqrt((az**2).sum(axis=1) * (bz**2).sum(axis=1))
+    r = np.where(n[:, 0] >= 3, r, np.nan)
+    return np.clip(r, -1.0, 1.0)
+
+
 def pearson_rows_masked(
     a: np.ndarray, b: np.ndarray, valid_a: np.ndarray, valid_b: np.ndarray, bins: slice = EVAL_BINS
 ) -> np.ndarray:
     """Like pearson_rows, but each (a_i, b_j) uses only the bins in `bins` where both
     valid_a[i] and valid_b[j] are True (NaN if fewer than 3 such bins or a constant row)."""
-    a = np.atleast_2d(np.asarray(a, dtype=np.float64))[:, bins]
-    b = np.atleast_2d(np.asarray(b, dtype=np.float64))[:, bins]
-    va = np.atleast_2d(valid_a)[:, bins]
-    vb = np.atleast_2d(valid_b)[:, bins]
-    out = np.full(len(a) * len(b), np.nan)
-    for i in range(len(a)):
-        for j in range(len(b)):
-            m = va[i] & vb[j]
-            if m.sum() >= 3:
-                out[i * len(b) + j] = pearson_rows(a[i, m], b[j, m], bins=None)[0]
-    return out
+    xa, xb = all_pairs(np.asarray(a), np.asarray(b))
+    va, vb = all_pairs(np.asarray(valid_a), np.asarray(valid_b))
+    return pearson_paired(xa, xb, va & vb, bins)
 
 
 def pearson(a: np.ndarray, b: np.ndarray, bins: slice | None = EVAL_BINS) -> float:

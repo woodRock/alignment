@@ -10,3 +10,10 @@ Anchors (10): [(48, 31), (63, 46), (69, 51), (75, 57), (86, 67), (91, 72), (118,
 
 pre / post: warp magnitude (min) before and after calibration.
 Pretraining advantage: -0.0258 TIC r (+0.1357 raw)
+
+Every TIC metric (σ: both batches smoothed with the same Gaussian, in bins):
+  Arm           TIC r  TIC r σ1  TIC r σ2    raw r  raw r σ1  raw r σ2  r in range  r non-empty  raw r non-empty
+  Unaligned    0.1279    0.1527    0.2066  -0.0457   -0.0631    0.0361      0.1279       0.1283          -0.0485
+  pretrained   0.5838    0.6328    0.6518   0.7967    0.9103    0.9255      0.5842       0.5697           0.7957
+  random init  0.6096    0.6672    0.6810   0.6610    0.8338    0.8596      0.6150       0.5944           0.6603
+  gain: TIC r -0.0258  TIC r σ1 -0.0345  TIC r σ2 -0.0292  raw r +0.1357  raw r σ1 +0.0765  raw r σ2 +0.0659  r in range -0.0307  r non-empty -0.0248  raw r non-empty +0.1354
