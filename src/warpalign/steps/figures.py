@@ -47,7 +47,7 @@ from ._common import (
     setup_logging,
 )
 
-log = logging.getLogger('gcmsalign')
+log = logging.getLogger('warpalign')
 
 COLORS = {
     'Unaligned': '#888888',

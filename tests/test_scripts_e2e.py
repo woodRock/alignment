@@ -12,8 +12,8 @@ import synth
 import torch
 from conftest import SCRIPTS
 
-from gcmsalign.evaluation import METRICS
-from gcmsalign.steps import (
+from warpalign.evaluation import METRICS
+from warpalign.steps import (
     ablate_pretrain,
     aggregate_seeds,
     calibrate_pair,
@@ -25,7 +25,7 @@ from gcmsalign.steps import (
     pchip_baseline,
     significance,
 )
-from gcmsalign.warp_transformer import ChromaWarpTransformer
+from warpalign.warp_transformer import ChromaWarpTransformer
 
 PAIRS = [
     ('sep2015', 'jul2016'),

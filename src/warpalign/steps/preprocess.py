@@ -31,7 +31,7 @@ import numpy as np
 from ..config import BIN_MIN, MZ_BINS, N_BINS, REPO_ROOT, Paths
 from ._common import parser, setup_logging
 
-log = logging.getLogger('gcmsalign')
+log = logging.getLogger('warpalign')
 
 DEFAULT_RAW_DIR = (
     REPO_ROOT.parent / 'fish-data-analysis' / 'engr489' / 'src' / 'data' / 'raw-subsetted-CVSs'

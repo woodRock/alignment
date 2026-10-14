@@ -1,6 +1,6 @@
-"""Step 12: runs gcmsalign.steps.significance (see that module; --help for options)."""
+"""Step 12: runs warpalign.steps.significance (see that module; --help for options)."""
 
-from gcmsalign.steps.significance import cli
+from warpalign.steps.significance import cli
 
 if __name__ == '__main__':
     cli()

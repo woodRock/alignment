@@ -11,7 +11,7 @@ import numpy as np
 
 from ..config import N_CALIB_STEPS, Paths
 
-log = logging.getLogger('gcmsalign')
+log = logging.getLogger('warpalign')
 
 
 def setup_logging(verbose: bool = True) -> None:

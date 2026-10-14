@@ -3,8 +3,8 @@
 import numpy as np
 import pytest
 
-from gcmsalign.config import BIN_MIN, N_BINS, TIME_AXIS
-from gcmsalign.warps import (
+from warpalign.config import BIN_MIN, N_BINS, TIME_AXIS
+from warpalign.warps import (
     anchor_drift,
     anchor_line,
     constant_shift_warp,

@@ -3,8 +3,8 @@
 import numpy as np
 import pytest
 
-from gcmsalign.anchors import detect_peaks, extract_anchors
-from gcmsalign.config import BIN_MIN, EVAL_PAIRS, EVAL_START_BIN, EXCLUDED_PAIRS, Paths
+from warpalign.anchors import detect_peaks, extract_anchors
+from warpalign.config import BIN_MIN, EVAL_PAIRS, EVAL_START_BIN, EXCLUDED_PAIRS, Paths
 
 PATHS = Paths()
 FISH_OIL_DIR, RESULTS_DIR = PATHS.fish_oil, PATHS.results
@@ -19,7 +19,7 @@ pytestmark = [
 
 @pytest.fixture(scope='module')
 def batches():
-    from gcmsalign.data import load_batch
+    from warpalign.data import load_batch
 
     return {
         n: load_batch(n, FISH_OIL_DIR)

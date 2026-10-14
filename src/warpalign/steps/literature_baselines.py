@@ -1,7 +1,7 @@
 """Step 05 — COW-TIC and icoshift on one batch pair, and the resampling control.
 
 Every batch-A sample is aligned onto every batch-B sample using the TIC only
-(gcmsalign.baselines). TIC r is Pearson r between the warped A TIC and the B TIC on the common
+(warpalign.baselines). TIC r is Pearson r between the warped A TIC and the B TIC on the common
 acquisition window. The same warp, optimised on the normalised TIC, is applied to the raw TIC
 for the raw-TIC rows. Smoothed r: both TICs smoothed with the same Gaussian before correlating
 (config.SMOOTH_SIGMAS), as for every other method. Study silhouette: every A sample aligned to
@@ -39,7 +39,7 @@ from ._common import (
     write_report,
 )
 
-log = logging.getLogger('gcmsalign')
+log = logging.getLogger('warpalign')
 Aligner = Callable[[np.ndarray, np.ndarray], TicAlignment]
 KEYS = {'Unaligned': 'unaligned', 'COW-TIC': 'cow_tic', 'icoshift': 'icoshift'}
 SHIFTS = {  # control name → (shift of A, shift of B) in bins, and its saved-array key

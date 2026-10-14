@@ -4,8 +4,8 @@ import numpy as np
 import pytest
 import torch
 
-from gcmsalign import evaluation
-from gcmsalign.calibration import (
+from warpalign import evaluation
+from warpalign.calibration import (
     batch_tensors,
     calibrate,
     calibration_objective,
@@ -16,7 +16,7 @@ from gcmsalign.calibration import (
     predict,
     set_seed,
 )
-from gcmsalign.warp_transformer import (
+from warpalign.warp_transformer import (
     ChromaWarpTransformer,
     anchor_loss_exact,
     warp_smoothness_loss,
@@ -207,8 +207,8 @@ def test_warp_mags_order():
 
 def test_heldout_skips_pairs_with_too_few_anchors(monkeypatch, batches):
     """Step 10 needs ≥ 2 anchors to hold one out; a pair with one anchor is reported, skipped."""
-    from gcmsalign.anchors import AnchorResult
-    from gcmsalign.steps import heldout_anchors as h
+    from warpalign.anchors import AnchorResult
+    from warpalign.steps import heldout_anchors as h
 
     a, b = batches
     monkeypatch.setattr(h, 'extract_anchors', lambda *args: AnchorResult([(60, 52)]))
@@ -225,7 +225,7 @@ def test_a_common_translation_is_invisible_to_anchor_and_smoothness_losses():
     """Why the frame term is needed: for shift-like warps (slope 1, as the drift here nearly
     is), adding one constant c to every warp changes neither loss, so only the frame term can
     stop the consensus frame translating. (For curved warps the invariance is approximate.)"""
-    from gcmsalign.warp_transformer import frame_loss
+    from warpalign.warp_transformer import frame_loss
 
     t = torch.arange(T, dtype=torch.float64)
     w = torch.stack([t + 1.0, t - 1.0, t - 7.0, t - 9.0])
@@ -241,7 +241,7 @@ def test_a_common_translation_is_invisible_to_anchor_and_smoothness_losses():
 def test_frame_loss_ignores_shape_and_batch_b():
     """The frame term measures only the batch-A mean offset: zero for any shape with no net
     offset, and independent of batch B."""
-    from gcmsalign.warp_transformer import frame_loss
+    from warpalign.warp_transformer import frame_loss
 
     t = torch.arange(T, dtype=torch.float64)
     wiggle = 3 * torch.sin(t / 10)
@@ -269,7 +269,7 @@ def test_calibration_keeps_batch_a_near_the_identity(tensors):
 
 
 def test_acquisition_start():
-    from gcmsalign.data import acquisition_start
+    from warpalign.data import acquisition_start
 
     raw = np.zeros((3, T))
     raw[0, 22:] = 1.0
@@ -278,7 +278,7 @@ def test_acquisition_start():
 
 
 def test_in_range_flags_reads_before_start_and_past_the_end():
-    from gcmsalign.evaluation import in_range
+    from warpalign.evaluation import in_range
 
     src = np.arange(T, dtype=float) - 5.0  # reads 5 bins earlier
     v = in_range(np.stack([src, src + 10.0]), np.array([10, 0]))
@@ -304,7 +304,7 @@ def test_large_shift_is_reported_outside_and_masked(batches):
 
 
 def test_pearson_rows_masked_matches_manual():
-    from gcmsalign.metrics import pearson_rows, pearson_rows_masked
+    from warpalign.metrics import pearson_rows, pearson_rows_masked
 
     rng = np.random.default_rng(0)
     a, b = rng.normal(size=(2, T)), rng.normal(size=(1, T))
@@ -321,7 +321,7 @@ def test_pearson_rows_masked_matches_manual():
 def test_fig1_aligns_a_onto_b_like_the_evaluation(batches, monkeypatch, tmp_path):
     """Round-3 review, item 5: Fig. 4's icoshift and COW-TIC curves must be the warps that
     were scored, i.e. A aligned onto B (query = A sample, reference = B[0])."""
-    from gcmsalign.steps import figures
+    from warpalign.steps import figures
 
     calls = []
 
@@ -364,7 +364,7 @@ def test_free_warp_starts_at_the_anchors_median_shift():
 
 def test_free_warp_still_fits_non_constant_drift():
     """Drift trending from −4 to −12: the warp moves away from the initial shift as needed."""
-    from gcmsalign.warp_transformer import predict_query_bins
+    from warpalign.warp_transformer import predict_query_bins
 
     trending = [(40, 36), (75, 69), (115, 106), (155, 143)]
     warps, (a_loss, _, _) = free_warp(3, 2, trending, lr=0.05, seed=0, steps=500)
@@ -380,8 +380,8 @@ def test_free_warp_still_fits_non_constant_drift():
 def test_anchor_baselines_report_smoothed_r_and_recover_the_shift(batches):
     """Constant shift and linear warp through the true anchors align the synthetic pair (a pure
     shift) about as well as PCHIP, and every PairEval carries the smoothed metrics."""
-    from gcmsalign import evaluation
-    from gcmsalign.config import SMOOTH_SIGMAS
+    from warpalign import evaluation
+    from warpalign.config import SMOOTH_SIGMAS
 
     a, b = batches
     un = evaluation.unaligned(a, b)

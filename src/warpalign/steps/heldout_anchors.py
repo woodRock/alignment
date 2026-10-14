@@ -58,7 +58,7 @@ from ._common import (
     write_report,
 )
 
-log = logging.getLogger('gcmsalign')
+log = logging.getLogger('warpalign')
 FREE = 'Free warp (no network)'
 METHODS = (
     'No alignment',

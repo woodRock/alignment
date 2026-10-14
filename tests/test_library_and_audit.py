@@ -11,10 +11,10 @@ import pytest
 from conftest import SCRIPTS
 from test_preprocess import run, write_raw
 
-from gcmsalign.config import Paths
-from gcmsalign.steps import audit
-from gcmsalign.steps import download_library as dl
-from gcmsalign.steps import preprocess as pp
+from warpalign.config import Paths
+from warpalign.steps import audit
+from warpalign.steps import download_library as dl
+from warpalign.steps import preprocess as pp
 
 # ── 01 ────────────────────────────────────────────────────────────────────────
 
@@ -193,7 +193,7 @@ def test_sqrt_l2_rows():
 
 
 def test_data_loading_errors(tmp_path):
-    from gcmsalign.data import load_batch, load_tic_raw
+    from warpalign.data import load_batch, load_tic_raw
 
     with pytest.raises(FileNotFoundError):
         load_batch('nothing', tmp_path)
@@ -205,7 +205,7 @@ def test_data_loading_errors(tmp_path):
 
 
 def test_data_batch_properties(tmp_path):
-    from gcmsalign.data import load_batch
+    from warpalign.data import load_batch
 
     d = tmp_path / 'b' / 'chroma'
     d.mkdir(parents=True)
@@ -220,7 +220,7 @@ def test_data_batch_properties(tmp_path):
 
 
 def test_cow_falls_back_to_identity_when_no_path_exists():
-    from gcmsalign.baselines import cow_tic_align
+    from warpalign.baselines import cow_tic_align
 
     x = np.random.default_rng(0).normal(size=20)
     al = cow_tic_align(x, x[::-1].copy(), n_segs=4, slack=0)  # nodes fixed; still a path
@@ -230,7 +230,7 @@ def test_cow_falls_back_to_identity_when_no_path_exists():
 
 
 def test_icoshift_tiny_intervals_are_left_alone():
-    from gcmsalign.baselines import icoshift_align
+    from warpalign.baselines import icoshift_align
 
     x = np.arange(12, dtype=float)
     al = icoshift_align(x, x[::-1].copy(), n_intervals=4)  # 3-bin intervals < 4

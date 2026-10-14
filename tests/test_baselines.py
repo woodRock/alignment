@@ -5,9 +5,9 @@ import itertools
 import numpy as np
 import pytest
 
-from gcmsalign.baselines import cow_tic_align, icoshift_align
-from gcmsalign.metrics import pearson
-from gcmsalign.warps import warp_signal
+from warpalign.baselines import cow_tic_align, icoshift_align
+from warpalign.metrics import pearson
+from warpalign.warps import warp_signal
 
 T = 200
 

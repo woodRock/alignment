@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from gcmsalign.config import (
+from warpalign.config import (
     BIN_MIN,
     EVAL_BINS,
     EVAL_PAIRS,
@@ -13,7 +13,7 @@ from gcmsalign.config import (
     batch_name,
     pair_label,
 )
-from gcmsalign.metrics import (
+from warpalign.metrics import (
     holm,
     mean_sd,
     pearson,
@@ -117,7 +117,7 @@ def test_study_silhouette_separates_distinct_batches(rng):
 
 
 def test_paired_wilcoxon_identical_and_different(rng):
-    from gcmsalign.metrics import paired_wilcoxon
+    from warpalign.metrics import paired_wilcoxon
 
     x = rng.normal(size=20)
     assert paired_wilcoxon(x, x) == (0.0, 1.0)
@@ -126,7 +126,7 @@ def test_paired_wilcoxon_identical_and_different(rng):
 
 
 def test_smooth_rows_sigma_zero_is_identity_and_smoothing_keeps_the_sum(rng):
-    from gcmsalign.metrics import smooth_rows
+    from warpalign.metrics import smooth_rows
 
     x = rng.random((3, 200))
     assert np.array_equal(smooth_rows(x, 0), x)
@@ -138,8 +138,8 @@ def test_smooth_rows_sigma_zero_is_identity_and_smoothing_keeps_the_sum(rng):
 
 def test_smoothing_both_signals_removes_sub_bin_misregistration():
     """One-bin peaks offset by half a bin correlate poorly unsmoothed, well after smoothing."""
-    from gcmsalign.metrics import pearson_rows_smoothed
-    from gcmsalign.warps import warp_rows
+    from warpalign.metrics import pearson_rows_smoothed
+    from warpalign.warps import warp_rows
 
     x = np.zeros((1, 200))
     x[0, 40:190:15] = 1.0
@@ -150,7 +150,7 @@ def test_smoothing_both_signals_removes_sub_bin_misregistration():
 
 
 def test_pearson_paired_matches_pearson_rows_and_masks(rng):
-    from gcmsalign.metrics import all_pairs, pearson_paired
+    from warpalign.metrics import all_pairs, pearson_paired
 
     a, b = rng.normal(size=(3, 200)), rng.normal(size=(4, 200))
     xa, xb = all_pairs(a, b)
@@ -166,7 +166,7 @@ def test_pearson_paired_matches_pearson_rows_and_masks(rng):
 
 def test_tic_metrics_non_empty_bins_drop_shared_zeros(rng):
     """Bins empty (raw TIC 0) in a sample are left out of the non-empty metrics only."""
-    from gcmsalign.evaluation import METRICS, tic_metrics
+    from warpalign.evaluation import METRICS, tic_metrics
 
     a, b = rng.random((2, 200)) + 0.1, rng.random((3, 200)) + 0.1
     a[0, 100:140] = 0.0

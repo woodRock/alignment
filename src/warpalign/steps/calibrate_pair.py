@@ -1,6 +1,6 @@
 """Step 06 — WarpTransformer with anchor-supervised test-time calibration, on one batch pair.
 
-Anchors (gcmsalign.anchors): peaks on the raw TIC of A[0..2] and B[0], spectral-cosine matching,
+Anchors (warpalign.anchors): peaks on the raw TIC of A[0..2] and B[0], spectral-cosine matching,
 RANSAC, longest increasing subsequence, pooled over the three A samples (median B bin per A
 bin), drift outlier filter (around the drift trend) and local-slope filter; the count after
 every stage is reported.
@@ -45,7 +45,7 @@ from ._common import (
     write_report,
 )
 
-log = logging.getLogger('gcmsalign')
+log = logging.getLogger('warpalign')
 
 
 @dataclass

@@ -2,7 +2,7 @@
 anchors, on every pair.
 
 They get exactly the WarpTransformer's calibration anchors (checked against the saved step-06
-run) and one warp each (gcmsalign.warps), applied to every batch-A sample (A → B frame); B is
+run) and one warp each (warpalign.warps), applied to every batch-A sample (A → B frame); B is
 unwarped. Deterministic, CPU.
   Constant shift   A shifted by the median anchor drift q − r (fractional bins)
   Linear warp      the least-squares line q = a·r + b through the anchors

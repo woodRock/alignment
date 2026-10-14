@@ -1,9 +1,9 @@
-# gcmsalign
+# warpalign
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.x-EE4C2C?logo=pytorch&logoColor=white)](https://pytorch.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
-[![CI](https://github.com/woodRock/alignment/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/woodRock/alignment/actions/workflows/ci.yml)
+[![CI](https://github.com/woodRock/warp-align/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/woodRock/warp-align/actions/workflows/ci.yml)
 [![Tests: pytest](https://img.shields.io/badge/tests-pytest-0A9EDC?logo=pytest&logoColor=white)](#testing-and-code-quality)
 [![Lint: Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![Types: mypy](https://img.shields.io/badge/types-mypy-2A6DB2)](https://mypy-lang.org/)
@@ -24,7 +24,7 @@ Daniel Killeen.
 ## Overview
 
 GC-MS chromatograms acquired in different batches of the same study drift in retention
-time, so the same compound elutes at different times. `gcmsalign` aligns whole batches at once
+time, so the same compound elutes at different times. `warpalign` aligns whole batches at once
 with a transformer that predicts one monotone time warp per sample:
 
 1. **Pretraining.** `ChromaWarpTransformer` is pretrained on synthetic GC-MS
@@ -58,7 +58,7 @@ To apply the method to **your own** data, write it in the format described in
 
 ```
 alignment/
-├── src/gcmsalign/            the package
+├── src/warpalign/            the package
 │   ├── config.py             time axis, evaluation window, batch pairs, settings, Paths
 │   ├── data.py               loading preprocessed batches
 │   ├── anchors.py            peak detection, spectral matching, RANSAC, pooling, filters
@@ -94,8 +94,8 @@ alignment/
 ### Install
 
 ```bash
-git clone https://github.com/woodRock/alignment.git
-cd alignment
+git clone https://github.com/woodRock/warp-align.git
+cd warp-align
 python3.11 -m pip install -e ".[dev]"        # the package, plus pytest, coverage, ruff, mypy
 ```
 
@@ -108,11 +108,11 @@ python3.11 -m pytest -m "not slow"           # ~10 s, synthetic data only
 ### A minimal example
 
 ```python
-from gcmsalign import evaluation
-from gcmsalign.anchors import extract_anchors
-from gcmsalign.calibration import batch_tensors, calibrate, load_model, pick_device, predict
-from gcmsalign.config import Paths
-from gcmsalign.data import load_batch
+from warpalign import evaluation
+from warpalign.anchors import extract_anchors
+from warpalign.calibration import batch_tensors, calibrate, load_model, pick_device, predict
+from warpalign.config import Paths
+from warpalign.data import load_batch
 
 paths = Paths()                                   # or Paths(Path('/my/project'))
 a = load_batch('batch_sep2015', paths.fish_oil)
@@ -140,11 +140,11 @@ Put each batch under `data/fish_oil/<batch_name>/chroma/`, one `.npz` per sample
 Time bins are 0.225-min windows on a fixed 0–45 min grid (bin *i* covers
 [0.225 *i*, 0.225 (*i* + 1)) min). Step 03 produces this format from the per-run text
 exports used here (`--raw-dir`); for other formats, write the two arrays directly. The batch names
-and pairs used by the paper are in `src/gcmsalign/config.py`.
+and pairs used by the paper are in `src/warpalign/config.py`.
 
 ## Running the pipeline
 
-Each step is a module in `gcmsalign.steps` with a numbered entry point in `scripts/`. They are
+Each step is a module in `warpalign.steps` with a numbered entry point in `scripts/`. They are
 numbered in run order; each depends only on lower-numbered steps. Every script takes
 `--help`, and `--root DIR` to work in a directory other than the repository.
 
@@ -201,7 +201,7 @@ Anchors are found in four stages:
    drift changes smoothly along the run, so comparing with a constant mean would discard the
    anchors at both ends.
 
-The anchor count after every stage is reported (`gcmsalign.anchors`).
+The anchor count after every stage is reported (`warpalign.anchors`).
 
 ### ChromaWarpTransformer
 
@@ -300,7 +300,7 @@ python3.11 -m mypy                     # types
 - **Continuous integration.** GitHub Actions ([`ci.yml`](.github/workflows/ci.yml)) runs ruff,
   mypy and the fast tests on every push and pull request, and the slow end-to-end tests weekly
   and on demand. CI never has the private data, so the `real` tests skip there.
-- **Size and coverage.** 282 tests (257 fast, 25 slow), with about 93% branch coverage of `gcmsalign`.
+- **Size and coverage.** 282 tests (257 fast, 25 slow), with about 93% branch coverage of `warpalign`.
 - **What they check.** Exact warp identities, the exact anchor loss (including a
   `gradcheck`), recovery of known drifts on synthetic GC-MS data, and seeded
   reproducibility.
@@ -327,14 +327,14 @@ If you use this code, please cite the software. A reference to the paper will be
 it is published.
 
 ```bibtex
-@software{wood_gcmsalign_2026,
+@software{wood_warpalign_2026,
   author  = {Wood, Jesse and Nguyen, Bach and Xue, Bing and Zhang, Mengjie and
              Shedlock, Kevin and Ross, Alastair B. and Killeen, Daniel},
-  title   = {gcmsalign: Test-time calibrated WarpTransformer for cross-batch
+  title   = {warpalign: Test-time calibrated WarpTransformer for cross-batch
              GC-MS retention-time alignment},
   year    = {2026},
   version = {2.0.0},
-  url     = {https://github.com/woodRock/alignment},
+  url     = {https://github.com/woodRock/warp-align},
   license = {MIT}
 }
 ```
@@ -343,7 +343,7 @@ GitHub's **Cite this repository** button uses [`CITATION.cff`](CITATION.cff).
 
 ## Contributing and contact
 
-Bug reports and questions are welcome as [GitHub issues](https://github.com/woodRock/alignment/issues).
+Bug reports and questions are welcome as [GitHub issues](https://github.com/woodRock/warp-align/issues).
 Before opening a pull request, please run the tests, `ruff check` and `mypy`. Data access
 requests cannot be granted (see [Data availability](#data-availability)).
 

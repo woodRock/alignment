@@ -74,7 +74,7 @@ from ._common import (
     write_report,
 )
 
-log = logging.getLogger('gcmsalign')
+log = logging.getLogger('warpalign')
 REFINE_SEGS, REFINE_SLACK = 8, 4
 FREE_LRS = (LR_CALIB, FREE_WARP_LR)
 BEST_FREE = f'Free warp (lr {FREE_WARP_LR:g})'

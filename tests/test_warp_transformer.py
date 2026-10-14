@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 import torch
 
-from gcmsalign.warp_transformer import (
+from warpalign.warp_transformer import (
     ChromaWarpTransformer,
     anchor_loss_approx,
     anchor_loss_exact,
@@ -15,7 +15,7 @@ from gcmsalign.warp_transformer import (
     sample_warp,
     warp_smoothness_loss,
 )
-from gcmsalign.warps import warp_rows
+from warpalign.warps import warp_rows
 
 T = 200
 

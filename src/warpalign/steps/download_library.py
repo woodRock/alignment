@@ -26,12 +26,12 @@ import requests
 from ..config import MZ_BINS, Paths
 from ._common import parser, setup_logging
 
-log = logging.getLogger('gcmsalign')
+log = logging.getLogger('warpalign')
 
 MONA_URL = 'https://mona.fiehnlab.ucdavis.edu/downloads/retrieve/MoNA-export-GC-MS_Spectra.json.zip'
 MASSBANK_RELEASE_API = 'https://api.github.com/repos/MassBank/MassBank-data/releases/latest'
 _HEADERS = {
-    'User-Agent': 'gcmsalign/2 (spectral library download)',
+    'User-Agent': 'warpalign/2 (spectral library download)',
     'Accept': 'application/json, */*',
 }
 # MoNA's instrument field. Note: 'GC-MS' does not by itself rule out chemical ionisation.

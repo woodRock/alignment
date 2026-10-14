@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-`gcmsalign`: cross-batch GC-MS retention-time alignment. A transformer (`ChromaWarpTransformer`),
+`warpalign`: cross-batch GC-MS retention-time alignment. A transformer (`ChromaWarpTransformer`),
 pretrained on synthetic chromatograms, predicts one monotone warp per sample and is calibrated at
 test time on spectrally matched anchors. The repo holds the method, the baselines (COW-TIC, icoshift,
 and constant shift, linear warp and PCHIP through the same anchors) and every experiment and
@@ -19,7 +19,7 @@ python3.11 -m pytest -m slow                     # end-to-end runs of every step
 python3.11 -m pytest tests/test_anchors.py::test_name   # one test
 python3.11 -m coverage run -m pytest && python3.11 -m coverage report
 ruff check . && ruff format .                    # line length 100, quote style preserved
-mypy                                             # checks src/gcmsalign
+mypy                                             # checks src/warpalign
 ```
 
 Markers: `slow` (end-to-end, minutes) and `real` (needs the private data under `data/fish_oil`;
@@ -28,9 +28,9 @@ skipped otherwise).
 ## Architecture
 
 Three layers:
-- `src/gcmsalign/*.py`: the library (anchors, warps, baselines, model, calibration, evaluation,
+- `src/warpalign/*.py`: the library (anchors, warps, baselines, model, calibration, evaluation,
   metrics). No I/O beyond loading batches; nothing here writes reports.
-- `src/gcmsalign/steps/*.py`: one module per pipeline step, each with `compute` → `format_report` →
+- `src/warpalign/steps/*.py`: one module per pipeline step, each with `compute` → `format_report` →
   `save` → `run`, plus `cli()`. Shared table/report/argument helpers are in `steps/_common.py`.
 - `scripts/NN_*.py`: three-line entry points that call a step's `cli()`, numbered 01–14 in run
   order with no gaps; each step depends only on lower-numbered ones. `scripts/archive/` is unused
@@ -70,7 +70,7 @@ All constants (time axis, evaluation window, batch pairs, anchor and calibration
 - **Do not commit, tag or push results**; the user commits them.
 - **Paper runs use CPU** (`--device cpu`, the default): CPU is bit-reproducible under a seed, MPS is
   not. MPS is fine only for throwaway runs.
-- **Never edit `src/gcmsalign/` while a pipeline run is in progress.** The editable install means
+- **Never edit `src/warpalign/` while a pipeline run is in progress.** The editable install means
   later steps would import the changed code. Check `logs/run_v2/*_progress.log` first.
 - Raw fish-oil exports (for steps 03/04, `--raw-dir`): use
   `~/Desktop/fish-data-analysis/engr489/src/data/raw-subsetted-CVSs/`; the other copy lacks TAR3

@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 import synth
 
-from gcmsalign.anchors import (
+from warpalign.anchors import (
     MATCH_STAGES,
     POOL_STAGES,
     detect_peaks,

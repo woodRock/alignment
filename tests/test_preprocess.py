@@ -5,8 +5,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from gcmsalign.steps import audit
-from gcmsalign.steps import preprocess as pp
+from warpalign.steps import audit
+from warpalign.steps import preprocess as pp
 
 
 def write_raw(path: Path, date: str, times, peaks_per_scan, blank=False):

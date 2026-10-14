@@ -5,9 +5,9 @@ import numpy as np
 import pytest
 import torch
 
-from gcmsalign.steps import download_library as dl
-from gcmsalign.steps import pretrain as tr
-from gcmsalign.steps.pretrain import SyntheticConfig, TrainConfig
+from warpalign.steps import download_library as dl
+from warpalign.steps import pretrain as tr
+from warpalign.steps.pretrain import SyntheticConfig, TrainConfig
 
 CFG = SyntheticConfig()
 T = 200
@@ -182,7 +182,7 @@ def test_pretraining_learns_well_below_the_no_warp_loss():
     synthetic data (wide peaks, no empty starts), 400 iterations must take the warp loss well
     below what predicting no warp scores (v1's model and the current one reach ~0.3 of it).
     Uses the real spectral library when present, otherwise the synthetic one."""
-    from gcmsalign.config import Paths
+    from warpalign.config import Paths
 
     h5 = Paths().pretrain_h5
     lib = tr.load_library(h5) if h5.exists() else _library(400)

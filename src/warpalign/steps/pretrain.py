@@ -41,7 +41,7 @@ from ..config import MZ_BINS, N_BINS, Paths
 from ..warp_transformer import ChromaWarpTransformer, warp_smoothness_loss
 from ._common import parser, setup_logging, write_report
 
-log = logging.getLogger('gcmsalign')
+log = logging.getLogger('warpalign')
 
 
 @dataclass(frozen=True)
