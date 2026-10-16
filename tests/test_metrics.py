@@ -64,7 +64,8 @@ def test_pearson_constant_row_is_nan(rng):
 def test_pearson_is_bounded(rng):
     a = rng.normal(size=(2, N_BINS))
     r = pearson_rows(a, a)
-    assert np.all(np.abs(r) <= 1) and r[0] == 1.0
+    # r(a, a) is 1 up to rounding: exactly 1.0 with Accelerate (macOS), 1 − 2⁻⁵² with OpenBLAS (CI)
+    assert np.all(np.abs(r) <= 1) and r[0] == pytest.approx(1.0, abs=1e-12)
 
 
 def test_tic_r_pairs_sums_mz(rng):

@@ -45,12 +45,21 @@ class WarpTransformer:
     name = 'warp-transformer'
     needs_anchors = False  # calibrates on its own pooled anchors per pair
 
-    def fit(self, study: Study, anchors: Anchors | None = None, ckpt: str | Path | None = None,
-            seed: int | None = 0, device: str = 'cpu', calib_steps: int = N_CALIB_STEPS,
-            **_: Any) -> Fit:
+    def fit(
+        self,
+        study: Study,
+        anchors: Anchors | None = None,
+        ckpt: str | Path | None = None,
+        seed: int | None = 0,
+        device: str = 'cpu',
+        calib_steps: int = N_CALIB_STEPS,
+        **_: Any,
+    ) -> Fit:
         if ckpt is None:
-            raise ValueError('warp-transformer needs ckpt= (the pretrained checkpoint, e.g. '
-                             'checkpoints/warp_transformer_v2.pt)')
+            raise ValueError(
+                'warp-transformer needs ckpt= (the pretrained checkpoint, e.g. '
+                'checkpoints/warp_transformer_v2.pt)'
+            )
         from .calibration import pick_device
         from .steps.calibrate_pair import compute
 
@@ -66,8 +75,9 @@ class WarpTransformer:
                 warps[(a, b)] = np.stack([_strict(w) for w in res.warps])
             return warps[(a, b)]
 
-        def g(k: int, l: int, t: np.ndarray, *, i: int | None = None,
-              j: int | None = None) -> np.ndarray:
+        def g(
+            k: int, l: int, t: np.ndarray, *, i: int | None = None, j: int | None = None
+        ) -> np.ndarray:
             t = np.asarray(t, dtype=float)
             if k == l and i == j:
                 return t
