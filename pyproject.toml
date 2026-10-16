@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "warpalign"
-version = "3.0.0"
+version = "3.0.1"
 description = "The WarpTransformer for cross-batch GC-MS retention-time alignment (an alignbench plugin)"
 requires-python = ">=3.11"
 readme = "README.md"
@@ -57,7 +57,7 @@ exclude_also = [
 [tool.ruff]
 line-length = 100
 target-version = "py311"
-extend-exclude = ["scripts/archive", "notebooks", "*.md"]
+extend-exclude = ["notebooks", "*.md"]
 
 [tool.ruff.format]
 quote-style = "preserve"

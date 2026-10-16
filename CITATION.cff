@@ -2,8 +2,8 @@ cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
 title: "warpalign: Test-time calibrated WarpTransformer for cross-batch GC-MS retention-time alignment"
 type: software
-version: 2.0.0
-date-released: 2026-10-11
+version: 3.0.1
+date-released: 2026-10-17
 license: MIT
 repository-code: "https://github.com/woodRock/warp-align"
 authors:

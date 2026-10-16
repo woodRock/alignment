@@ -3,6 +3,7 @@
 import numpy as np
 import pytest
 import torch
+from alignbench.warps import warp_rows
 
 from warpalign.warp_transformer import (
     ChromaWarpTransformer,
@@ -15,7 +16,6 @@ from warpalign.warp_transformer import (
     sample_warp,
     warp_smoothness_loss,
 )
-from warpalign.warps import warp_rows
 
 T = 200
 

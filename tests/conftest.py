@@ -31,7 +31,7 @@ def synthetic_pair():
 @pytest.fixture(scope='session')
 def batches(synthetic_pair):
     """The synthetic pair as warpalign Batch objects."""
-    from warpalign.data import Batch
+    from alignbench.data import Batch
 
     (ca, ra), (cb, rb) = synthetic_pair
     return (
