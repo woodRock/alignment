@@ -14,7 +14,7 @@ authors = [{ name = "Jesse Wood" }]
 dependencies = [
     # Not on PyPI: the shared core (data, anchors, warps, baselines, metrics), pinned to a pushed
     # commit of github.com/woodRock/align-bench. warpalign 3.0 keeps only the WarpTransformer.
-    "alignbench @ git+https://github.com/woodRock/align-bench.git@1717d9cabc29e6f130fb412a56e22ae1277380d5",
+    "alignbench @ git+https://github.com/woodRock/align-bench.git@879510f93f055d18db35ed62f17141a0ffaea1a7",
     "numpy>=1.26",
     "scipy>=1.11",
     "scikit-learn>=1.3",
