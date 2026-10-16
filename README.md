@@ -19,6 +19,19 @@ Daniel Killeen.
 > yet**. The results in this repository are being regenerated after a code audit (see
 > [Results](#results)).
 
+> **warpalign 3.0.** The shared core (data loading, anchors, warps, the classical baselines,
+> metrics) moved to [alignbench](https://github.com/woodRock/align-bench), which reproduces it bit
+> for bit; this package keeps the WarpTransformer, its calibration and the paper pipeline, and
+> registers the WarpTransformer as an alignbench method (`warp-transformer`). The old module names
+> (`warpalign.anchors`, `.warps`, `.metrics`, `.baselines`, `.data`) still work and emit a
+> `DeprecationWarning`; `warpalign.config` and `warpalign.evaluation` keep their 2.x values.
+>
+> ```bash
+> alignbench run --methods warp-transformer,pooled-pchip,cow-tic --dataset fish_oil \
+>     --data-root data/fish_oil --param warp-transformer.ckpt='"checkpoints/warp_transformer_v2.pt"' \
+>     --out results/bench/
+> ```
+
 ![](meme.png)
 
 ## Overview

@@ -22,8 +22,21 @@ import numpy as np
 import torch
 from matplotlib.lines import Line2D
 
-from ..anchors import extract_anchors
-from ..baselines import cow_tic_align, icoshift_align
+from .._compat import (
+    Batch,
+    cow_tic_align,
+    extract_anchors,
+    icoshift_align,
+    load_batch,
+    monotone_interp,
+    pchip_warp,
+    pearson,
+    pearson_rows,
+    src_from_fn,
+    tic_r_pairs,
+    warp_rows,
+    warp_signal,
+)
 from ..calibration import batch_tensors, calibrate, load_model, pick_device, predict
 from ..config import (
     BIN_MIN,
@@ -35,9 +48,6 @@ from ..config import (
     batch_name,
     pair_label,
 )
-from ..data import Batch, load_batch
-from ..metrics import pearson, pearson_rows, tic_r_pairs
-from ..warps import monotone_interp, pchip_warp, src_from_fn, warp_rows, warp_signal
 from ._common import (
     add_model_args,
     add_pair_args,

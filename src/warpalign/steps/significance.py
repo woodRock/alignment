@@ -27,8 +27,8 @@ from itertools import combinations
 
 import numpy as np
 
+from .._compat import holm, paired_wilcoxon
 from ..config import EVAL_PAIRS, Paths, pair_label
-from ..metrics import holm, paired_wilcoxon
 from ._common import parser, setup_logging, table, title, write_report
 
 PCHIP = 'PCHIP (pooled anchors)'

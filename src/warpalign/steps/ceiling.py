@@ -21,9 +21,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from .._compat import Batch, load_batch, pearson_rows, smooth_rows, within_batch_r
 from ..config import BATCHES, EVAL_PAIRS, EXCLUDED_PAIRS, SMOOTH_SIGMAS, Paths, pair_label
-from ..data import Batch, load_batch
-from ..metrics import pearson_rows, smooth_rows, within_batch_r
 from ._common import parser, save_npz, setup_logging, table, title, write_report
 
 # metric suffix (as evaluation.METRICS) → (raw TIC?, smoothing σ in bins; 0 = none)

@@ -37,8 +37,19 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from ..anchors import extract_anchors
-from ..baselines import cow_tic_align
+from .._compat import (
+    cow_tic_align,
+    extract_anchors,
+    holm,
+    load_batch,
+    paired_wilcoxon,
+    pchip_warp,
+    pearson_rows,
+    per_a_mean,
+    src_from_fn,
+    warp_rows,
+    within_batch_r,
+)
 from ..calibration import (
     batch_tensors,
     calibrate,
@@ -58,11 +69,8 @@ from ..config import (
     Paths,
     pair_label,
 )
-from ..data import load_batch
 from ..evaluation import METRICS, tic_metrics
-from ..metrics import holm, paired_wilcoxon, pearson_rows, per_a_mean, within_batch_r
 from ..warp_transformer import warp_smoothness_loss
-from ..warps import pchip_warp, src_from_fn, warp_rows
 from ._common import (
     add_model_args,
     ckpt_or_default,

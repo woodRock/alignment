@@ -22,11 +22,9 @@ from dataclasses import dataclass
 import numpy as np
 
 from .. import evaluation
-from ..anchors import extract_anchors
+from .._compat import extract_anchors, holm, load_batch, paired_wilcoxon
 from ..config import EVAL_PAIRS, EXCLUDED_PAIRS, Paths, pair_label
-from ..data import load_batch
 from ..evaluation import ANCHOR_BASELINES, METRICS
-from ..metrics import holm, paired_wilcoxon
 from ._common import parser, save_npz, setup_logging, table, title, write_report
 
 PCHIP = 'PCHIP (pooled anchors)'

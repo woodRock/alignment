@@ -22,12 +22,22 @@ from dataclasses import dataclass
 import numpy as np
 
 from .. import evaluation
-from ..baselines import COW_N_SEGS, COW_SLACK, ICO_MAX_SHIFT, ICO_N_INTERVALS, METHODS, TicAlignment
+from .._compat import (
+    COW_N_SEGS,
+    COW_SLACK,
+    ICO_MAX_SHIFT,
+    ICO_N_INTERVALS,
+    METHODS,
+    Batch,
+    TicAlignment,
+    load_batch,
+    paired_wilcoxon,
+    study_silhouette,
+    warp_rows,
+    warp_signal,
+)
 from ..config import BIN_MIN, Paths, pair_label
-from ..data import Batch, load_batch
 from ..evaluation import METRICS, PairEval, identity_src, in_range, tic_metrics
-from ..metrics import paired_wilcoxon, study_silhouette
-from ..warps import warp_rows, warp_signal
 from ._common import (
     add_pair_args,
     batch_name_of,
