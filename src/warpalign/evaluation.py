@@ -9,7 +9,8 @@ Empty bins: some runs record scans with no ions (num_readings = 0) in parts of t
 bin to exact zeros. Every PairEval also reports TIC r on bins non-empty in both samples.
 
 Every metric is kept per sample pair in PairEval.metrics, keyed by its saved-array suffix
-(METRICS), so the steps save and report the same set.
+(METRICS), so the steps save and report the same set. metric_suffixes, METRICS, tic_metrics,
+in_range and identity_src are alignbench.metrics.tic's / alignbench.warps' since warpalign 3.0.
 
 Coverage: an output bin of a warped sample is *outside* the acquired range if its source
 position lies before that sample's acquisition start (it reads zeros) or past the last bin (it
@@ -21,28 +22,21 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import numpy as np
+from alignbench.metrics.tic import METRICS, in_range, metric_suffixes, tic_metrics  # noqa: F401
+from alignbench.warps import identity_src
 
-from .config import BIN_MIN, EVAL_BINS, N_BINS, SMOOTH_SIGMAS
-from .data import Batch
-from .metrics import all_pairs, pearson_paired, smooth_rows, study_silhouette, warp_magnitude
-from .warps import WarpFn, constant_shift_warp, linear_warp, pchip_warp, src_from_fn, warp_rows
-
-
-def metric_suffixes(sigmas: tuple[float, ...] = SMOOTH_SIGMAS) -> dict[str, str]:
-    """Report label → saved-array suffix of every per-pair TIC metric: an array saved as <key>
-    holds normalised TIC r, <key><suffix> the others (e.g. 'pchip_pooled_raw_s1')."""
-    return {
-        'TIC r': '',
-        **{f'TIC r σ{s:g}': f'_s{s:g}' for s in sigmas},
-        'raw r': '_raw',
-        **{f'raw r σ{s:g}': f'_raw_s{s:g}' for s in sigmas},
-        'r in range': '_valid',
-        'r non-empty': '_nonempty',
-        'raw r non-empty': '_raw_nonempty',
-    }
-
-
-METRICS = metric_suffixes()
+from ._compat import (
+    Batch,
+    WarpFn,
+    constant_shift_warp,
+    linear_warp,
+    pchip_warp,
+    src_from_fn,
+    study_silhouette,
+    warp_magnitude,
+    warp_rows,
+)
+from .config import BIN_MIN, N_BINS, SMOOTH_SIGMAS
 
 
 @dataclass
@@ -94,49 +88,6 @@ class PairEval:
     def arrays(self, key: str) -> dict[str, np.ndarray]:
         """Every per-pair metric as saved arrays <key><suffix>."""
         return {key + sfx: v for sfx, v in self.metrics.items()}
-
-
-def tic_metrics(
-    tic_a: np.ndarray,
-    tic_b: np.ndarray,
-    raw_a: np.ndarray,
-    raw_b: np.ndarray,
-    valid_a: np.ndarray,
-    valid_b: np.ndarray,
-    paired: bool = False,
-) -> tuple[dict[str, np.ndarray], float]:
-    """(per-pair metrics keyed by METRICS suffix, outside fraction) of warped TICs.
-
-    paired=False: every (A_i, B_j) of tic_a [n_a, T] and tic_b [n_b, T], i-major. paired=True:
-    row k of tic_a against row k of tic_b (each pair warped separately, as COW-TIC).
-    valid_*: in-range masks (in_range). Non-empty bins: raw TIC > 0 in both warped samples."""
-    xs = [np.asarray(x, dtype=np.float64) for x in (tic_a, tic_b, raw_a, raw_b)]
-    va, vb = np.asarray(valid_a, bool), np.asarray(valid_b, bool)
-    outside = float(1.0 - np.concatenate([va, vb])[:, EVAL_BINS].mean())
-    if not paired:
-        (ta, tb), (ra, rb), (va, vb) = all_pairs(*xs[:2]), all_pairs(*xs[2:]), all_pairs(va, vb)
-    else:
-        ta, tb, ra, rb = xs
-    nonempty = (ra > 0) & (rb > 0)
-    out = {'': pearson_paired(ta, tb), '_raw': pearson_paired(ra, rb)}
-    for s in SMOOTH_SIGMAS:
-        out[f'_s{s:g}'] = pearson_paired(smooth_rows(ta, s), smooth_rows(tb, s))
-        out[f'_raw_s{s:g}'] = pearson_paired(smooth_rows(ra, s), smooth_rows(rb, s))
-    out['_valid'] = pearson_paired(ta, tb, va & vb)
-    out['_nonempty'] = pearson_paired(ta, tb, nonempty)
-    out['_raw_nonempty'] = pearson_paired(ra, rb, nonempty)
-    return out, outside
-
-
-def in_range(src: np.ndarray, start: np.ndarray) -> np.ndarray:
-    """[N, T] True where source positions src [N, T] (or [T], shared) lie inside each sample's
-    acquired range [start_i, T − 1]."""
-    src = np.broadcast_to(np.asarray(src, dtype=np.float64), (len(start), N_BINS))
-    return (src >= np.asarray(start)[:, None]) & (src <= N_BINS - 1)
-
-
-def identity_src() -> np.ndarray:
-    return np.arange(N_BINS, dtype=np.float64)
 
 
 def unaligned(a: Batch, b: Batch) -> PairEval:

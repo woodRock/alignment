@@ -8,6 +8,12 @@ test time on spectrally matched anchors. The repo holds the method, the baseline
 and constant shift, linear warp and PCHIP through the same anchors) and every experiment and
 figure of a paper in preparation.
 
+Since warpalign 3.0 the generic core lives in alignbench (github.com/woodRock/align-bench, pinned
+in pyproject.toml): `src/warpalign/_compat.py` re-exports it under warpalign's names for the
+pipeline (no warnings); `anchors.py`, `warps.py`, `metrics.py`, `baselines.py` and `data.py` are
+deprecated re-exports for outside code. Fix shared code in alignbench, not here.
+`alignbench_plugin.py` registers the WarpTransformer as the alignbench method `warp-transformer`.
+
 ## Commands
 
 Always call `python3.11` explicitly (`python3` is a zsh alias that is not expanded under `nohup`).
@@ -28,8 +34,9 @@ skipped otherwise).
 ## Architecture
 
 Three layers:
-- `src/warpalign/*.py`: the library (anchors, warps, baselines, model, calibration, evaluation,
-  metrics). No I/O beyond loading batches; nothing here writes reports.
+- `src/warpalign/*.py`: the library (model, calibration, evaluation, config; anchors, warps,
+  baselines, metrics and data are alignbench's, via `_compat`). No I/O beyond loading batches;
+  nothing here writes reports.
 - `src/warpalign/steps/*.py`: one module per pipeline step, each with `compute` → `format_report` →
   `save` → `run`, plus `cli()`. Shared table/report/argument helpers are in `steps/_common.py`.
 - `scripts/NN_*.py`: three-line entry points that call a step's `cli()`, numbered 01–14 in run

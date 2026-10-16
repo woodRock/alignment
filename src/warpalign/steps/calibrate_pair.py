@@ -28,10 +28,9 @@ import numpy as np
 import torch
 
 from .. import evaluation
-from ..anchors import AnchorResult, extract_anchors, format_stages
+from .._compat import AnchorResult, Batch, extract_anchors, format_stages, load_batch
 from ..calibration import CalibrationLog, batch_tensors, calibrate, load_model, pick_device, predict
 from ..config import LAMBDA_ANCHOR, LAMBDA_SMOOTH, LR_CALIB, N_CALIB_STEPS, Paths, pair_label
-from ..data import Batch, load_batch
 from ._common import (
     add_model_args,
     add_pair_args,

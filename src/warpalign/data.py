@@ -1,73 +1,16 @@
-"""Loading the preprocessed fish-oil batches written by 03_preprocess_fish_oil_batches.py."""
+"""Batch and the fish-oil loader (warpalign 2.x). Moved to alignbench.data and
+alignbench.datasets.fish_oil.
+
+Deprecated re-exports, kept so code written against warpalign 2.x still runs (same results:
+alignbench's golden tests compare it with warpalign 2.0.0 bit for bit). Import from alignbench.
+"""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from pathlib import Path
+from . import _compat
+from ._compat import *  # noqa: F403
+from ._compat import DATA
 
-import numpy as np
+__all__ = DATA
 
-
-@dataclass(frozen=True)
-class Batch:
-    """One acquisition batch. Samples are in sorted filename order everywhere."""
-
-    name: str
-    chromas: np.ndarray  # [N, T, M] float32, sqrt + L2 per bin
-    tic_raw: np.ndarray  # [N, T]    float32, summed raw intensity of each binned apex scan
-    sample_ids: tuple[str, ...]
-
-    def __len__(self) -> int:
-        return len(self.chromas)
-
-    @property
-    def acquisition_start(self) -> np.ndarray:
-        """[N] first bin with signal in each sample (the run's acquisition start)."""
-        return acquisition_start(self.tic_raw)
-
-    @property
-    def tic(self) -> np.ndarray:
-        """Normalised TIC [N, T]: the sum over m/z of the normalised chromatogram."""
-        return self.chromas.sum(axis=-1)
-
-
-def acquisition_start(tic_raw: np.ndarray) -> np.ndarray:
-    """First bin with non-zero raw TIC in each row of tic_raw [N, T] (T if a row is empty)."""
-    nz = np.asarray(tic_raw) > 0
-    return np.where(nz.any(axis=1), nz.argmax(axis=1), nz.shape[1])
-
-
-def chroma_files(chroma_dir: Path) -> list[Path]:
-    files = sorted(Path(chroma_dir).glob('*.npz'))
-    if not files:
-        raise FileNotFoundError(f'no .npz chromatograms in {chroma_dir}')
-    return files
-
-
-def load_chromas(chroma_dir: Path) -> np.ndarray:
-    """[N, T, M] float32 chromatograms in sorted filename order."""
-    return np.stack([np.load(p)['chroma'].astype(np.float32) for p in chroma_files(chroma_dir)])
-
-
-def load_tic_raw(chroma_dir: Path) -> np.ndarray:
-    """[N, T] raw TICs, in the same order as load_chromas."""
-    out = []
-    for p in chroma_files(chroma_dir):
-        with np.load(p) as z:
-            if 'tic_raw' not in z.files:
-                raise ValueError(
-                    f'{p} has no tic_raw; rerun scripts/03_preprocess_fish_oil_batches.py'
-                )
-            out.append(z['tic_raw'].astype(np.float32))
-    return np.stack(out)
-
-
-def load_batch(name: str, fish_oil_dir: Path) -> Batch:
-    """One batch from <fish_oil_dir>/<name>/chroma (Paths.fish_oil)."""
-    d = Path(fish_oil_dir) / name / 'chroma'
-    return Batch(
-        name=name,
-        chromas=load_chromas(d),
-        tic_raw=load_tic_raw(d),
-        sample_ids=tuple(p.stem for p in chroma_files(d)),
-    )
+_compat.deprecated('data')

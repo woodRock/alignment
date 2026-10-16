@@ -27,9 +27,9 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from .._compat import mean_sd, per_a_mean
 from ..config import EVAL_PAIRS, EXCLUDED_PAIRS, Paths, pair_label
 from ..evaluation import METRICS
-from ..metrics import mean_sd, per_a_mean
 from ._common import parser, setup_logging, table, title, write_report
 
 Arr = np.ndarray

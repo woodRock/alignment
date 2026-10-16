@@ -32,8 +32,16 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from ..anchors import extract_anchors
-from ..baselines import cow_tic_align
+from .._compat import (
+    Batch,
+    anchor_drift,
+    anchor_line,
+    cow_tic_align,
+    extract_anchors,
+    invert_src,
+    load_batch,
+    predict_query_bin,
+)
 from ..calibration import batch_tensors, calibrate, free_warp, load_model, pick_device, predict
 from ..config import (
     BIN_MIN,
@@ -44,9 +52,7 @@ from ..config import (
     Paths,
     pair_label,
 )
-from ..data import Batch, load_batch
 from ..warp_transformer import predict_query_bins
-from ..warps import anchor_drift, anchor_line, invert_src, predict_query_bin
 from ._common import (
     add_model_args,
     ckpt_or_default,

@@ -27,8 +27,8 @@ from pathlib import Path
 
 import numpy as np
 
+from .._compat import acquisition_start
 from ..config import BIN_MIN, N_BINS, Paths
-from ..data import acquisition_start
 from ._common import parser, setup_logging, table, write_report
 from .preprocess import (
     ACQ_DATE,
