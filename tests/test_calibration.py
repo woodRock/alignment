@@ -207,7 +207,8 @@ def test_warp_mags_order():
 
 def test_heldout_skips_pairs_with_too_few_anchors(monkeypatch, batches):
     """Step 10 needs ≥ 2 anchors to hold one out; a pair with one anchor is reported, skipped."""
-    from warpalign.anchors import AnchorResult
+    from alignbench.anchors import AnchorResult
+
     from warpalign.steps import heldout_anchors as h
 
     a, b = batches
@@ -269,7 +270,7 @@ def test_calibration_keeps_batch_a_near_the_identity(tensors):
 
 
 def test_acquisition_start():
-    from warpalign.data import acquisition_start
+    from alignbench.data import acquisition_start
 
     raw = np.zeros((3, T))
     raw[0, 22:] = 1.0
@@ -304,7 +305,7 @@ def test_large_shift_is_reported_outside_and_masked(batches):
 
 
 def test_pearson_rows_masked_matches_manual():
-    from warpalign.metrics import pearson_rows, pearson_rows_masked
+    from alignbench.metrics.tic import pearson_rows, pearson_rows_masked
 
     rng = np.random.default_rng(0)
     a, b = rng.normal(size=(2, T)), rng.normal(size=(1, T))

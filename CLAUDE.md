@@ -40,8 +40,7 @@ Three layers:
 - `src/warpalign/steps/*.py`: one module per pipeline step, each with `compute` → `format_report` →
   `save` → `run`, plus `cli()`. Shared table/report/argument helpers are in `steps/_common.py`.
 - `scripts/NN_*.py`: three-line entry points that call a step's `cli()`, numbered 01–14 in run
-  order with no gaps; each step depends only on lower-numbered ones. `scripts/archive/` is unused
-  legacy code (excluded from ruff).
+  order with no gaps; each step depends only on lower-numbered ones.
 
 All constants (time axis, evaluation window, batch pairs, anchor and calibration settings) and the
 `Paths` dataclass live in `config.py`; there are no environment variables. Key facts that span files:

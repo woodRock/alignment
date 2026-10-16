@@ -189,54 +189,6 @@ def test_sqrt_l2_rows():
     assert np.allclose(np.linalg.norm(out[[0, 2]], axis=1), 1.0) and np.all(out[1] == 0)
 
 
-# ── data.py and baselines edge cases ──────────────────────────────────────────
-
-
-def test_data_loading_errors(tmp_path):
-    from warpalign.data import load_batch, load_tic_raw
-
-    with pytest.raises(FileNotFoundError):
-        load_batch('nothing', tmp_path)
-    d = tmp_path / 'b' / 'chroma'
-    d.mkdir(parents=True)
-    np.savez(d / 's.npz', chroma=np.zeros((200, 5), np.float32))
-    with pytest.raises(ValueError, match='tic_raw'):
-        load_tic_raw(d)
-
-
-def test_data_batch_properties(tmp_path):
-    from warpalign.data import load_batch
-
-    d = tmp_path / 'b' / 'chroma'
-    d.mkdir(parents=True)
-    for name in ('s2', 's1'):
-        np.savez(
-            d / f'{name}.npz',
-            chroma=np.ones((200, 5), np.float32),
-            tic_raw=np.ones(200, np.float32),
-        )
-    b = load_batch('b', tmp_path)
-    assert len(b) == 2 and b.sample_ids == ('s1', 's2') and np.allclose(b.tic, 5.0)
-
-
-def test_cow_falls_back_to_identity_when_no_path_exists():
-    from warpalign.baselines import cow_tic_align
-
-    x = np.random.default_rng(0).normal(size=20)
-    al = cow_tic_align(x, x[::-1].copy(), n_segs=4, slack=0)  # nodes fixed; still a path
-    assert np.allclose(al.src, np.arange(20))
-    al = cow_tic_align(x[:6], x[:6], n_segs=4, slack=0)  # segments too short: no path
-    assert np.allclose(al.src, np.arange(6)) and np.allclose(al.warped, x[:6])
-
-
-def test_icoshift_tiny_intervals_are_left_alone():
-    from warpalign.baselines import icoshift_align
-
-    x = np.arange(12, dtype=float)
-    al = icoshift_align(x, x[::-1].copy(), n_intervals=4)  # 3-bin intervals < 4
-    assert al.details['lags'] == [0, 0, 0, 0] and np.allclose(al.src, np.arange(12))
-
-
 def test_audit_empty_windows_tells_zero_reading_scans_from_missing_scans(tmp_path):
     """Window 23 (5.175–5.4 min) has scans with no readings; window 25 has no scans at all."""
     times = [t for t in np.arange(5.0, 6.0, 0.01) if not 5.625 <= t < 5.85]

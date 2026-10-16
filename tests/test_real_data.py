@@ -2,8 +2,9 @@
 
 import numpy as np
 import pytest
+from alignbench.anchors import detect_peaks
 
-from warpalign.anchors import detect_peaks, extract_anchors
+from warpalign._compat import extract_anchors
 from warpalign.config import BIN_MIN, EVAL_PAIRS, EVAL_START_BIN, EXCLUDED_PAIRS, Paths
 
 PATHS = Paths()
@@ -19,7 +20,7 @@ pytestmark = [
 
 @pytest.fixture(scope='module')
 def batches():
-    from warpalign.data import load_batch
+    from alignbench.datasets.fish_oil import load_batch
 
     return {
         n: load_batch(n, FISH_OIL_DIR)
