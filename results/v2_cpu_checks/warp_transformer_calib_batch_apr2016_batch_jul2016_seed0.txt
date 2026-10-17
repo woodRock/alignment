@@ -1,0 +1,33 @@
+Step 06 — WarpTransformer with anchor-supervised test-time calibration, on one batch pair.
+
+Apr16×Jul16: batch_apr2016 (10) × batch_jul2016 (16) = 160 pairs
+Seed 0   device cpu   checkpoint /Users/woodj/Desktop/alignment/checkpoints/warp_transformer_v2.pt
+
+  Method                          TIC r  Δ unal  raw r  Δ unal  Study sil  Warp mag  outside  r in range
+  Unaligned                       0.898   0.000  0.858   0.000      0.144         —     0.0%       0.898
+  Constant shift                  0.898   0.000  0.858   0.000      0.144    0.000m     0.0%       0.898
+  Linear warp                     0.896  -0.003  0.632  -0.226      0.208    0.073m     0.0%       0.896
+  PCHIP (pooled anchors)          0.839  -0.059  0.356  -0.502      0.162    0.080m     0.2%       0.837
+  WarpTransformer + anchor calib  0.844  -0.055  0.368  -0.490      0.170    0.130m     0.0%       0.844
+
+Every TIC metric (σ: both batches smoothed with the same Gaussian, in bins; non-empty: bins with raw TIC > 0 in both samples):
+  Method                  TIC r  TIC r σ1  TIC r σ2  raw r  raw r σ1  raw r σ2  r in range  r non-empty  raw r non-empty
+  Unaligned               0.898     0.933     0.944  0.858     0.859     0.856       0.898        0.898            0.858
+  Constant shift          0.898     0.933     0.944  0.858     0.859     0.856       0.898        0.898            0.858
+  Linear warp             0.896     0.934     0.945  0.632     0.838     0.853       0.896        0.896            0.632
+  PCHIP (pooled anchors)  0.839     0.906     0.933  0.356     0.806     0.846       0.837        0.839            0.356
+  WarpTransformer         0.844     0.904     0.934  0.368     0.771     0.817       0.844        0.844            0.368
+
+TIC r: mean Pearson r over all A×B pairs on the common window; raw r: the same warps applied to the raw TIC.
+Warp mag: anchor baselines = their one warp; WarpTransformer = batch-B samples.
+outside: share of evaluated (bin, sample) values read outside a run's acquired range; r in range: TIC r with those values masked out.
+
+Anchors (13, (A bin, B bin)): [(32, 32), (38, 36), (46, 45), (51, 51), (57, 57), (67, 67), (98, 97), (103, 103), (109, 109), (143, 143), (177, 177), (188, 189), (195, 194)]
+Anchor stages (match stages summed over the A samples): proposed 39 → above threshold 37 → after RANSAC 33 → after monotone 33 → pooled 14 → after merging 14 → after outlier filter 14 → after slope filter 13
+Removed by the drift outlier filter: []
+Removed by the slope filter: [(194, 195)]
+Calibration: 500 steps, lr 0.0005, λ_anchor 1.0, λ_smooth 0.05, best loss 0.0086, 416.6 s
+
+  WarpTransformer warp magnitude (min)    all      A      B
+  before calibration                    1.965  0.399  2.944
+  after calibration                     0.118  0.098  0.130

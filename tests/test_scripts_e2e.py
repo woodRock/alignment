@@ -238,3 +238,62 @@ def test_ceiling_and_significance(run_root):
 def test_figure_selection_file(run_root):
     first = res(run_root, 'fig_selection_batch_sep2015_batch_jul2016_median.txt').splitlines()[0]
     assert 'median' in first and 'index' in first
+
+
+def test_ablation_pretrained_arm_is_step_06(run_root):
+    """Step 08 reads step 06's calibration instead of repeating it: identical arrays."""
+    for a, b in PAIRS:
+        for s in (0, 1):
+            tag = f'batch_{a}_batch_{b}_seed{s}'
+            cal, abl = (
+                npz(run_root, f'tic_r_calib_{tag}.npz'),
+                npz(run_root, f'tic_r_ablate_{tag}.npz'),
+            )
+            for sfx in METRICS.values():
+                assert np.array_equal(
+                    cal['warptransformer' + sfx], abl['pretrained' + sfx], equal_nan=True
+                )
+            assert np.array_equal(cal['wt_warp_mag_pre'], abl['warp_mag_pre'][0])
+
+
+def test_load_saved_refuses_a_different_run(run_root):
+    from warpalign.config import Paths
+
+    paths = Paths(run_root)
+    ck = run_root / 'checkpoints' / 'ck.pt'
+    z = npz(run_root, 'tic_r_calib_batch_sep2015_batch_jul2016_seed0.npz')
+    anchors = [tuple(map(int, x)) for x in z['anchors']]
+    args = (paths, 'batch_sep2015', 'batch_jul2016', 0, ck, torch.device('cpu'))
+    calibrate_pair.load_saved(*args, 20, anchors)
+    with pytest.raises(ValueError, match='calib_steps'):
+        calibrate_pair.load_saved(*args, 21, anchors)
+    with pytest.raises(ValueError, match='anchors'):
+        calibrate_pair.load_saved(*args, 20, anchors[1:])
+    with pytest.raises(FileNotFoundError):
+        calibrate_pair.load_saved(
+            paths, 'batch_sep2015', 'batch_jul2016', 9, ck, torch.device('cpu'), 20, anchors
+        )
+
+
+def test_heldout_parts_merge_to_the_unsharded_result(run_root):
+    full = dict(npz(run_root, 'heldout_anchor_error.npz'))
+    text = res(run_root, 'heldout_anchor_error.txt')
+    ck = str(run_root / 'checkpoints' / 'ck.pt')
+    model = ['--root', str(run_root), '--device', 'cpu', '--ckpt', ck, '--calib-steps', '20']
+    for a, b in PAIRS:
+        heldout_anchors.cli(
+            [
+                *model,
+                '--seed',
+                '0',
+                '--study-a',
+                f'fish_oil/batch_{a}',
+                '--study-b',
+                f'fish_oil/batch_{b}',
+            ]
+        )
+    heldout_anchors.cli(['--root', str(run_root), '--merge'])
+    merged = npz(run_root, 'heldout_anchor_error.npz')
+    assert set(merged.files) == set(full)
+    assert all(np.array_equal(merged[k], full[k]) for k in full)
+    assert res(run_root, 'heldout_anchor_error.txt') == text

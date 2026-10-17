@@ -1,0 +1,62 @@
+Step 11 — an upper reference for between-batch TIC r: within-batch TIC r.
+
+Per batch: mean (s.d.) Pearson r over all pairs of distinct samples, unaligned.
+  Batch          pairs     normalised  normalised σ1  normalised σ2            raw         raw σ1         raw σ2
+  batch_sep2015    630  0.928 (0.029)  0.949 (0.026)  0.956 (0.027)  0.910 (0.054)  0.945 (0.037)  0.953 (0.034)
+  batch_jan2016    325  0.938 (0.033)  0.960 (0.022)  0.966 (0.021)  0.917 (0.065)  0.961 (0.028)  0.970 (0.022)
+  batch_apr2016     45  0.939 (0.049)  0.957 (0.040)  0.962 (0.038)  0.876 (0.127)  0.866 (0.136)  0.858 (0.147)
+  batch_jul2016    120  0.938 (0.029)  0.963 (0.019)  0.970 (0.016)  0.946 (0.034)  0.960 (0.025)  0.966 (0.022)
+
+Per pair, normalised TIC: ceiling = mean of the two within-batch values; gap = ceiling − unaligned (the most an alignment could add).
+  Pair         ceiling  unaligned    gap
+  Sep15×Jul16    0.933      0.054  0.879
+  Sep15×Apr16    0.934      0.041  0.893
+  Jan16×Apr16    0.939      0.128  0.811
+  Jan16×Jul16    0.938      0.126  0.812
+  Sep15×Jan16    0.933      0.814  0.118  (excluded pair)
+  Apr16×Jul16    0.939      0.898  0.041  (excluded pair)
+
+Per pair, normalised σ1 TIC: ceiling = mean of the two within-batch values; gap = ceiling − unaligned (the most an alignment could add).
+  Pair         ceiling  unaligned    gap
+  Sep15×Jul16    0.956      0.074  0.882
+  Sep15×Apr16    0.953      0.058  0.895
+  Jan16×Apr16    0.959      0.153  0.806
+  Jan16×Jul16    0.962      0.155  0.807
+  Sep15×Jan16    0.955      0.878  0.076  (excluded pair)
+  Apr16×Jul16    0.960      0.933  0.027  (excluded pair)
+
+Per pair, normalised σ2 TIC: ceiling = mean of the two within-batch values; gap = ceiling − unaligned (the most an alignment could add).
+  Pair         ceiling  unaligned    gap
+  Sep15×Jul16    0.963      0.110  0.853
+  Sep15×Apr16    0.959      0.107  0.852
+  Jan16×Apr16    0.964      0.207  0.757
+  Jan16×Jul16    0.968      0.199  0.769
+  Sep15×Jan16    0.961      0.900  0.061  (excluded pair)
+  Apr16×Jul16    0.966      0.944  0.022  (excluded pair)
+
+Per pair, raw TIC: ceiling = mean of the two within-batch values; gap = ceiling − unaligned (the most an alignment could add).
+  Pair         ceiling  unaligned    gap
+  Sep15×Jul16    0.928     -0.032  0.961
+  Sep15×Apr16    0.893     -0.042  0.936
+  Jan16×Apr16    0.897     -0.046  0.942
+  Jan16×Jul16    0.932     -0.041  0.973
+  Sep15×Jan16    0.913      0.835  0.078  (excluded pair)
+  Apr16×Jul16    0.911      0.858  0.053  (excluded pair)
+
+Per pair, raw σ1 TIC: ceiling = mean of the two within-batch values; gap = ceiling − unaligned (the most an alignment could add).
+  Pair         ceiling  unaligned    gap
+  Sep15×Jul16    0.952     -0.036  0.989
+  Sep15×Apr16    0.905     -0.056  0.961
+  Jan16×Apr16    0.914     -0.063  0.977
+  Jan16×Jul16    0.960     -0.044  1.005
+  Sep15×Jan16    0.953      0.933  0.020  (excluded pair)
+  Apr16×Jul16    0.913      0.859  0.054  (excluded pair)
+
+Per pair, raw σ2 TIC: ceiling = mean of the two within-batch values; gap = ceiling − unaligned (the most an alignment could add).
+  Pair         ceiling  unaligned    gap
+  Sep15×Jul16    0.959      0.093  0.866
+  Sep15×Apr16    0.905      0.046  0.859
+  Jan16×Apr16    0.914      0.036  0.878
+  Jan16×Jul16    0.968      0.082  0.886
+  Sep15×Jan16    0.961      0.952  0.010  (excluded pair)
+  Apr16×Jul16    0.912      0.856  0.056  (excluded pair)

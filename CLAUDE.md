@@ -59,6 +59,10 @@ All constants (time axis, evaluation window, batch pairs, anchor and calibration
 - **Warp parameterisation** (`warp_transformer.make_monotone_warp`): normalised cumulative softplus
   shape + start offset + end shift (in bins) from a zero-initialised `ends_head`. A fully
   free-end parameterisation did not learn in pretraining; don't revert to it.
+- **Step 06 is the only WarpTransformer calibration from the checkpoint at full anchors.** Steps
+  08 (pretrained arm), 09 and 10 (in-sample residual) read it back with
+  `calibrate_pair.load_saved`, which checks seed, steps, device, checkpoint SHA-256 and anchors;
+  run 06 first. Step 10 shards by pair (`--study-a/--study-b`, then `--merge`).
 - **Calibration objective** (`calibration.calibration_objective`, shared by `calibrate` and the
   `free_warp` control): exact anchor loss + 0.05·smoothness + 0.1·`frame_loss`. The frame term
   pins the shared frame's free translation.
@@ -74,15 +78,33 @@ All constants (time axis, evaluation window, batch pairs, anchor and calibration
 - **`data/` is private and must never be committed or pushed** (the GitHub repo is public). The
   code is MIT.
 - **Do not commit, tag or push results**; the user commits them.
-- **Paper runs use CPU** (`--device cpu`, the default): CPU is bit-reproducible under a seed, MPS is
-  not. MPS is fine only for throwaway runs.
+- **Paper runs use CUDA on one GPU model** (since run v3, 2026-10-17: NVIDIA RTX A5000 on the ECS
+  cluster, `logs/run_v3/dispatch.py`). Seeded CUDA runs are bit-identical across hosts with the
+  same GPU model (checked on three hosts), not to CPU; never mix devices or GPU models in one set
+  of results (step 06 records `device`, e.g. `cuda (NVIDIA RTX A5000)`, and `load_saved` refuses a
+  mismatch). CPU (`--device cpu`, the default) stays bit-reproducible on one platform and is what
+  the tests use; MPS is not reproducible and is fine only for throwaway runs.
+- **GPU runs go through the task spooler** (`task`, `~/Desktop/gpu-spooler`), never more than 5
+  GPU tasks at once (`[limits] max_gpus = 5` in `~/.gpu-spooler/hosts.toml` enforces it since
+  2026-10-17; run v3's driver also capped itself). Pin the GPU model with
+  `task submit -t "RTX A5000"` (matched against the name `nvidia-smi` reports; run v3 used
+  a hand-checked `-H` list, from before that flag existed). Remote copy
+  `/vol/ecrg-solar/woodj4/warp-align` (`task sync`; untracked files such as `data/` and
+  `checkpoints/` are copied once by hand, owner-only), venv `.venv` there (git is only on a
+  login shell's PATH, so pip cannot fetch the pinned alignbench: install it from a locally built
+  wheel, then `pip install --no-deps -e .`). Copy results back with
+  `task fetch <remote>:<local>` (`--after ID` waits for tasks first). Each run writes to its own `--root` outside the checkout (v3:
+  `/vol/ecrg-solar/woodj4/warpalign-run-v3`, `data`/`checkpoints` symlinked), never to the
+  checkout's tracked `results/`.
 - **Never edit `src/warpalign/` while a pipeline run is in progress.** The editable install means
-  later steps would import the changed code. Check `logs/run_v2/*_progress.log` first.
+  later steps would import the changed code (locally, and on the cluster after `task sync`).
+  Check `logs/run_v3/progress.log` and `task list` first.
 - Raw fish-oil exports (for steps 03/04, `--raw-dir`): use
   `~/Desktop/fish-data-analysis/engr489/src/data/raw-subsetted-CVSs/`; the other copy lacks TAR3
   files. Batches: Sep 2015 (36), Jan 2016 (26), Apr 2016 (10), Jul 2016 (16).
 - The full paper run (four pairs × five seeds, ablations, figures) is in `run.md`; logs and stage
-  scripts go in `logs/run_v2/`. v1 results for comparison are in `results/v1_before_fixes/`.
+  scripts go in `logs/run_v3/` (v2: `logs/run_v2/`). Earlier results for comparison:
+  `results/v1_before_fixes/`, `results/v2_before_checks/`, `results/v2_cpu_checks/` (v2 on CPU).
 - **Figures.** All pair-specific figures (fig1–3) use Jan16×Jul16, seed 0, median sample
   (`14_generate_figures.py --study-a fish_oil/batch_jan2016 --study-b fish_oil/batch_jul2016
   --select median --seed 0`); the step's default pair is still Sep15×Jul16, so pass the pair.

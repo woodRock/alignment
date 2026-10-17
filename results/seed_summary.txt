@@ -16,8 +16,8 @@ Sep15×Jul16   n = 36×16   calibration seeds [0, 1, 2, 3, 4]   ablation seeds [
     Linear warp                     0.548          0.613          0.615          0.556          0.811          0.875          0.622          0.450            0.553
     PCHIP (pooled anchors)          0.518          0.571          0.589          0.729          0.887          0.900          0.587          0.431            0.727
     COW-TIC                         0.534          0.618          0.661          0.356          0.760          0.844          0.534          0.513            0.352
-    WarpTransformer         0.532 ± 0.006  0.629 ± 0.006  0.686 ± 0.005  0.714 ± 0.036  0.877 ± 0.010  0.908 ± 0.003  0.597 ± 0.007  0.549 ± 0.008    0.713 ± 0.037
-  Δ unaligned (normalised TIC r): Unaligned +0.000  icoshift +0.098  Constant shift +0.280  Linear warp +0.494  PCHIP (pooled anchors) +0.464  COW-TIC +0.479  WarpTransformer +0.478
+    WarpTransformer         0.533 ± 0.002  0.630 ± 0.003  0.687 ± 0.002  0.731 ± 0.013  0.878 ± 0.006  0.907 ± 0.002  0.598 ± 0.003  0.551 ± 0.003    0.731 ± 0.013
+  Δ unaligned (normalised TIC r): Unaligned +0.000  icoshift +0.098  Constant shift +0.280  Linear warp +0.494  PCHIP (pooled anchors) +0.464  COW-TIC +0.479  WarpTransformer +0.479
   Coverage, silhouette and warp magnitude (min; WarpTransformer: batch-B samples):
     Method                      Study sil           Warp mag  outside
     Unaligned                       0.180              0.000     0.0%
@@ -26,23 +26,23 @@ Sep15×Jul16   n = 36×16   calibration seeds [0, 1, 2, 3, 4]   ablation seeds [
     Linear warp                     0.244              4.398     8.9%
     PCHIP (pooled anchors)          0.189              4.296     8.6%
     COW-TIC                         0.243              2.939     0.0%
-    WarpTransformer         0.190 ± 0.005  3.969 ± 0.015 (B)     1.5%
+    WarpTransformer         0.188 ± 0.003  3.963 ± 0.010 (B)     1.4%
   Ranking (highest first):
-    TIC r: Linear warp 0.548 > COW-TIC 0.534 > WarpTransformer 0.532 > PCHIP (pooled anchors) 0.518 > Constant shift 0.334 > icoshift 0.153 > Unaligned 0.054
-    TIC r σ1: WarpTransformer 0.629 > COW-TIC 0.618 > Linear warp 0.613 > PCHIP (pooled anchors) 0.571 > Constant shift 0.453 > icoshift 0.162 > Unaligned 0.074
-    TIC r σ2: WarpTransformer 0.686 > COW-TIC 0.661 > Linear warp 0.615 > PCHIP (pooled anchors) 0.589 > Constant shift 0.547 > icoshift 0.176 > Unaligned 0.110
-    raw r: PCHIP (pooled anchors) 0.729 > WarpTransformer 0.714 > Linear warp 0.556 > Constant shift 0.521 > COW-TIC 0.356 > icoshift 0.140 > Unaligned -0.032
-    raw r σ1: PCHIP (pooled anchors) 0.887 > WarpTransformer 0.877 > Linear warp 0.811 > Constant shift 0.792 > COW-TIC 0.760 > icoshift 0.243 > Unaligned -0.036
-    raw r σ2: WarpTransformer 0.908 > PCHIP (pooled anchors) 0.900 > Linear warp 0.875 > Constant shift 0.858 > COW-TIC 0.844 > icoshift 0.304 > Unaligned 0.093
-    r in range: Linear warp 0.622 > WarpTransformer 0.597 > PCHIP (pooled anchors) 0.587 > COW-TIC 0.534 > Constant shift 0.366 > icoshift 0.152 > Unaligned 0.054
-    r non-empty: WarpTransformer 0.549 > COW-TIC 0.513 > Linear warp 0.450 > PCHIP (pooled anchors) 0.431 > Constant shift 0.269 > icoshift 0.134 > Unaligned 0.025
-    raw r non-empty: PCHIP (pooled anchors) 0.727 > WarpTransformer 0.713 > Linear warp 0.553 > Constant shift 0.530 > COW-TIC 0.352 > icoshift 0.134 > Unaligned -0.038
+    TIC r: Linear warp 0.548 > COW-TIC 0.534 > WarpTransformer 0.533 > PCHIP (pooled anchors) 0.518 > Constant shift 0.334 > icoshift 0.153 > Unaligned 0.054
+    TIC r σ1: WarpTransformer 0.630 > COW-TIC 0.618 > Linear warp 0.613 > PCHIP (pooled anchors) 0.571 > Constant shift 0.453 > icoshift 0.162 > Unaligned 0.074
+    TIC r σ2: WarpTransformer 0.687 > COW-TIC 0.661 > Linear warp 0.615 > PCHIP (pooled anchors) 0.589 > Constant shift 0.547 > icoshift 0.176 > Unaligned 0.110
+    raw r: WarpTransformer 0.731 > PCHIP (pooled anchors) 0.729 > Linear warp 0.556 > Constant shift 0.521 > COW-TIC 0.356 > icoshift 0.140 > Unaligned -0.032
+    raw r σ1: PCHIP (pooled anchors) 0.887 > WarpTransformer 0.878 > Linear warp 0.811 > Constant shift 0.792 > COW-TIC 0.760 > icoshift 0.243 > Unaligned -0.036
+    raw r σ2: WarpTransformer 0.907 > PCHIP (pooled anchors) 0.900 > Linear warp 0.875 > Constant shift 0.858 > COW-TIC 0.844 > icoshift 0.304 > Unaligned 0.093
+    r in range: Linear warp 0.622 > WarpTransformer 0.598 > PCHIP (pooled anchors) 0.587 > COW-TIC 0.534 > Constant shift 0.366 > icoshift 0.152 > Unaligned 0.054
+    r non-empty: WarpTransformer 0.551 > COW-TIC 0.513 > Linear warp 0.450 > PCHIP (pooled anchors) 0.431 > Constant shift 0.269 > icoshift 0.134 > Unaligned 0.025
+    raw r non-empty: WarpTransformer 0.731 > PCHIP (pooled anchors) 0.727 > Linear warp 0.553 > Constant shift 0.530 > COW-TIC 0.352 > icoshift 0.134 > Unaligned -0.038
   WT − baseline, mean ± s.d. over seeds (seeds > 0):
     Margin                                        TIC r                   raw r                raw r σ1                raw r σ2              r in range             r non-empty
-    WT − COW-TIC                 -0.0011 ± 0.0063 (3/5)  +0.3585 ± 0.0363 (5/5)  +0.1173 ± 0.0102 (5/5)  +0.0636 ± 0.0031 (5/5)  +0.0632 ± 0.0069 (5/5)  +0.0361 ± 0.0080 (5/5)
-    WT − PCHIP (pooled anchors)  +0.0140 ± 0.0063 (5/5)  -0.0151 ± 0.0363 (2/5)  -0.0101 ± 0.0102 (1/5)  +0.0076 ± 0.0031 (5/5)  +0.0095 ± 0.0069 (4/5)  +0.1177 ± 0.0080 (5/5)
-    WT − Constant shift          +0.1985 ± 0.0063 (5/5)  +0.1933 ± 0.0363 (5/5)  +0.0848 ± 0.0102 (5/5)  +0.0491 ± 0.0031 (5/5)  +0.2310 ± 0.0069 (5/5)  +0.2800 ± 0.0080 (5/5)
-    WT − Linear warp             -0.0156 ± 0.0063 (0/5)  +0.1583 ± 0.0363 (5/5)  +0.0664 ± 0.0102 (5/5)  +0.0331 ± 0.0031 (5/5)  -0.0249 ± 0.0069 (0/5)  +0.0987 ± 0.0080 (5/5)
+    WT − COW-TIC                 -0.0004 ± 0.0020 (3/5)  +0.3758 ± 0.0130 (5/5)  +0.1181 ± 0.0057 (5/5)  +0.0635 ± 0.0018 (5/5)  +0.0647 ± 0.0026 (5/5)  +0.0386 ± 0.0033 (5/5)
+    WT − PCHIP (pooled anchors)  +0.0147 ± 0.0020 (5/5)  +0.0022 ± 0.0130 (2/5)  -0.0093 ± 0.0057 (0/5)  +0.0075 ± 0.0018 (5/5)  +0.0110 ± 0.0026 (5/5)  +0.1202 ± 0.0033 (5/5)
+    WT − Constant shift          +0.1992 ± 0.0020 (5/5)  +0.2106 ± 0.0130 (5/5)  +0.0856 ± 0.0057 (5/5)  +0.0490 ± 0.0018 (5/5)  +0.2325 ± 0.0026 (5/5)  +0.2825 ± 0.0033 (5/5)
+    WT − Linear warp             -0.0149 ± 0.0020 (0/5)  +0.1756 ± 0.0130 (5/5)  +0.0672 ± 0.0057 (5/5)  +0.0329 ± 0.0018 (5/5)  -0.0234 ± 0.0026 (0/5)  +0.1012 ± 0.0033 (5/5)
   Share of the gap to the within-batch ceiling closed, (r − unaligned) / (ceiling − unaligned):
     Method                  TIC r (ceiling 0.933)  raw r σ1 (ceiling 0.952)
     Unaligned                                0.00                      0.00
@@ -52,18 +52,18 @@ Sep15×Jul16   n = 36×16   calibration seeds [0, 1, 2, 3, 4]   ablation seeds [
     PCHIP (pooled anchors)                   0.53                      0.93
     COW-TIC                                  0.55                      0.81
     WarpTransformer                          0.54                      0.92
-  WarpTransformer per seed (normalised / raw / raw σ1): s0 0.538/0.727/0.892  s1 0.527/0.681/0.877  s2 0.525/0.671/0.864  s3 0.539/0.754/0.881  s4 0.534/0.737/0.873
-  Batch-A samples (of 36) where WT beats COW-TIC: normalised [23, 21, 21, 22, 22], raw [36, 34, 35, 36, 36], raw σ1 [36, 35, 35, 35, 35]
+  WarpTransformer per seed (normalised / raw / raw σ1): s0 0.535/0.749/0.879  s1 0.534/0.721/0.882  s2 0.532/0.741/0.880  s3 0.534/0.720/0.880  s4 0.530/0.727/0.868
+  Batch-A samples (of 36) where WT beats COW-TIC: normalised [22, 21, 21, 22, 22], raw [36, 36, 36, 36, 36], raw σ1 [35, 35, 35, 35, 35]
   WT warp magnitude (min)            all              A              B
   before calibration       1.187 ± 0.000  0.375 ± 0.000  3.013 ± 0.000
-  after calibration        1.385 ± 0.020  0.237 ± 0.027  3.969 ± 0.015
-  Pretraining ablation (step 08, device cpu):
+  after calibration        1.383 ± 0.010  0.236 ± 0.017  3.963 ± 0.010
+  Pretraining ablation (step 08, device cuda (NVIDIA RTX A5000)):
     Arm                  TIC r          raw r       raw r σ1  warp before (all)  warp after (all)
-    pretrained   0.532 ± 0.006  0.714 ± 0.036  0.877 ± 0.010      1.187 ± 0.000     1.385 ± 0.020
-    random init  0.604 ± 0.007  0.688 ± 0.071  0.869 ± 0.034      0.000 ± 0.000     1.244 ± 0.081
-    gain per seed: [-0.0627, -0.0756, -0.0868, -0.0569, -0.0757]   mean -0.0715 ± 0.0118   seeds > 0: 0/5   share random init recovers: 1.150 ± 0.027
-    gain per seed (raw): [-0.0101, 0.0242, 0.0851, -0.0141, 0.0447]   mean +0.0260 ± 0.0411   seeds > 0: 3/5   share random init recovers: 0.964 ± 0.057
-    gain per seed (raw σ1): [-0.0011, 0.0288, 0.0383, -0.0305, 0.0035]   mean +0.0078 ± 0.0271   seeds > 0: 3/5   share random init recovers: 0.991 ± 0.030
+    pretrained   0.533 ± 0.002  0.731 ± 0.013  0.878 ± 0.006      1.187 ± 0.000     1.383 ± 0.010
+    random init  0.592 ± 0.015  0.677 ± 0.066  0.875 ± 0.039      0.000 ± 0.000     1.209 ± 0.096
+    gain per seed: [-0.0602, -0.0386, -0.0804, -0.0493, -0.0637]   mean -0.0584 ± 0.0157   seeds > 0: 0/5   share random init recovers: 1.122 ± 0.033
+    gain per seed (raw): [-0.0078, 0.0883, 0.1427, -0.0104, 0.06]   mean +0.0546 ± 0.0653   seeds > 0: 3/5   share random init recovers: 0.929 ± 0.085
+    gain per seed (raw σ1): [-0.0355, 0.0367, 0.0524, -0.0313, -0.0079]   mean +0.0029 ± 0.0399   seeds > 0: 2/5   share random init recovers: 0.997 ± 0.043
 
 Sep15×Apr16   n = 36×10   calibration seeds [0, 1, 2, 3, 4]   ablation seeds [0, 1, 2, 3, 4]
   check: unaligned (06) identical across seeds and = (05) = (07), every metric: OK
@@ -79,8 +79,8 @@ Sep15×Apr16   n = 36×10   calibration seeds [0, 1, 2, 3, 4]   ablation seeds [
     Linear warp                     0.606          0.609          0.565          0.600          0.744          0.748          0.722          0.526            0.598
     PCHIP (pooled anchors)          0.582          0.595          0.556          0.619          0.738          0.743          0.692          0.487            0.616
     COW-TIC                         0.552          0.606          0.627          0.374          0.703          0.775          0.552          0.527            0.370
-    WarpTransformer         0.648 ± 0.005  0.699 ± 0.001  0.695 ± 0.002  0.756 ± 0.019  0.889 ± 0.003  0.905 ± 0.002  0.682 ± 0.008  0.619 ± 0.010    0.753 ± 0.019
-  Δ unaligned (normalised TIC r): Unaligned +0.000  icoshift +0.128  Constant shift +0.301  Linear warp +0.565  PCHIP (pooled anchors) +0.541  COW-TIC +0.511  WarpTransformer +0.607
+    WarpTransformer         0.646 ± 0.008  0.700 ± 0.003  0.695 ± 0.005  0.764 ± 0.030  0.887 ± 0.004  0.905 ± 0.003  0.682 ± 0.010  0.616 ± 0.012    0.761 ± 0.030
+  Δ unaligned (normalised TIC r): Unaligned +0.000  icoshift +0.128  Constant shift +0.301  Linear warp +0.565  PCHIP (pooled anchors) +0.541  COW-TIC +0.511  WarpTransformer +0.606
   Coverage, silhouette and warp magnitude (min; WarpTransformer: batch-B samples):
     Method                      Study sil           Warp mag  outside
     Unaligned                       0.100              0.000     0.0%
@@ -89,23 +89,23 @@ Sep15×Apr16   n = 36×10   calibration seeds [0, 1, 2, 3, 4]   ablation seeds [
     Linear warp                     0.164              4.509    10.1%
     PCHIP (pooled anchors)          0.115              4.539     9.7%
     COW-TIC                         0.170              2.964     0.0%
-    WarpTransformer         0.122 ± 0.004  4.468 ± 0.008 (B)     1.8%
+    WarpTransformer         0.127 ± 0.007  4.474 ± 0.007 (B)     1.8%
   Ranking (highest first):
-    TIC r: WarpTransformer 0.648 > Linear warp 0.606 > PCHIP (pooled anchors) 0.582 > COW-TIC 0.552 > Constant shift 0.341 > icoshift 0.169 > Unaligned 0.041
-    TIC r σ1: WarpTransformer 0.699 > Linear warp 0.609 > COW-TIC 0.606 > PCHIP (pooled anchors) 0.595 > Constant shift 0.484 > icoshift 0.182 > Unaligned 0.058
+    TIC r: WarpTransformer 0.646 > Linear warp 0.606 > PCHIP (pooled anchors) 0.582 > COW-TIC 0.552 > Constant shift 0.341 > icoshift 0.169 > Unaligned 0.041
+    TIC r σ1: WarpTransformer 0.700 > Linear warp 0.609 > COW-TIC 0.606 > PCHIP (pooled anchors) 0.595 > Constant shift 0.484 > icoshift 0.182 > Unaligned 0.058
     TIC r σ2: WarpTransformer 0.695 > COW-TIC 0.627 > Linear warp 0.565 > PCHIP (pooled anchors) 0.556 > Constant shift 0.537 > icoshift 0.197 > Unaligned 0.107
-    raw r: WarpTransformer 0.756 > PCHIP (pooled anchors) 0.619 > Linear warp 0.600 > COW-TIC 0.374 > Constant shift 0.227 > icoshift 0.214 > Unaligned -0.042
-    raw r σ1: WarpTransformer 0.889 > Linear warp 0.744 > PCHIP (pooled anchors) 0.738 > COW-TIC 0.703 > Constant shift 0.599 > icoshift 0.294 > Unaligned -0.056
+    raw r: WarpTransformer 0.764 > PCHIP (pooled anchors) 0.619 > Linear warp 0.600 > COW-TIC 0.374 > Constant shift 0.227 > icoshift 0.214 > Unaligned -0.042
+    raw r σ1: WarpTransformer 0.887 > Linear warp 0.744 > PCHIP (pooled anchors) 0.738 > COW-TIC 0.703 > Constant shift 0.599 > icoshift 0.294 > Unaligned -0.056
     raw r σ2: WarpTransformer 0.905 > COW-TIC 0.775 > Linear warp 0.748 > PCHIP (pooled anchors) 0.743 > Constant shift 0.687 > icoshift 0.298 > Unaligned 0.046
     r in range: Linear warp 0.722 > PCHIP (pooled anchors) 0.692 > WarpTransformer 0.682 > COW-TIC 0.552 > Constant shift 0.390 > icoshift 0.169 > Unaligned 0.041
-    r non-empty: WarpTransformer 0.619 > COW-TIC 0.527 > Linear warp 0.526 > PCHIP (pooled anchors) 0.487 > Constant shift 0.254 > icoshift 0.150 > Unaligned 0.018
-    raw r non-empty: WarpTransformer 0.753 > PCHIP (pooled anchors) 0.616 > Linear warp 0.598 > COW-TIC 0.370 > Constant shift 0.222 > icoshift 0.208 > Unaligned -0.048
+    r non-empty: WarpTransformer 0.616 > COW-TIC 0.527 > Linear warp 0.526 > PCHIP (pooled anchors) 0.487 > Constant shift 0.254 > icoshift 0.150 > Unaligned 0.018
+    raw r non-empty: WarpTransformer 0.761 > PCHIP (pooled anchors) 0.616 > Linear warp 0.598 > COW-TIC 0.370 > Constant shift 0.222 > icoshift 0.208 > Unaligned -0.048
   WT − baseline, mean ± s.d. over seeds (seeds > 0):
     Margin                                        TIC r                   raw r                raw r σ1                raw r σ2              r in range             r non-empty
-    WT − COW-TIC                 +0.0960 ± 0.0054 (5/5)  +0.3823 ± 0.0185 (5/5)  +0.1860 ± 0.0031 (5/5)  +0.1301 ± 0.0016 (5/5)  +0.1303 ± 0.0076 (5/5)  +0.0923 ± 0.0097 (5/5)
-    WT − PCHIP (pooled anchors)  +0.0661 ± 0.0054 (5/5)  +0.1369 ± 0.0185 (5/5)  +0.1501 ± 0.0031 (5/5)  +0.1616 ± 0.0016 (5/5)  -0.0102 ± 0.0076 (0/5)  +0.1326 ± 0.0097 (5/5)
-    WT − Constant shift          +0.3066 ± 0.0054 (5/5)  +0.5287 ± 0.0185 (5/5)  +0.2895 ± 0.0031 (5/5)  +0.2179 ± 0.0016 (5/5)  +0.2922 ± 0.0076 (5/5)  +0.3648 ± 0.0097 (5/5)
-    WT − Linear warp             +0.0419 ± 0.0054 (5/5)  +0.1558 ± 0.0185 (5/5)  +0.1443 ± 0.0031 (5/5)  +0.1570 ± 0.0016 (5/5)  -0.0399 ± 0.0076 (0/5)  +0.0928 ± 0.0097 (5/5)
+    WT − COW-TIC                 +0.0944 ± 0.0076 (5/5)  +0.3904 ± 0.0300 (5/5)  +0.1848 ± 0.0040 (5/5)  +0.1297 ± 0.0026 (5/5)  +0.1295 ± 0.0097 (5/5)  +0.0893 ± 0.0119 (5/5)
+    WT − PCHIP (pooled anchors)  +0.0644 ± 0.0076 (5/5)  +0.1450 ± 0.0300 (5/5)  +0.1490 ± 0.0040 (5/5)  +0.1612 ± 0.0026 (5/5)  -0.0110 ± 0.0097 (0/5)  +0.1295 ± 0.0119 (5/5)
+    WT − Constant shift          +0.3050 ± 0.0076 (5/5)  +0.5368 ± 0.0300 (5/5)  +0.2883 ± 0.0040 (5/5)  +0.2175 ± 0.0026 (5/5)  +0.2914 ± 0.0097 (5/5)  +0.3618 ± 0.0119 (5/5)
+    WT − Linear warp             +0.0403 ± 0.0076 (5/5)  +0.1640 ± 0.0300 (5/5)  +0.1431 ± 0.0040 (5/5)  +0.1566 ± 0.0026 (5/5)  -0.0407 ± 0.0097 (0/5)  +0.0898 ± 0.0119 (5/5)
   Share of the gap to the within-batch ceiling closed, (r − unaligned) / (ceiling − unaligned):
     Method                  TIC r (ceiling 0.934)  raw r σ1 (ceiling 0.905)
     Unaligned                                0.00                      0.00
@@ -115,18 +115,18 @@ Sep15×Apr16   n = 36×10   calibration seeds [0, 1, 2, 3, 4]   ablation seeds [
     PCHIP (pooled anchors)                   0.61                      0.83
     COW-TIC                                  0.57                      0.79
     WarpTransformer                          0.68                      0.98
-  WarpTransformer per seed (normalised / raw / raw σ1): s0 0.641/0.772/0.884  s1 0.645/0.747/0.889  s2 0.648/0.779/0.893  s3 0.651/0.742/0.888  s4 0.655/0.740/0.888
+  WarpTransformer per seed (normalised / raw / raw σ1): s0 0.650/0.775/0.888  s1 0.633/0.760/0.890  s2 0.648/0.753/0.885  s3 0.649/0.807/0.892  s4 0.652/0.726/0.882
   Batch-A samples (of 36) where WT beats COW-TIC: normalised [29, 29, 29, 29, 29], raw [36, 36, 36, 36, 36], raw σ1 [36, 36, 36, 36, 36]
   WT warp magnitude (min)            all              A              B
   before calibration       0.947 ± 0.000  0.374 ± 0.000  3.011 ± 0.000
-  after calibration        1.161 ± 0.016  0.242 ± 0.022  4.468 ± 0.008
-  Pretraining ablation (step 08, device cpu):
+  after calibration        1.170 ± 0.022  0.252 ± 0.029  4.474 ± 0.007
+  Pretraining ablation (step 08, device cuda (NVIDIA RTX A5000)):
     Arm                  TIC r          raw r       raw r σ1  warp before (all)  warp after (all)
-    pretrained   0.648 ± 0.005  0.756 ± 0.019  0.889 ± 0.003      0.947 ± 0.000     1.161 ± 0.016
-    random init  0.626 ± 0.017  0.680 ± 0.048  0.818 ± 0.023      0.000 ± 0.000     1.032 ± 0.086
-    gain per seed: [0.0115, -0.0065, 0.0261, 0.0464, 0.0344]   mean +0.0224 ± 0.0205   seeds > 0: 4/5   share random init recovers: 0.963 ± 0.034
-    gain per seed (raw): [0.0805, 0.0794, 0.1726, 0.05, -0.0]   mean +0.0765 ± 0.0629   seeds > 0: 4/5   share random init recovers: 0.905 ± 0.076
-    gain per seed (raw σ1): [0.0688, 0.1042, 0.0775, 0.0666, 0.0373]   mean +0.0709 ± 0.0240   seeds > 0: 5/5   share random init recovers: 0.925 ± 0.025
+    pretrained   0.646 ± 0.008  0.764 ± 0.030  0.887 ± 0.004      0.947 ± 0.000     1.170 ± 0.022
+    random init  0.636 ± 0.017  0.640 ± 0.029  0.807 ± 0.028      0.000 ± 0.000     1.042 ± 0.103
+    gain per seed: [0.0209, -0.0291, 0.0052, 0.0204, 0.0346]   mean +0.0104 ± 0.0244   seeds > 0: 4/5   share random init recovers: 0.983 ± 0.041
+    gain per seed (raw): [0.089, 0.137, 0.1051, 0.1935, 0.0981]   mean +0.1245 ± 0.0426   seeds > 0: 5/5   share random init recovers: 0.847 ± 0.047
+    gain per seed (raw σ1): [0.061, 0.0626, 0.0997, 0.1232, 0.054]   mean +0.0801 ± 0.0300   seeds > 0: 5/5   share random init recovers: 0.915 ± 0.032
 
 Jan16×Apr16   n = 26×10   calibration seeds [0, 1, 2, 3, 4]   ablation seeds [0, 1, 2, 3, 4]
   check: unaligned (06) identical across seeds and = (05) = (07), every metric: OK
@@ -142,8 +142,8 @@ Jan16×Apr16   n = 26×10   calibration seeds [0, 1, 2, 3, 4]   ablation seeds [
     Linear warp                     0.560          0.562          0.515          0.581          0.745          0.749          0.654          0.534            0.580
     PCHIP (pooled anchors)          0.513          0.501          0.466          0.669          0.741          0.744          0.597          0.491            0.668
     COW-TIC                         0.543          0.614          0.656          0.482          0.716          0.754          0.543          0.539            0.480
-    WarpTransformer         0.601 ± 0.011  0.642 ± 0.006  0.659 ± 0.007  0.815 ± 0.027  0.903 ± 0.007  0.920 ± 0.003  0.602 ± 0.011  0.591 ± 0.013    0.814 ± 0.027
-  Δ unaligned (normalised TIC r): Unaligned +0.000  icoshift +0.074  Constant shift +0.207  Linear warp +0.432  PCHIP (pooled anchors) +0.385  COW-TIC +0.415  WarpTransformer +0.473
+    WarpTransformer         0.603 ± 0.008  0.642 ± 0.004  0.658 ± 0.004  0.820 ± 0.016  0.905 ± 0.002  0.922 ± 0.003  0.605 ± 0.009  0.594 ± 0.009    0.819 ± 0.016
+  Δ unaligned (normalised TIC r): Unaligned +0.000  icoshift +0.074  Constant shift +0.207  Linear warp +0.432  PCHIP (pooled anchors) +0.385  COW-TIC +0.415  WarpTransformer +0.475
   Coverage, silhouette and warp magnitude (min; WarpTransformer: batch-B samples):
     Method                      Study sil           Warp mag  outside
     Unaligned                       0.034              0.000     0.0%
@@ -152,23 +152,23 @@ Jan16×Apr16   n = 26×10   calibration seeds [0, 1, 2, 3, 4]   ablation seeds [
     Linear warp                     0.029              4.452     9.3%
     PCHIP (pooled anchors)          0.040              4.324     8.9%
     COW-TIC                         0.043              2.741     0.0%
-    WarpTransformer         0.053 ± 0.005  4.215 ± 0.014 (B)     1.1%
+    WarpTransformer         0.050 ± 0.012  4.208 ± 0.017 (B)     1.1%
   Ranking (highest first):
-    TIC r: WarpTransformer 0.601 > Linear warp 0.560 > COW-TIC 0.543 > PCHIP (pooled anchors) 0.513 > Constant shift 0.335 > icoshift 0.202 > Unaligned 0.128
+    TIC r: WarpTransformer 0.603 > Linear warp 0.560 > COW-TIC 0.543 > PCHIP (pooled anchors) 0.513 > Constant shift 0.335 > icoshift 0.202 > Unaligned 0.128
     TIC r σ1: WarpTransformer 0.642 > COW-TIC 0.614 > Linear warp 0.562 > PCHIP (pooled anchors) 0.501 > Constant shift 0.425 > icoshift 0.230 > Unaligned 0.153
-    TIC r σ2: WarpTransformer 0.659 > COW-TIC 0.656 > Linear warp 0.515 > PCHIP (pooled anchors) 0.466 > Constant shift 0.461 > icoshift 0.254 > Unaligned 0.207
-    raw r: WarpTransformer 0.815 > PCHIP (pooled anchors) 0.669 > Linear warp 0.581 > COW-TIC 0.482 > Constant shift 0.347 > icoshift 0.207 > Unaligned -0.046
-    raw r σ1: WarpTransformer 0.903 > Linear warp 0.745 > PCHIP (pooled anchors) 0.741 > COW-TIC 0.716 > Constant shift 0.623 > icoshift 0.286 > Unaligned -0.063
-    raw r σ2: WarpTransformer 0.920 > COW-TIC 0.754 > Linear warp 0.749 > PCHIP (pooled anchors) 0.744 > Constant shift 0.697 > icoshift 0.301 > Unaligned 0.036
-    r in range: Linear warp 0.654 > WarpTransformer 0.602 > PCHIP (pooled anchors) 0.597 > COW-TIC 0.543 > Constant shift 0.370 > icoshift 0.202 > Unaligned 0.128
-    r non-empty: WarpTransformer 0.591 > COW-TIC 0.539 > Linear warp 0.534 > PCHIP (pooled anchors) 0.491 > Constant shift 0.317 > icoshift 0.196 > Unaligned 0.128
-    raw r non-empty: WarpTransformer 0.814 > PCHIP (pooled anchors) 0.668 > Linear warp 0.580 > COW-TIC 0.480 > Constant shift 0.346 > icoshift 0.206 > Unaligned -0.048
+    TIC r σ2: WarpTransformer 0.658 > COW-TIC 0.656 > Linear warp 0.515 > PCHIP (pooled anchors) 0.466 > Constant shift 0.461 > icoshift 0.254 > Unaligned 0.207
+    raw r: WarpTransformer 0.820 > PCHIP (pooled anchors) 0.669 > Linear warp 0.581 > COW-TIC 0.482 > Constant shift 0.347 > icoshift 0.207 > Unaligned -0.046
+    raw r σ1: WarpTransformer 0.905 > Linear warp 0.745 > PCHIP (pooled anchors) 0.741 > COW-TIC 0.716 > Constant shift 0.623 > icoshift 0.286 > Unaligned -0.063
+    raw r σ2: WarpTransformer 0.922 > COW-TIC 0.754 > Linear warp 0.749 > PCHIP (pooled anchors) 0.744 > Constant shift 0.697 > icoshift 0.301 > Unaligned 0.036
+    r in range: Linear warp 0.654 > WarpTransformer 0.605 > PCHIP (pooled anchors) 0.597 > COW-TIC 0.543 > Constant shift 0.370 > icoshift 0.202 > Unaligned 0.128
+    r non-empty: WarpTransformer 0.594 > COW-TIC 0.539 > Linear warp 0.534 > PCHIP (pooled anchors) 0.491 > Constant shift 0.317 > icoshift 0.196 > Unaligned 0.128
+    raw r non-empty: WarpTransformer 0.819 > PCHIP (pooled anchors) 0.668 > Linear warp 0.580 > COW-TIC 0.480 > Constant shift 0.346 > icoshift 0.206 > Unaligned -0.048
   WT − baseline, mean ± s.d. over seeds (seeds > 0):
     Margin                                        TIC r                   raw r                raw r σ1                raw r σ2              r in range             r non-empty
-    WT − COW-TIC                 +0.0575 ± 0.0108 (5/5)  +0.3335 ± 0.0265 (5/5)  +0.1872 ± 0.0070 (5/5)  +0.1658 ± 0.0034 (5/5)  +0.0586 ± 0.0114 (5/5)  +0.0518 ± 0.0125 (5/5)
-    WT − PCHIP (pooled anchors)  +0.0881 ± 0.0108 (5/5)  +0.1465 ± 0.0265 (5/5)  +0.1622 ± 0.0070 (5/5)  +0.1760 ± 0.0034 (5/5)  +0.0053 ± 0.0114 (4/5)  +0.0998 ± 0.0125 (5/5)
-    WT − Constant shift          +0.2662 ± 0.0108 (5/5)  +0.4683 ± 0.0265 (5/5)  +0.2803 ± 0.0070 (5/5)  +0.2235 ± 0.0034 (5/5)  +0.2316 ± 0.0114 (5/5)  +0.2740 ± 0.0125 (5/5)
-    WT − Linear warp             +0.0410 ± 0.0108 (5/5)  +0.2341 ± 0.0265 (5/5)  +0.1580 ± 0.0070 (5/5)  +0.1707 ± 0.0034 (5/5)  -0.0521 ± 0.0114 (0/5)  +0.0561 ± 0.0125 (5/5)
+    WT − COW-TIC                 +0.0597 ± 0.0082 (5/5)  +0.3384 ± 0.0158 (5/5)  +0.1888 ± 0.0021 (5/5)  +0.1673 ± 0.0029 (5/5)  +0.0617 ± 0.0089 (5/5)  +0.0549 ± 0.0085 (5/5)
+    WT − PCHIP (pooled anchors)  +0.0904 ± 0.0082 (5/5)  +0.1514 ± 0.0158 (5/5)  +0.1638 ± 0.0021 (5/5)  +0.1774 ± 0.0029 (5/5)  +0.0083 ± 0.0089 (4/5)  +0.1029 ± 0.0085 (5/5)
+    WT − Constant shift          +0.2685 ± 0.0082 (5/5)  +0.4733 ± 0.0158 (5/5)  +0.2820 ± 0.0021 (5/5)  +0.2249 ± 0.0029 (5/5)  +0.2347 ± 0.0089 (5/5)  +0.2771 ± 0.0085 (5/5)
+    WT − Linear warp             +0.0433 ± 0.0082 (5/5)  +0.2390 ± 0.0158 (5/5)  +0.1597 ± 0.0021 (5/5)  +0.1721 ± 0.0029 (5/5)  -0.0491 ± 0.0089 (0/5)  +0.0592 ± 0.0085 (5/5)
   Share of the gap to the within-batch ceiling closed, (r − unaligned) / (ceiling − unaligned):
     Method                  TIC r (ceiling 0.939)  raw r σ1 (ceiling 0.914)
     Unaligned                                0.00                      0.00
@@ -177,19 +177,19 @@ Jan16×Apr16   n = 26×10   calibration seeds [0, 1, 2, 3, 4]   ablation seeds [
     Linear warp                              0.53                      0.83
     PCHIP (pooled anchors)                   0.47                      0.82
     COW-TIC                                  0.51                      0.80
-    WarpTransformer                          0.58                      0.99
-  WarpTransformer per seed (normalised / raw / raw σ1): s0 0.597/0.829/0.905  s1 0.584/0.797/0.910  s2 0.611/0.844/0.906  s3 0.606/0.779/0.892  s4 0.606/0.827/0.904
-  Batch-A samples (of 26) where WT beats COW-TIC: normalised [25, 23, 26, 26, 26], raw [26, 26, 26, 26, 26], raw σ1 [26, 26, 26, 26, 26]
+    WarpTransformer                          0.59                      0.99
+  WarpTransformer per seed (normalised / raw / raw σ1): s0 0.588/0.799/0.905  s1 0.605/0.813/0.905  s2 0.607/0.833/0.903  s3 0.607/0.817/0.908  s4 0.607/0.838/0.904
+  Batch-A samples (of 26) where WT beats COW-TIC: normalised [24, 26, 26, 26, 26], raw [26, 26, 26, 26, 26], raw σ1 [26, 26, 26, 26, 26]
   WT warp magnitude (min)            all              A              B
   before calibration       1.111 ± 0.000  0.384 ± 0.000  3.002 ± 0.000
-  after calibration        1.296 ± 0.008  0.174 ± 0.016  4.215 ± 0.014
-  Pretraining ablation (step 08, device cpu):
+  after calibration        1.297 ± 0.010  0.178 ± 0.013  4.208 ± 0.017
+  Pretraining ablation (step 08, device cuda (NVIDIA RTX A5000)):
     Arm                  TIC r          raw r       raw r σ1  warp before (all)  warp after (all)
-    pretrained   0.601 ± 0.011  0.815 ± 0.027  0.903 ± 0.007      1.111 ± 0.000     1.296 ± 0.008
-    random init  0.591 ± 0.030  0.702 ± 0.076  0.842 ± 0.035      0.000 ± 0.000     1.154 ± 0.088
-    gain per seed: [-0.011, -0.0258, 0.0572, -0.0134, 0.042]   mean +0.0098 ± 0.0372   seeds > 0: 2/5   share random init recovers: 0.980 ± 0.078
-    gain per seed (raw): [0.1114, 0.1357, 0.2367, -0.0336, 0.1167]   mean +0.1134 ± 0.0966   seeds > 0: 4/5   share random init recovers: 0.870 ± 0.110
-    gain per seed (raw σ1): [0.0748, 0.0765, 0.1073, -0.0035, 0.0519]   mean +0.0614 ± 0.0413   seeds > 0: 4/5   share random init recovers: 0.937 ± 0.043
+    pretrained   0.603 ± 0.008  0.820 ± 0.016  0.905 ± 0.002      1.111 ± 0.000     1.297 ± 0.010
+    random init  0.597 ± 0.022  0.745 ± 0.068  0.862 ± 0.036      0.000 ± 0.000     1.167 ± 0.086
+    gain per seed: [-0.0172, -0.01, 0.0465, -0.0043, 0.0133]   mean +0.0057 ± 0.0255   seeds > 0: 2/5   share random init recovers: 0.988 ± 0.053
+    gain per seed (raw): [0.0168, 0.0584, 0.2082, 0.0382, 0.0541]   mean +0.0751 ± 0.0761   seeds > 0: 5/5   share random init recovers: 0.914 ± 0.086
+    gain per seed (raw σ1): [0.0404, 0.0317, 0.1036, 0.0272, 0.0133]   mean +0.0432 ± 0.0351   seeds > 0: 5/5   share random init recovers: 0.955 ± 0.036
 
 Jan16×Jul16   n = 26×16   calibration seeds [0, 1, 2, 3, 4]   ablation seeds [0, 1, 2, 3, 4]
   check: unaligned (06) identical across seeds and = (05) = (07), every metric: OK
@@ -205,8 +205,8 @@ Jan16×Jul16   n = 26×16   calibration seeds [0, 1, 2, 3, 4]   ablation seeds [
     Linear warp                     0.514          0.578          0.569          0.481          0.845          0.885          0.571          0.484            0.479
     PCHIP (pooled anchors)          0.507          0.520          0.517          0.540          0.858          0.878          0.569          0.477            0.539
     COW-TIC                         0.526          0.620          0.678          0.540          0.799          0.862          0.526          0.522            0.540
-    WarpTransformer         0.600 ± 0.007  0.657 ± 0.003  0.693 ± 0.003  0.631 ± 0.045  0.840 ± 0.008  0.872 ± 0.005  0.604 ± 0.006  0.588 ± 0.007    0.629 ± 0.045
-  Δ unaligned (normalised TIC r): Unaligned +0.000  icoshift +0.075  Constant shift +0.211  Linear warp +0.389  PCHIP (pooled anchors) +0.381  COW-TIC +0.400  WarpTransformer +0.474
+    WarpTransformer         0.597 ± 0.007  0.654 ± 0.005  0.695 ± 0.002  0.671 ± 0.044  0.838 ± 0.006  0.869 ± 0.005  0.602 ± 0.005  0.586 ± 0.006    0.669 ± 0.044
+  Δ unaligned (normalised TIC r): Unaligned +0.000  icoshift +0.075  Constant shift +0.211  Linear warp +0.389  PCHIP (pooled anchors) +0.381  COW-TIC +0.400  WarpTransformer +0.471
   Coverage, silhouette and warp magnitude (min; WarpTransformer: batch-B samples):
     Method                      Study sil           Warp mag  outside
     Unaligned                       0.138              0.000     0.0%
@@ -215,23 +215,23 @@ Jan16×Jul16   n = 26×16   calibration seeds [0, 1, 2, 3, 4]   ablation seeds [
     Linear warp                     0.135              4.433     7.7%
     PCHIP (pooled anchors)          0.135              4.387     7.7%
     COW-TIC                         0.145              2.774     0.0%
-    WarpTransformer         0.145 ± 0.006  4.104 ± 0.022 (B)     0.9%
+    WarpTransformer         0.140 ± 0.003  4.105 ± 0.029 (B)     0.9%
   Ranking (highest first):
-    TIC r: WarpTransformer 0.600 > COW-TIC 0.526 > Linear warp 0.514 > PCHIP (pooled anchors) 0.507 > Constant shift 0.337 > icoshift 0.200 > Unaligned 0.126
-    TIC r σ1: WarpTransformer 0.657 > COW-TIC 0.620 > Linear warp 0.578 > PCHIP (pooled anchors) 0.520 > Constant shift 0.440 > icoshift 0.230 > Unaligned 0.155
-    TIC r σ2: WarpTransformer 0.693 > COW-TIC 0.678 > Linear warp 0.569 > PCHIP (pooled anchors) 0.517 > Constant shift 0.500 > icoshift 0.255 > Unaligned 0.199
-    raw r: WarpTransformer 0.631 > PCHIP (pooled anchors) 0.540 > COW-TIC 0.540 > Linear warp 0.481 > Constant shift 0.441 > icoshift 0.075 > Unaligned -0.041
-    raw r σ1: PCHIP (pooled anchors) 0.858 > Linear warp 0.845 > WarpTransformer 0.840 > COW-TIC 0.799 > Constant shift 0.758 > icoshift 0.180 > Unaligned -0.044
-    raw r σ2: Linear warp 0.885 > PCHIP (pooled anchors) 0.878 > WarpTransformer 0.872 > COW-TIC 0.862 > Constant shift 0.843 > icoshift 0.271 > Unaligned 0.082
-    r in range: WarpTransformer 0.604 > Linear warp 0.571 > PCHIP (pooled anchors) 0.569 > COW-TIC 0.526 > Constant shift 0.361 > icoshift 0.200 > Unaligned 0.126
-    r non-empty: WarpTransformer 0.588 > COW-TIC 0.522 > Linear warp 0.484 > PCHIP (pooled anchors) 0.477 > Constant shift 0.317 > icoshift 0.196 > Unaligned 0.127
-    raw r non-empty: WarpTransformer 0.629 > COW-TIC 0.540 > PCHIP (pooled anchors) 0.539 > Linear warp 0.479 > Constant shift 0.441 > icoshift 0.077 > Unaligned -0.042
+    TIC r: WarpTransformer 0.597 > COW-TIC 0.526 > Linear warp 0.514 > PCHIP (pooled anchors) 0.507 > Constant shift 0.337 > icoshift 0.200 > Unaligned 0.126
+    TIC r σ1: WarpTransformer 0.654 > COW-TIC 0.620 > Linear warp 0.578 > PCHIP (pooled anchors) 0.520 > Constant shift 0.440 > icoshift 0.230 > Unaligned 0.155
+    TIC r σ2: WarpTransformer 0.695 > COW-TIC 0.678 > Linear warp 0.569 > PCHIP (pooled anchors) 0.517 > Constant shift 0.500 > icoshift 0.255 > Unaligned 0.199
+    raw r: WarpTransformer 0.671 > PCHIP (pooled anchors) 0.540 > COW-TIC 0.540 > Linear warp 0.481 > Constant shift 0.441 > icoshift 0.075 > Unaligned -0.041
+    raw r σ1: PCHIP (pooled anchors) 0.858 > Linear warp 0.845 > WarpTransformer 0.838 > COW-TIC 0.799 > Constant shift 0.758 > icoshift 0.180 > Unaligned -0.044
+    raw r σ2: Linear warp 0.885 > PCHIP (pooled anchors) 0.878 > WarpTransformer 0.869 > COW-TIC 0.862 > Constant shift 0.843 > icoshift 0.271 > Unaligned 0.082
+    r in range: WarpTransformer 0.602 > Linear warp 0.571 > PCHIP (pooled anchors) 0.569 > COW-TIC 0.526 > Constant shift 0.361 > icoshift 0.200 > Unaligned 0.126
+    r non-empty: WarpTransformer 0.586 > COW-TIC 0.522 > Linear warp 0.484 > PCHIP (pooled anchors) 0.477 > Constant shift 0.317 > icoshift 0.196 > Unaligned 0.127
+    raw r non-empty: WarpTransformer 0.669 > COW-TIC 0.540 > PCHIP (pooled anchors) 0.539 > Linear warp 0.479 > Constant shift 0.441 > icoshift 0.077 > Unaligned -0.042
   WT − baseline, mean ± s.d. over seeds (seeds > 0):
     Margin                                        TIC r                   raw r                raw r σ1                raw r σ2              r in range             r non-empty
-    WT − COW-TIC                 +0.0735 ± 0.0070 (5/5)  +0.0909 ± 0.0451 (5/5)  +0.0401 ± 0.0083 (5/5)  +0.0101 ± 0.0047 (5/5)  +0.0782 ± 0.0057 (5/5)  +0.0659 ± 0.0074 (5/5)
-    WT − PCHIP (pooled anchors)  +0.0928 ± 0.0070 (5/5)  +0.0905 ± 0.0451 (5/5)  -0.0186 ± 0.0083 (0/5)  -0.0067 ± 0.0047 (1/5)  +0.0354 ± 0.0057 (5/5)  +0.1108 ± 0.0074 (5/5)
-    WT − Constant shift          +0.2626 ± 0.0070 (5/5)  +0.1904 ± 0.0451 (5/5)  +0.0813 ± 0.0083 (5/5)  +0.0285 ± 0.0047 (5/5)  +0.2433 ± 0.0057 (5/5)  +0.2707 ± 0.0074 (5/5)
-    WT − Linear warp             +0.0853 ± 0.0070 (5/5)  +0.1504 ± 0.0451 (5/5)  -0.0055 ± 0.0083 (1/5)  -0.0137 ± 0.0047 (0/5)  +0.0331 ± 0.0057 (5/5)  +0.1036 ± 0.0074 (5/5)
+    WT − COW-TIC                 +0.0706 ± 0.0065 (5/5)  +0.1307 ± 0.0442 (5/5)  +0.0387 ± 0.0057 (5/5)  +0.0079 ± 0.0051 (5/5)  +0.0760 ± 0.0052 (5/5)  +0.0641 ± 0.0059 (5/5)
+    WT − PCHIP (pooled anchors)  +0.0898 ± 0.0065 (5/5)  +0.1303 ± 0.0442 (5/5)  -0.0200 ± 0.0057 (0/5)  -0.0088 ± 0.0051 (0/5)  +0.0332 ± 0.0052 (5/5)  +0.1090 ± 0.0059 (5/5)
+    WT − Constant shift          +0.2597 ± 0.0065 (5/5)  +0.2302 ± 0.0442 (5/5)  +0.0799 ± 0.0057 (5/5)  +0.0263 ± 0.0051 (5/5)  +0.2412 ± 0.0052 (5/5)  +0.2689 ± 0.0059 (5/5)
+    WT − Linear warp             +0.0824 ± 0.0065 (5/5)  +0.1902 ± 0.0442 (5/5)  -0.0069 ± 0.0057 (1/5)  -0.0159 ± 0.0051 (0/5)  +0.0310 ± 0.0052 (5/5)  +0.1019 ± 0.0059 (5/5)
   Share of the gap to the within-batch ceiling closed, (r − unaligned) / (ceiling − unaligned):
     Method                  TIC r (ceiling 0.938)  raw r σ1 (ceiling 0.960)
     Unaligned                                0.00                      0.00
@@ -241,18 +241,18 @@ Jan16×Jul16   n = 26×16   calibration seeds [0, 1, 2, 3, 4]   ablation seeds [
     PCHIP (pooled anchors)                   0.47                      0.90
     COW-TIC                                  0.49                      0.84
     WarpTransformer                          0.58                      0.88
-  WarpTransformer per seed (normalised / raw / raw σ1): s0 0.600/0.653/0.839  s1 0.607/0.591/0.831  s2 0.604/0.612/0.840  s3 0.598/0.599/0.835  s4 0.589/0.699/0.853
-  Batch-A samples (of 26) where WT beats COW-TIC: normalised [26, 26, 26, 26, 26], raw [18, 14, 14, 14, 21], raw σ1 [23, 17, 21, 18, 25]
+  WarpTransformer per seed (normalised / raw / raw σ1): s0 0.593/0.701/0.842  s1 0.596/0.682/0.834  s2 0.590/0.710/0.846  s3 0.597/0.599/0.839  s4 0.607/0.663/0.832
+  Batch-A samples (of 26) where WT beats COW-TIC: normalised [26, 26, 26, 26, 26], raw [20, 20, 22, 14, 19], raw σ1 [20, 19, 22, 20, 17]
   WT warp magnitude (min)            all              A              B
   before calibration       1.383 ± 0.000  0.385 ± 0.000  3.005 ± 0.000
-  after calibration        1.757 ± 0.067  0.312 ± 0.101  4.104 ± 0.022
-  Pretraining ablation (step 08, device cpu):
+  after calibration        1.718 ± 0.058  0.249 ± 0.093  4.105 ± 0.029
+  Pretraining ablation (step 08, device cuda (NVIDIA RTX A5000)):
     Arm                  TIC r          raw r       raw r σ1  warp before (all)  warp after (all)
-    pretrained   0.600 ± 0.007  0.631 ± 0.045  0.840 ± 0.008      1.383 ± 0.000     1.757 ± 0.067
-    random init  0.572 ± 0.014  0.622 ± 0.045  0.836 ± 0.011      0.000 ± 0.000     1.586 ± 0.128
-    gain per seed: [0.0137, 0.0427, 0.0329, 0.0119, 0.035]   mean +0.0272 ± 0.0137   seeds > 0: 5/5   share random init recovers: 0.943 ± 0.029
-    gain per seed (raw): [0.0293, -0.0174, 0.0353, -0.097, 0.0969]   mean +0.0094 ± 0.0721   seeds > 0: 3/5   share random init recovers: 0.990 ± 0.106
-    gain per seed (raw σ1): [-0.0097, -0.001, 0.0194, 0.0027, 0.0077]   mean +0.0038 ± 0.0108   seeds > 0: 3/5   share random init recovers: 0.996 ± 0.012
+    pretrained   0.597 ± 0.007  0.671 ± 0.044  0.838 ± 0.006      1.383 ± 0.000     1.718 ± 0.058
+    random init  0.576 ± 0.016  0.633 ± 0.073  0.823 ± 0.020      0.000 ± 0.000     1.615 ± 0.128
+    gain per seed: [-0.0096, 0.0309, 0.0141, 0.0196, 0.0472]   mean +0.0204 ± 0.0210   seeds > 0: 4/5   share random init recovers: 0.957 ± 0.044
+    gain per seed (raw): [0.0932, 0.0357, 0.1696, -0.1438, 0.0362]   mean +0.0382 ± 0.1156   seeds > 0: 4/5   share random init recovers: 0.955 ± 0.167
+    gain per seed (raw σ1): [0.014, 0.0141, 0.0506, -0.0127, 0.0114]   mean +0.0155 ± 0.0226   seeds > 0: 4/5   share random init recovers: 0.983 ± 0.025
 
 Sep15×Jan16   n = 36×26   calibration seeds [0]   ablation seeds []   (excluded pair)
   check: unaligned (06) identical across seeds and = (05) = (07), every metric: OK
@@ -268,8 +268,8 @@ Sep15×Jan16   n = 36×26   calibration seeds [0]   ablation seeds []   (exclude
     Linear warp                   0.826        0.885        0.903        0.844        0.937        0.954        0.843        0.810            0.843
     PCHIP (pooled anchors)        0.674        0.846        0.895        0.734        0.918        0.947        0.674        0.650            0.735
     COW-TIC                       0.826        0.883        0.900        0.848        0.937        0.953        0.826        0.811            0.846
-    WarpTransformer         0.735 ± nan  0.854 ± nan  0.900 ± nan  0.746 ± nan  0.902 ± nan  0.940 ± nan  0.735 ± nan  0.713 ± nan      0.744 ± nan
-  Δ unaligned (normalised TIC r): Unaligned +0.000  icoshift +0.011  Constant shift +0.000  Linear warp +0.011  PCHIP (pooled anchors) -0.140  COW-TIC +0.012  WarpTransformer -0.080
+    WarpTransformer         0.731 ± nan  0.857 ± nan  0.902 ± nan  0.717 ± nan  0.892 ± nan  0.937 ± nan  0.732 ± nan  0.711 ± nan      0.714 ± nan
+  Δ unaligned (normalised TIC r): Unaligned +0.000  icoshift +0.011  Constant shift +0.000  Linear warp +0.011  PCHIP (pooled anchors) -0.140  COW-TIC +0.012  WarpTransformer -0.083
   Coverage, silhouette and warp magnitude (min; WarpTransformer: batch-B samples):
     Method                    Study sil         Warp mag  outside
     Unaligned                     0.166            0.000     0.0%
@@ -278,23 +278,23 @@ Sep15×Jan16   n = 36×26   calibration seeds [0]   ablation seeds []   (exclude
     Linear warp                   0.200            0.032     0.7%
     PCHIP (pooled anchors)        0.199            0.185     0.0%
     COW-TIC                       0.184            0.035     0.0%
-    WarpTransformer         0.174 ± nan  0.309 ± nan (B)     0.2%
+    WarpTransformer         0.169 ± nan  0.294 ± nan (B)     0.2%
   Ranking (highest first):
-    TIC r: COW-TIC 0.826 > Linear warp 0.826 > icoshift 0.825 > Unaligned 0.814 > Constant shift 0.814 > WarpTransformer 0.735 > PCHIP (pooled anchors) 0.674
-    TIC r σ1: Linear warp 0.885 > icoshift 0.883 > COW-TIC 0.883 > Unaligned 0.878 > Constant shift 0.878 > WarpTransformer 0.854 > PCHIP (pooled anchors) 0.846
-    TIC r σ2: Linear warp 0.903 > icoshift 0.903 > WarpTransformer 0.900 > Unaligned 0.900 > Constant shift 0.900 > COW-TIC 0.900 > PCHIP (pooled anchors) 0.895
-    raw r: COW-TIC 0.848 > Linear warp 0.844 > icoshift 0.835 > Unaligned 0.835 > Constant shift 0.835 > WarpTransformer 0.746 > PCHIP (pooled anchors) 0.734
-    raw r σ1: Linear warp 0.937 > COW-TIC 0.937 > icoshift 0.933 > Unaligned 0.933 > Constant shift 0.933 > PCHIP (pooled anchors) 0.918 > WarpTransformer 0.902
-    raw r σ2: Linear warp 0.954 > COW-TIC 0.953 > icoshift 0.952 > Unaligned 0.952 > Constant shift 0.952 > PCHIP (pooled anchors) 0.947 > WarpTransformer 0.940
-    r in range: Linear warp 0.843 > COW-TIC 0.826 > icoshift 0.825 > Unaligned 0.814 > Constant shift 0.814 > WarpTransformer 0.735 > PCHIP (pooled anchors) 0.674
-    r non-empty: COW-TIC 0.811 > Linear warp 0.810 > icoshift 0.796 > Unaligned 0.792 > Constant shift 0.792 > WarpTransformer 0.713 > PCHIP (pooled anchors) 0.650
-    raw r non-empty: COW-TIC 0.846 > Linear warp 0.843 > icoshift 0.833 > Unaligned 0.833 > Constant shift 0.833 > WarpTransformer 0.744 > PCHIP (pooled anchors) 0.735
+    TIC r: COW-TIC 0.826 > Linear warp 0.826 > icoshift 0.825 > Unaligned 0.814 > Constant shift 0.814 > WarpTransformer 0.731 > PCHIP (pooled anchors) 0.674
+    TIC r σ1: Linear warp 0.885 > icoshift 0.883 > COW-TIC 0.883 > Unaligned 0.878 > Constant shift 0.878 > WarpTransformer 0.857 > PCHIP (pooled anchors) 0.846
+    TIC r σ2: Linear warp 0.903 > icoshift 0.903 > WarpTransformer 0.902 > Unaligned 0.900 > Constant shift 0.900 > COW-TIC 0.900 > PCHIP (pooled anchors) 0.895
+    raw r: COW-TIC 0.848 > Linear warp 0.844 > icoshift 0.835 > Unaligned 0.835 > Constant shift 0.835 > PCHIP (pooled anchors) 0.734 > WarpTransformer 0.717
+    raw r σ1: Linear warp 0.937 > COW-TIC 0.937 > icoshift 0.933 > Unaligned 0.933 > Constant shift 0.933 > PCHIP (pooled anchors) 0.918 > WarpTransformer 0.892
+    raw r σ2: Linear warp 0.954 > COW-TIC 0.953 > icoshift 0.952 > Unaligned 0.952 > Constant shift 0.952 > PCHIP (pooled anchors) 0.947 > WarpTransformer 0.937
+    r in range: Linear warp 0.843 > COW-TIC 0.826 > icoshift 0.825 > Unaligned 0.814 > Constant shift 0.814 > WarpTransformer 0.732 > PCHIP (pooled anchors) 0.674
+    r non-empty: COW-TIC 0.811 > Linear warp 0.810 > icoshift 0.796 > Unaligned 0.792 > Constant shift 0.792 > WarpTransformer 0.711 > PCHIP (pooled anchors) 0.650
+    raw r non-empty: COW-TIC 0.846 > Linear warp 0.843 > icoshift 0.833 > Unaligned 0.833 > Constant shift 0.833 > PCHIP (pooled anchors) 0.735 > WarpTransformer 0.714
   WT − baseline, mean ± s.d. over seeds (seeds > 0):
     Margin                                     TIC r                raw r             raw r σ1             raw r σ2           r in range          r non-empty
-    WT − COW-TIC                 -0.0916 ± nan (0/1)  -0.1013 ± nan (0/1)  -0.0352 ± nan (0/1)  -0.0132 ± nan (0/1)  -0.0914 ± nan (0/1)  -0.0975 ± nan (0/1)
-    WT − PCHIP (pooled anchors)  +0.0608 ± nan (1/1)  +0.0120 ± nan (1/1)  -0.0164 ± nan (0/1)  -0.0068 ± nan (0/1)  +0.0610 ± nan (1/1)  +0.0634 ± nan (1/1)
-    WT − Constant shift          -0.0797 ± nan (0/1)  -0.0888 ± nan (0/1)  -0.0309 ± nan (0/1)  -0.0116 ± nan (0/1)  -0.0795 ± nan (0/1)  -0.0782 ± nan (0/1)
-    WT − Linear warp             -0.0909 ± nan (0/1)  -0.0980 ± nan (0/1)  -0.0357 ± nan (0/1)  -0.0135 ± nan (0/1)  -0.1078 ± nan (0/1)  -0.0971 ± nan (0/1)
+    WT − COW-TIC                 -0.0948 ± nan (0/1)  -0.1306 ± nan (0/1)  -0.0451 ± nan (0/1)  -0.0166 ± nan (0/1)  -0.0945 ± nan (0/1)  -0.1001 ± nan (0/1)
+    WT − PCHIP (pooled anchors)  +0.0576 ± nan (1/1)  -0.0173 ± nan (0/1)  -0.0262 ± nan (0/1)  -0.0101 ± nan (0/1)  +0.0579 ± nan (1/1)  +0.0608 ± nan (1/1)
+    WT − Constant shift          -0.0828 ± nan (0/1)  -0.1181 ± nan (0/1)  -0.0407 ± nan (0/1)  -0.0149 ± nan (0/1)  -0.0825 ± nan (0/1)  -0.0807 ± nan (0/1)
+    WT − Linear warp             -0.0941 ± nan (0/1)  -0.1273 ± nan (0/1)  -0.0455 ± nan (0/1)  -0.0168 ± nan (0/1)  -0.1109 ± nan (0/1)  -0.0997 ± nan (0/1)
   Share of the gap to the within-batch ceiling closed, (r − unaligned) / (ceiling − unaligned):
     Method                  TIC r (ceiling 0.933)  raw r σ1 (ceiling 0.953)
     Unaligned                                0.00                      0.00
@@ -303,12 +303,12 @@ Sep15×Jan16   n = 36×26   calibration seeds [0]   ablation seeds []   (exclude
     Linear warp                              0.10                      0.23
     PCHIP (pooled anchors)                  -1.19                     -0.71
     COW-TIC                                  0.10                      0.21
-    WarpTransformer                         -0.67                     -1.51
-  WarpTransformer per seed (normalised / raw / raw σ1): s0 0.735/0.746/0.902
+    WarpTransformer                         -0.70                     -1.99
+  WarpTransformer per seed (normalised / raw / raw σ1): s0 0.731/0.717/0.892
   Batch-A samples (of 36) where WT beats COW-TIC: normalised [0], raw [0], raw σ1 [0]
   WT warp magnitude (min)          all            A            B
   before calibration       1.560 ± nan  0.375 ± nan  3.200 ± nan
-  after calibration        0.263 ± nan  0.230 ± nan  0.309 ± nan
+  after calibration        0.253 ± nan  0.224 ± nan  0.294 ± nan
   Pretraining ablation: no step-08 files.
 
 Apr16×Jul16   n = 10×16   calibration seeds [0]   ablation seeds []   (excluded pair)
@@ -325,7 +325,7 @@ Apr16×Jul16   n = 10×16   calibration seeds [0]   ablation seeds []   (exclude
     Linear warp                   0.896        0.934        0.945        0.632        0.838        0.853        0.896        0.896            0.632
     PCHIP (pooled anchors)        0.839        0.906        0.933        0.356        0.806        0.846        0.837        0.839            0.356
     COW-TIC                       0.899        0.933        0.944        0.798        0.852        0.856        0.899        0.899            0.798
-    WarpTransformer         0.844 ± nan  0.904 ± nan  0.934 ± nan  0.368 ± nan  0.771 ± nan  0.817 ± nan  0.844 ± nan  0.844 ± nan      0.368 ± nan
+    WarpTransformer         0.843 ± nan  0.904 ± nan  0.933 ± nan  0.349 ± nan  0.773 ± nan  0.819 ± nan  0.843 ± nan  0.843 ± nan      0.349 ± nan
   Δ unaligned (normalised TIC r): Unaligned +0.000  icoshift +0.000  Constant shift +0.000  Linear warp -0.003  PCHIP (pooled anchors) -0.059  COW-TIC +0.000  WarpTransformer -0.055
   Coverage, silhouette and warp magnitude (min; WarpTransformer: batch-B samples):
     Method                    Study sil         Warp mag  outside
@@ -335,23 +335,23 @@ Apr16×Jul16   n = 10×16   calibration seeds [0]   ablation seeds []   (exclude
     Linear warp                   0.208            0.073     0.0%
     PCHIP (pooled anchors)        0.162            0.080     0.2%
     COW-TIC                       0.144            0.009     0.0%
-    WarpTransformer         0.170 ± nan  0.130 ± nan (B)     0.0%
+    WarpTransformer         0.174 ± nan  0.123 ± nan (B)     0.0%
   Ranking (highest first):
-    TIC r: COW-TIC 0.899 > Unaligned 0.898 > icoshift 0.898 > Constant shift 0.898 > Linear warp 0.896 > WarpTransformer 0.844 > PCHIP (pooled anchors) 0.839
+    TIC r: COW-TIC 0.899 > Unaligned 0.898 > icoshift 0.898 > Constant shift 0.898 > Linear warp 0.896 > WarpTransformer 0.843 > PCHIP (pooled anchors) 0.839
     TIC r σ1: Linear warp 0.934 > COW-TIC 0.933 > Unaligned 0.933 > icoshift 0.933 > Constant shift 0.933 > PCHIP (pooled anchors) 0.906 > WarpTransformer 0.904
-    TIC r σ2: Linear warp 0.945 > COW-TIC 0.944 > Unaligned 0.944 > icoshift 0.944 > Constant shift 0.944 > WarpTransformer 0.934 > PCHIP (pooled anchors) 0.933
-    raw r: Unaligned 0.858 > icoshift 0.858 > Constant shift 0.858 > COW-TIC 0.798 > Linear warp 0.632 > WarpTransformer 0.368 > PCHIP (pooled anchors) 0.356
-    raw r σ1: Unaligned 0.859 > icoshift 0.859 > Constant shift 0.859 > COW-TIC 0.852 > Linear warp 0.838 > PCHIP (pooled anchors) 0.806 > WarpTransformer 0.771
-    raw r σ2: Unaligned 0.856 > icoshift 0.856 > Constant shift 0.856 > COW-TIC 0.856 > Linear warp 0.853 > PCHIP (pooled anchors) 0.846 > WarpTransformer 0.817
-    r in range: COW-TIC 0.899 > Unaligned 0.898 > icoshift 0.898 > Constant shift 0.898 > Linear warp 0.896 > WarpTransformer 0.844 > PCHIP (pooled anchors) 0.837
-    r non-empty: COW-TIC 0.899 > Unaligned 0.898 > icoshift 0.898 > Constant shift 0.898 > Linear warp 0.896 > WarpTransformer 0.844 > PCHIP (pooled anchors) 0.839
-    raw r non-empty: Unaligned 0.858 > icoshift 0.858 > Constant shift 0.858 > COW-TIC 0.798 > Linear warp 0.632 > WarpTransformer 0.368 > PCHIP (pooled anchors) 0.356
+    TIC r σ2: Linear warp 0.945 > COW-TIC 0.944 > Unaligned 0.944 > icoshift 0.944 > Constant shift 0.944 > PCHIP (pooled anchors) 0.933 > WarpTransformer 0.933
+    raw r: Unaligned 0.858 > icoshift 0.858 > Constant shift 0.858 > COW-TIC 0.798 > Linear warp 0.632 > PCHIP (pooled anchors) 0.356 > WarpTransformer 0.349
+    raw r σ1: Unaligned 0.859 > icoshift 0.859 > Constant shift 0.859 > COW-TIC 0.852 > Linear warp 0.838 > PCHIP (pooled anchors) 0.806 > WarpTransformer 0.773
+    raw r σ2: Unaligned 0.856 > icoshift 0.856 > Constant shift 0.856 > COW-TIC 0.856 > Linear warp 0.853 > PCHIP (pooled anchors) 0.846 > WarpTransformer 0.819
+    r in range: COW-TIC 0.899 > Unaligned 0.898 > icoshift 0.898 > Constant shift 0.898 > Linear warp 0.896 > WarpTransformer 0.843 > PCHIP (pooled anchors) 0.837
+    r non-empty: COW-TIC 0.899 > Unaligned 0.898 > icoshift 0.898 > Constant shift 0.898 > Linear warp 0.896 > WarpTransformer 0.843 > PCHIP (pooled anchors) 0.839
+    raw r non-empty: Unaligned 0.858 > icoshift 0.858 > Constant shift 0.858 > COW-TIC 0.798 > Linear warp 0.632 > PCHIP (pooled anchors) 0.356 > WarpTransformer 0.349
   WT − baseline, mean ± s.d. over seeds (seeds > 0):
     Margin                                     TIC r                raw r             raw r σ1             raw r σ2           r in range          r non-empty
-    WT − COW-TIC                 -0.0549 ± nan (0/1)  -0.4303 ± nan (0/1)  -0.0808 ± nan (0/1)  -0.0386 ± nan (0/1)  -0.0549 ± nan (0/1)  -0.0549 ± nan (0/1)
-    WT − PCHIP (pooled anchors)  +0.0049 ± nan (1/1)  +0.0118 ± nan (1/1)  -0.0348 ± nan (0/1)  -0.0290 ± nan (0/1)  +0.0070 ± nan (1/1)  +0.0049 ± nan (1/1)
-    WT − Constant shift          -0.0545 ± nan (0/1)  -0.4899 ± nan (0/1)  -0.0879 ± nan (0/1)  -0.0393 ± nan (0/1)  -0.0545 ± nan (0/1)  -0.0545 ± nan (0/1)
-    WT − Linear warp             -0.0520 ± nan (0/1)  -0.2640 ± nan (0/1)  -0.0678 ± nan (0/1)  -0.0362 ± nan (0/1)  -0.0520 ± nan (0/1)  -0.0520 ± nan (0/1)
+    WT − COW-TIC                 -0.0551 ± nan (0/1)  -0.4492 ± nan (0/1)  -0.0790 ± nan (0/1)  -0.0365 ± nan (0/1)  -0.0551 ± nan (0/1)  -0.0551 ± nan (0/1)
+    WT − PCHIP (pooled anchors)  +0.0046 ± nan (1/1)  -0.0072 ± nan (0/1)  -0.0329 ± nan (0/1)  -0.0269 ± nan (0/1)  +0.0068 ± nan (1/1)  +0.0046 ± nan (1/1)
+    WT − Constant shift          -0.0548 ± nan (0/1)  -0.5089 ± nan (0/1)  -0.0860 ± nan (0/1)  -0.0372 ± nan (0/1)  -0.0548 ± nan (0/1)  -0.0548 ± nan (0/1)
+    WT − Linear warp             -0.0523 ± nan (0/1)  -0.2829 ± nan (0/1)  -0.0659 ± nan (0/1)  -0.0342 ± nan (0/1)  -0.0523 ± nan (0/1)  -0.0523 ± nan (0/1)
   Share of the gap to the within-batch ceiling closed, (r − unaligned) / (ceiling − unaligned):
     Method                  TIC r (ceiling 0.939)  raw r σ1 (ceiling 0.913)
     Unaligned                                0.00                      0.00
@@ -360,39 +360,39 @@ Apr16×Jul16   n = 10×16   calibration seeds [0]   ablation seeds []   (exclude
     Linear warp                             -0.06                     -0.37
     PCHIP (pooled anchors)                  -1.46                     -0.98
     COW-TIC                                  0.01                     -0.13
-    WarpTransformer                         -1.34                     -1.62
-  WarpTransformer per seed (normalised / raw / raw σ1): s0 0.844/0.368/0.771
+    WarpTransformer                         -1.35                     -1.59
+  WarpTransformer per seed (normalised / raw / raw σ1): s0 0.843/0.349/0.773
   Batch-A samples (of 10) where WT beats COW-TIC: normalised [0], raw [1], raw σ1 [1]
   WT warp magnitude (min)          all            A            B
   before calibration       1.965 ± nan  0.399 ± nan  2.944 ± nan
-  after calibration        0.118 ± nan  0.098 ± nan  0.130 ± nan
+  after calibration        0.119 ± nan  0.112 ± nan  0.123 ± nan
   Pretraining ablation: no step-08 files.
 
 Overview (TIC r; mean ± s.d. over seeds)
   Pair                 WarpTransformer      WT − COW-TIC  WT − PCHIP (pooled anchors)  WT − Constant shift  WT − Linear warp  pretraining gain
-  Sep15×Jul16            0.532 ± 0.006  -0.0011 ± 0.0063             +0.0140 ± 0.0063     +0.1985 ± 0.0063  -0.0156 ± 0.0063  -0.0715 ± 0.0118
-  Sep15×Apr16            0.648 ± 0.005  +0.0960 ± 0.0054             +0.0661 ± 0.0054     +0.3066 ± 0.0054  +0.0419 ± 0.0054  +0.0224 ± 0.0205
-  Jan16×Apr16            0.601 ± 0.011  +0.0575 ± 0.0108             +0.0881 ± 0.0108     +0.2662 ± 0.0108  +0.0410 ± 0.0108  +0.0098 ± 0.0372
-  Jan16×Jul16            0.600 ± 0.007  +0.0735 ± 0.0070             +0.0928 ± 0.0070     +0.2626 ± 0.0070  +0.0853 ± 0.0070  +0.0272 ± 0.0137
-  Sep15×Jan16 (excl.)      0.735 ± nan     -0.0916 ± nan                +0.0608 ± nan        -0.0797 ± nan     -0.0909 ± nan                 —
-  Apr16×Jul16 (excl.)      0.844 ± nan     -0.0549 ± nan                +0.0049 ± nan        -0.0545 ± nan     -0.0520 ± nan                 —
+  Sep15×Jul16            0.533 ± 0.002  -0.0004 ± 0.0020             +0.0147 ± 0.0020     +0.1992 ± 0.0020  -0.0149 ± 0.0020  -0.0584 ± 0.0157
+  Sep15×Apr16            0.646 ± 0.008  +0.0944 ± 0.0076             +0.0644 ± 0.0076     +0.3050 ± 0.0076  +0.0403 ± 0.0076  +0.0104 ± 0.0244
+  Jan16×Apr16            0.603 ± 0.008  +0.0597 ± 0.0082             +0.0904 ± 0.0082     +0.2685 ± 0.0082  +0.0433 ± 0.0082  +0.0057 ± 0.0255
+  Jan16×Jul16            0.597 ± 0.007  +0.0706 ± 0.0065             +0.0898 ± 0.0065     +0.2597 ± 0.0065  +0.0824 ± 0.0065  +0.0204 ± 0.0210
+  Sep15×Jan16 (excl.)      0.731 ± nan     -0.0948 ± nan                +0.0576 ± nan        -0.0828 ± nan     -0.0941 ± nan                 —
+  Apr16×Jul16 (excl.)      0.843 ± nan     -0.0551 ± nan                +0.0046 ± nan        -0.0548 ± nan     -0.0523 ± nan                 —
 
 Overview (raw r σ1; mean ± s.d. over seeds)
   Pair                 WarpTransformer      WT − COW-TIC  WT − PCHIP (pooled anchors)  WT − Constant shift  WT − Linear warp  pretraining gain
-  Sep15×Jul16            0.877 ± 0.010  +0.1173 ± 0.0102             -0.0101 ± 0.0102     +0.0848 ± 0.0102  +0.0664 ± 0.0102  +0.0078 ± 0.0271
-  Sep15×Apr16            0.889 ± 0.003  +0.1860 ± 0.0031             +0.1501 ± 0.0031     +0.2895 ± 0.0031  +0.1443 ± 0.0031  +0.0709 ± 0.0240
-  Jan16×Apr16            0.903 ± 0.007  +0.1872 ± 0.0070             +0.1622 ± 0.0070     +0.2803 ± 0.0070  +0.1580 ± 0.0070  +0.0614 ± 0.0413
-  Jan16×Jul16            0.840 ± 0.008  +0.0401 ± 0.0083             -0.0186 ± 0.0083     +0.0813 ± 0.0083  -0.0055 ± 0.0083  +0.0038 ± 0.0108
-  Sep15×Jan16 (excl.)      0.902 ± nan     -0.0352 ± nan                -0.0164 ± nan        -0.0309 ± nan     -0.0357 ± nan                 —
-  Apr16×Jul16 (excl.)      0.771 ± nan     -0.0808 ± nan                -0.0348 ± nan        -0.0879 ± nan     -0.0678 ± nan                 —
+  Sep15×Jul16            0.878 ± 0.006  +0.1181 ± 0.0057             -0.0093 ± 0.0057     +0.0856 ± 0.0057  +0.0672 ± 0.0057  +0.0029 ± 0.0399
+  Sep15×Apr16            0.887 ± 0.004  +0.1848 ± 0.0040             +0.1490 ± 0.0040     +0.2883 ± 0.0040  +0.1431 ± 0.0040  +0.0801 ± 0.0300
+  Jan16×Apr16            0.905 ± 0.002  +0.1888 ± 0.0021             +0.1638 ± 0.0021     +0.2820 ± 0.0021  +0.1597 ± 0.0021  +0.0432 ± 0.0351
+  Jan16×Jul16            0.838 ± 0.006  +0.0387 ± 0.0057             -0.0200 ± 0.0057     +0.0799 ± 0.0057  -0.0069 ± 0.0057  +0.0155 ± 0.0226
+  Sep15×Jan16 (excl.)      0.892 ± nan     -0.0451 ± nan                -0.0262 ± nan        -0.0407 ± nan     -0.0455 ± nan                 —
+  Apr16×Jul16 (excl.)      0.773 ± nan     -0.0790 ± nan                -0.0329 ± nan        -0.0860 ± nan     -0.0659 ± nan                 —
 
 Overview (r in range; mean ± s.d. over seeds)
   Pair                 WarpTransformer      WT − COW-TIC  WT − PCHIP (pooled anchors)  WT − Constant shift  WT − Linear warp  pretraining gain
-  Sep15×Jul16            0.597 ± 0.007  +0.0632 ± 0.0069             +0.0095 ± 0.0069     +0.2310 ± 0.0069  -0.0249 ± 0.0069  -0.0106 ± 0.0087
-  Sep15×Apr16            0.682 ± 0.008  +0.1303 ± 0.0076             -0.0102 ± 0.0076     +0.2922 ± 0.0076  -0.0399 ± 0.0076  +0.0353 ± 0.0083
-  Jan16×Apr16            0.602 ± 0.011  +0.0586 ± 0.0114             +0.0053 ± 0.0114     +0.2316 ± 0.0114  -0.0521 ± 0.0114  +0.0050 ± 0.0373
-  Jan16×Jul16            0.604 ± 0.006  +0.0782 ± 0.0057             +0.0354 ± 0.0057     +0.2433 ± 0.0057  +0.0331 ± 0.0057  +0.0292 ± 0.0139
-  Sep15×Jan16 (excl.)      0.735 ± nan     -0.0914 ± nan                +0.0610 ± nan        -0.0795 ± nan     -0.1078 ± nan                 —
-  Apr16×Jul16 (excl.)      0.844 ± nan     -0.0549 ± nan                +0.0070 ± nan        -0.0545 ± nan     -0.0520 ± nan                 —
+  Sep15×Jul16            0.598 ± 0.003  +0.0647 ± 0.0026             +0.0110 ± 0.0026     +0.2325 ± 0.0026  -0.0234 ± 0.0026  +0.0003 ± 0.0155
+  Sep15×Apr16            0.682 ± 0.010  +0.1295 ± 0.0097             -0.0110 ± 0.0097     +0.2914 ± 0.0097  -0.0407 ± 0.0097  +0.0245 ± 0.0140
+  Jan16×Apr16            0.605 ± 0.009  +0.0617 ± 0.0089             +0.0083 ± 0.0089     +0.2347 ± 0.0089  -0.0491 ± 0.0089  +0.0034 ± 0.0259
+  Jan16×Jul16            0.602 ± 0.005  +0.0760 ± 0.0052             +0.0332 ± 0.0052     +0.2412 ± 0.0052  +0.0310 ± 0.0052  +0.0228 ± 0.0204
+  Sep15×Jan16 (excl.)      0.732 ± nan     -0.0945 ± nan                +0.0579 ± nan        -0.0825 ± nan     -0.1109 ± nan                 —
+  Apr16×Jul16 (excl.)      0.843 ± nan     -0.0551 ± nan                +0.0068 ± nan        -0.0548 ± nan     -0.0523 ± nan                 —
 
 Checks: all passed

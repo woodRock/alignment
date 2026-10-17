@@ -1,19 +1,19 @@
 Step 08 — does pretraining matter, or does calibration do all the work?
 
-Jan16×Apr16   seed 3   device cpu   checkpoint /Users/woodj/Desktop/alignment/checkpoints/warp_transformer_v2.pt
+Jan16×Apr16   seed 3   device cuda (NVIDIA RTX A5000)   checkpoint /vol/ecrg-solar/woodj4/warpalign-run-v3/checkpoints/warp_transformer_v2.pt
 Anchors (10): [(48, 31), (63, 46), (69, 51), (75, 57), (86, 67), (91, 72), (118, 98), (123, 102), (129, 111), (165, 143)]
 
   Arm           TIC r  Δ unal    raw r  Δ unal  pre all   pre A   pre B  post all  post A  post B
   Unaligned    0.1279       —  -0.0457       —        —       —       —         —       —       —
-  pretrained   0.6059  0.4780   0.7788  0.8245   1.1115  0.3843  3.0022    1.3083  0.1977  4.1959
-  random init  0.6193  0.4914   0.8123  0.8580   0.0000  0.0000  0.0000    1.0531  0.0671  3.6168
+  pretrained   0.6070  0.4792   0.8169  0.8627   1.1115  0.3843  3.0022    1.3011  0.1809  4.2137
+  random init  0.6113  0.4834   0.7788  0.8245   0.0000  0.0000  0.0000    1.0676  0.0933  3.6008
 
 pre / post: warp magnitude (min) before and after calibration.
-Pretraining advantage: -0.0134 TIC r (-0.0336 raw)
+Pretraining advantage: -0.0043 TIC r (+0.0382 raw)
 
 Every TIC metric (σ: both batches smoothed with the same Gaussian, in bins):
   Arm           TIC r  TIC r σ1  TIC r σ2    raw r  raw r σ1  raw r σ2  r in range  r non-empty  raw r non-empty
   Unaligned    0.1279    0.1527    0.2066  -0.0457   -0.0631    0.0361      0.1279       0.1283          -0.0485
-  pretrained   0.6059    0.6380    0.6516   0.7788    0.8916    0.9164      0.6083       0.5974           0.7778
-  random init  0.6193    0.6651    0.6844   0.8123    0.8950    0.9053      0.6276       0.6051           0.8119
-  gain: TIC r -0.0134  TIC r σ1 -0.0271  TIC r σ2 -0.0328  raw r -0.0336  raw r σ1 -0.0035  raw r σ2 +0.0111  r in range -0.0193  r non-empty -0.0077  raw r non-empty -0.0341
+  pretrained   0.6070    0.6406    0.6549   0.8169    0.9084    0.9266      0.6098       0.5958           0.8162
+  random init  0.6113    0.6640    0.6862   0.7788    0.8813    0.8935      0.6170       0.5971           0.7782
+  gain: TIC r -0.0043  TIC r σ1 -0.0234  TIC r σ2 -0.0313  raw r +0.0382  raw r σ1 +0.0272  raw r σ2 +0.0331  r in range -0.0071  r non-empty -0.0013  raw r non-empty +0.0379

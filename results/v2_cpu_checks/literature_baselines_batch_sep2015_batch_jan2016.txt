@@ -1,0 +1,30 @@
+Step 05 — COW-TIC and icoshift on one batch pair, and the resampling control.
+
+Sep15×Jan16: batch_sep2015 (36) × batch_jan2016 (26) = 936 pairs
+COW-TIC: 4 segments, slack ±22 bins (±5.0 min); icoshift: 10 intervals, max shift ±20 bins
+
+  Method     TIC r  Δ unal  raw r  Δ unal  Study sil  Warp mag  outside  r in range
+  Unaligned  0.814   0.000  0.835   0.000      0.166    0.000m     0.0%       0.814
+  COW-TIC    0.826   0.012  0.848   0.013      0.184    0.035m     0.0%       0.826
+  icoshift   0.825   0.011  0.835   0.000      0.168    0.053m     0.0%       0.825
+outside: share of evaluated (bin, sample) values whose warped source lies outside the run's acquired range; r in range: TIC r with those values masked out.
+
+Every TIC metric (σ: both batches smoothed with the same Gaussian, in bins; non-empty: bins with raw TIC > 0 in both samples):
+  Method     TIC r  TIC r σ1  TIC r σ2  raw r  raw r σ1  raw r σ2  r in range  r non-empty  raw r non-empty
+  Unaligned  0.814     0.878     0.900  0.835     0.933     0.952       0.814        0.792            0.833
+  COW-TIC    0.826     0.883     0.900  0.848     0.937     0.953       0.826        0.811            0.846
+  icoshift   0.825     0.883     0.903  0.835     0.933     0.952       0.825        0.796            0.833
+
+Resampling control (no alignment; linear interpolation at a fractional shift):
+  Control             TIC r  TIC r σ1  TIC r σ2  raw r  raw r σ1  raw r σ2  r in range  r non-empty  raw r non-empty
+  Unaligned           0.814     0.878     0.900  0.835     0.933     0.952       0.814        0.792            0.833
+  A shifted ¼ bin     0.838     0.887     0.903  0.870     0.947     0.957       0.838        0.827            0.868
+  A shifted ½ bin     0.821     0.886     0.902  0.826     0.941     0.956       0.821        0.809            0.824
+  A shifted ¾ bin     0.760     0.872     0.897  0.692     0.915     0.948       0.760        0.737            0.688
+  both shifted ½ bin  0.857     0.885     0.901  0.906     0.937     0.953       0.857        0.847            0.904
+
+Paired two-sided Wilcoxon over sample pairs (not independent; descriptive):
+  Comparison                     p
+  COW-TIC vs Unaligned    2.48e-89
+  icoshift vs Unaligned  4.56e-130
+  icoshift vs COW-TIC     4.52e-06

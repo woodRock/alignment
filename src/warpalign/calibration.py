@@ -34,13 +34,28 @@ def set_seed(seed: int) -> None:
 
 
 def pick_device(name: str = 'auto') -> torch.device:
-    if name != 'auto':
-        return torch.device(name)
-    if torch.cuda.is_available():
-        return torch.device('cuda')
-    if torch.backends.mps.is_available():
-        return torch.device('mps')
-    return torch.device('cpu')
+    """The named device ('auto': cuda, then mps, then cpu). On CUDA, determinism is enabled
+    here, before the first cuBLAS call: CUBLAS_WORKSPACE_CONFIG has no effect once a handle
+    exists, and steps run the model (predict) before calibrate seeds anything."""
+    if name == 'auto':
+        if torch.cuda.is_available():
+            name = 'cuda'
+        elif torch.backends.mps.is_available():
+            name = 'mps'
+        else:
+            name = 'cpu'
+    device = torch.device(name)
+    if device.type == 'cuda':
+        enable_cuda_determinism()
+    return device
+
+
+def device_label(device: torch.device) -> str:
+    """'cpu', 'mps', or 'cuda (<GPU model>)': results are bit-reproducible only on the same
+    device type and GPU model."""
+    if device.type == 'cuda':
+        return f'cuda ({torch.cuda.get_device_name(device)})'
+    return device.type
 
 
 def load_model(
@@ -121,7 +136,11 @@ def calibrate(
     best_state = {k: v.detach().clone() for k, v in model.state_dict().items()}
 
     for step in range(1, steps + 1):
-        aligned, warps = model(x, study_ids)
+        # the loss needs only the warps; the aligned chromatograms (no RNG) only for on_log
+        if on_log is not None:
+            aligned, warps = model(x, study_ids)
+        else:
+            warps = model.warps(x, study_ids)
         loss, parts = calibration_objective(warps, study_ids, anchors, loss_fn)
         if float(loss) < log.best_loss:  # snapshot the parameters this loss was measured on
             log.best_loss = float(loss)

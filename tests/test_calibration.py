@@ -136,6 +136,17 @@ def test_calibration_is_reproducible_on_cpu(tensors):
     assert np.array_equal(*out)
 
 
+def test_on_log_does_not_change_the_calibration(tensors):
+    """Without on_log the loop skips the aligned chromatograms (no RNG): same warps, bit for bit."""
+    x, sid = tensors
+    out = []
+    for on_log in (None, lambda step, rec, aligned: None):
+        m = tiny_model(dropout=0.1)
+        calibrate(m, x, sid, ANCHORS, seed=7, steps=10, log_every=3, on_log=on_log)
+        out.append(predict(m, x, sid)[1])
+    assert np.array_equal(*out)
+
+
 def test_on_log_callback_receives_records(tensors):
     x, sid = tensors
     seen = []
@@ -213,7 +224,7 @@ def test_heldout_skips_pairs_with_too_few_anchors(monkeypatch, batches):
 
     a, b = batches
     monkeypatch.setattr(h, 'extract_anchors', lambda *args: AnchorResult([(60, 52)]))
-    res = h.compute_pair(a, b, None, torch.device('cpu'), 0, 5)
+    res = h.compute_pair(None, a, b, None, torch.device('cpu'), 0, 5)
     assert res.skipped and res.errors == {}
     lines = h.format_report([res], 0, 'cpu', None)
     assert any('Skipped' in line for line in lines) and not any('Summary' in l for l in lines)

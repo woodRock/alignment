@@ -1,3 +1,33 @@
+# Paper run v3 on GPU (2026-10-17): every result and figure in 13.5 min
+
+Same checkpoint and binned data as v2 (steps 02–04 not rerun); the v2 CPU results are in git and
+in `results/v2_cpu_checks/`. All 50 jobs (steps 05–14) through the task spooler on RTX A5000
+hosts, at most 5 GPU tasks at once: `logs/run_v3/dispatch.py` (job graph, cap, collision check),
+progress `logs/run_v3/progress.log`, one log per job in `logs/run_v3/`. Wall clock 13:18–13:31
+(v2: ~7.5 h). One calibration takes ~25 s on an A5000 (~630 s on the M2 CPU).
+
+What changed in the code:
+- Steps 08, 09 and 10 reuse step 06's saved calibration (`calibrate_pair.load_saved`) instead of
+  repeating it: 28 of ~114 calibrations removed, bit-identical by construction (e2e-tested).
+- The calibration loop computes only the warps unless `on_log` needs the aligned chromatograms
+  (no RNG involved: bit-identical, tested).
+- `pick_device` enables CUDA determinism before the first cuBLAS call (previously too late).
+- Step 06 records `device` (with the GPU model) and the checkpoint SHA-256; step 10 shards by pair.
+
+```bash
+task sync                                            # after any code change
+python3.11 logs/run_v3/dispatch.py --check           # job graph and output ownership only
+nohup caffeinate -is python3.11 -u logs/run_v3/dispatch.py > logs/run_v3/progress.log 2>&1 &
+task fetch /vol/ecrg-solar/woodj4/warpalign-run-v3/results:results   # copy the results back
+```
+
+GPU vs CPU (5 seeds): every WT − baseline mean is within about one seed s.d. of v2 and the
+seed counts are unchanged except Sep15×Jul16 WT vs PCHIP (significant at 0/5 seeds instead of
+1/5; raw σ1 1/5 instead of 2/5). Deterministic baselines are identical. Seed 0 on CUDA is a
+different dropout stream from seed 0 on CPU, so per-seed values differ.
+
+---
+
 # v2 checks rerun (2026-10-14): v2_checks.md
 
 Same checkpoint and binned data as the v2 run below (steps 02 and 03 not rerun). The previous

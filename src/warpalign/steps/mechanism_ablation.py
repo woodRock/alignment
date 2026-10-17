@@ -1,6 +1,7 @@
 """Step 09 — where does the WarpTransformer's gain over a spline come from?
 
-On the four evaluated pairs, from one seeded calibration (step 06's settings):
+On the four evaluated pairs, from one seeded calibration (step 06's, read back with
+calibrate_pair.load_saved, so step 06 must have run at this seed):
   Unaligned
   WT original          the calibrated WarpTransformer: one warp per sample, both batches
   WT batch-shared      its warps averaged within each batch, so every sample of a batch gets
@@ -44,21 +45,12 @@ from .._compat import (
     load_batch,
     paired_wilcoxon,
     pchip_warp,
-    pearson_rows,
     per_a_mean,
     src_from_fn,
     warp_rows,
     within_batch_r,
 )
-from ..calibration import (
-    batch_tensors,
-    calibrate,
-    final_losses,
-    free_warp,
-    load_model,
-    pick_device,
-    predict,
-)
+from ..calibration import device_label, final_losses, free_warp, pick_device
 from ..config import (
     BIN_MIN,
     EVAL_PAIRS,
@@ -81,6 +73,7 @@ from ._common import (
     title,
     write_report,
 )
+from .calibrate_pair import load_saved
 
 log = logging.getLogger('warpalign')
 REFINE_SEGS, REFINE_SLACK = 8, 4
@@ -202,11 +195,10 @@ def compute_pair(
 ) -> PairResult:
     a, b = load_batch(name_a, paths.fish_oil), load_batch(name_b, paths.fish_oil)
     anchors = extract_anchors(a.chromas, b.chromas, a.tic_raw, b.tic_raw).anchors
-    log.info('%s: %d anchors — calibrating …', pair_label(name_a, name_b), len(anchors))
-    model = load_model(ckpt, device)
-    x, sid = batch_tensors(a.chromas, b.chromas, device)
-    calibrate(model, x, sid, anchors, seed=seed, steps=calib_steps)
-    aligned, w_wt = predict(model, x, sid)
+    log.info('%s: %d anchors', pair_label(name_a, name_b), len(anchors))
+    saved = load_saved(paths, name_a, name_b, seed, ckpt, device, calib_steps, anchors)
+    w_wt = saved.warps
+    sid = torch.tensor([0] * len(a) + [1] * len(b))
     var, loss_free = variants(a.tic, b.tic, w_wt, anchors, seed, calib_steps)
     tics = {k: (v.a(a.tic), v.b(b.tic)) for k, v in var.items()}
     metrics = {}
@@ -215,11 +207,8 @@ def compute_pair(
         ones_a, ones_b = np.ones(raw_a.shape, bool), np.ones(raw_b.shape, bool)
         metrics[k] = tic_metrics(*tics[k], raw_a, raw_b, ones_a, ones_b)[0]
     r = {k: m[''] for k, m in metrics.items()}
-    model_tic = aligned.sum(-1)
-    if not np.allclose(
-        r['WT original'], pearson_rows(model_tic[: len(a)], model_tic[len(a) :]), atol=1e-4
-    ):
-        raise RuntimeError('re-applying the WT warps does not reproduce the model output')
+    if not np.allclose(r['WT original'], saved.wt.r, atol=1e-4):
+        raise RuntimeError("re-applying the WT warps does not reproduce step 06's TIC r")
     return PairResult(
         name_a,
         name_b,
@@ -364,7 +353,7 @@ def run(
 ) -> list[PairResult]:
     dev, ck = pick_device(device), ckpt_or_default(ckpt, paths)
     results = [compute_pair(paths, a, b, ck, dev, seed, calib_steps) for a, b in EVAL_PAIRS]
-    save(results, format_report(results, seed, str(dev), ck), paths)
+    save(results, format_report(results, seed, device_label(dev), ck), paths)
     return results
 
 

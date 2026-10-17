@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import logging
 from collections.abc import Mapping, Sequence
 from pathlib import Path
@@ -62,6 +63,11 @@ def add_model_args(ap: argparse.ArgumentParser, seed_default: int | None = 0) ->
 
 def ckpt_or_default(ckpt: Path | None, paths: Paths) -> Path:
     return ckpt if ckpt is not None else paths.default_ckpt
+
+
+def file_sha256(path: Path) -> str:
+    """Hex SHA-256 of a file's contents (identifies a checkpoint across machines and paths)."""
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
 def batch_name_of(study: str) -> str:

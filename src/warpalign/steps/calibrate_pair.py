@@ -16,6 +16,9 @@ magnitudes before calibration.
 
 Output: results/warp_transformer_calib_<A>_<B>_seed<S>.txt,
         results/per_pair/tic_r_calib_<A>_<B>_seed<S>.npz
+
+Steps 08–10 read this calibration back (load_saved) instead of repeating it: the npz records
+the seed, steps, device and checkpoint hash, and load_saved refuses a mismatch.
 """
 
 from __future__ import annotations
@@ -29,13 +32,22 @@ import torch
 
 from .. import evaluation
 from .._compat import AnchorResult, Batch, extract_anchors, format_stages, load_batch
-from ..calibration import CalibrationLog, batch_tensors, calibrate, load_model, pick_device, predict
+from ..calibration import (
+    CalibrationLog,
+    batch_tensors,
+    calibrate,
+    device_label,
+    load_model,
+    pick_device,
+    predict,
+)
 from ..config import LAMBDA_ANCHOR, LAMBDA_SMOOTH, LR_CALIB, N_CALIB_STEPS, Paths, pair_label
 from ._common import (
     add_model_args,
     add_pair_args,
     batch_name_of,
     ckpt_or_default,
+    file_sha256,
     parser,
     save_npz,
     setup_logging,
@@ -104,7 +116,7 @@ def compute(
         len(a),
         len(b),
         seed,
-        str(device),
+        device_label(device),
         ckpt,
         calib_steps,
         anc,
@@ -221,11 +233,78 @@ def save(res: CalibResult, paths: Paths) -> None:
             warps=res.warps,
             calib_seconds=res.log.seconds,
             calib_steps=res.calib_steps,
+            device=res.device,
+            ckpt_sha256=file_sha256(res.ckpt),
         ),
     )
     write_report(
         paths.results / f'warp_transformer_calib_{res.name_a}_{res.name_b}{suffix}.txt',
         format_report(res),
+    )
+
+
+@dataclass
+class SavedCalib:
+    """Step 06's calibrated WarpTransformer on one pair, as saved."""
+
+    warps: np.ndarray  # [n_a + n_b, T], A first
+    wt: evaluation.PairEval  # exactly the metrics step 06 reported
+    mags: tuple[float, float, float]  # after calibration: all, A, B (min)
+    mags_pre: tuple[float, float, float]  # before calibration
+    device: str
+
+
+def load_saved(
+    paths: Paths,
+    name_a: str,
+    name_b: str,
+    seed: int | None,
+    ckpt: Path,
+    device: torch.device,
+    calib_steps: int,
+    anchors: list[tuple[int, int]],
+) -> SavedCalib:
+    """Step 06's saved calibration for (name_a, name_b, seed), checked to be the one the caller
+    would run: same calibration steps, checkpoint contents, device and anchors. Raises
+    FileNotFoundError (run step 06 first) or ValueError (rerun step 06) otherwise."""
+    suffix = '' if seed is None else f'_seed{seed}'
+    path = paths.per_pair / f'tic_r_calib_{name_a}_{name_b}{suffix}.npz'
+    if not path.exists():
+        raise FileNotFoundError(f'{path} is missing: run step 06 for this pair and seed first')
+    z = np.load(path)
+    expected = {
+        'calib_steps': calib_steps,
+        'device': device_label(device),
+        'ckpt_sha256': file_sha256(ckpt),
+        'anchors': np.array(anchors).reshape(-1, 2).tolist(),
+    }
+    found = {
+        'calib_steps': int(z['calib_steps']),
+        'device': str(z['device']) if 'device' in z.files else None,
+        'ckpt_sha256': str(z['ckpt_sha256']) if 'ckpt_sha256' in z.files else None,
+        'anchors': z['anchors'].tolist(),
+    }
+    bad = [k for k in expected if expected[k] != found[k]]
+    if bad:
+        raise ValueError(
+            f'{path} does not match this run ({", ".join(bad)}: saved '
+            f'{[found[k] for k in bad]}, expected {[expected[k] for k in bad]}): rerun step 06'
+        )
+    key = 'warptransformer'
+    i = list(z['methods']).index(key)
+    mags = tuple(float(v) for v in z['wt_warp_mag'])
+    wt = evaluation.PairEval(
+        {k[len(key) :]: z[k] for k in z.files if k.startswith(key)},
+        float(z['sil'][i]),
+        mags[2],
+        float(z['outside'][i]),
+    )
+    return SavedCalib(
+        z['warps'],
+        wt,
+        mags,  # type: ignore[arg-type]
+        tuple(float(v) for v in z['wt_warp_mag_pre']),  # type: ignore[arg-type]
+        found['device'],
     )
 
 

@@ -1,10 +1,12 @@
 """Step 08 — does pretraining matter, or does calibration do all the work?
 
-Runs step 06's calibration twice on the same anchors and seed: from the pretrained checkpoint,
-and from a random-init model (initialisation seeded too). The zero-initialised warp and start
-heads make the random-init model start exactly at the identity warp; the pretrained model
-starts from whatever warp its trained heads predict. Both starting warp magnitudes are
-measured and reported.
+Compares step 06's calibration from the pretrained checkpoint with the same calibration (same
+anchors, seed, steps and device) from a random-init model (initialisation seeded too). The
+pretrained arm is step 06's saved result (calibrate_pair.load_saved), not a repeat of it: the
+two are bit-identical, so step 06 must have run for this pair and seed first. The
+zero-initialised warp and start heads make the random-init model start exactly at the identity
+warp; the pretrained model starts from whatever warp its trained heads predict. Both starting
+warp magnitudes are measured and reported.
 
 Output: results/ablate_pretrain_<A>_<B>_seed<S>.txt,
         results/per_pair/tic_r_ablate_<A>_<B>_seed<S>.npz
@@ -20,7 +22,14 @@ import torch
 
 from .. import evaluation
 from .._compat import Batch, extract_anchors, load_batch
-from ..calibration import batch_tensors, calibrate, load_model, pick_device, predict
+from ..calibration import (
+    batch_tensors,
+    calibrate,
+    device_label,
+    load_model,
+    pick_device,
+    predict,
+)
 from ..config import N_CALIB_STEPS, Paths, pair_label
 from ._common import (
     add_model_args,
@@ -34,6 +43,7 @@ from ._common import (
     title,
     write_report,
 )
+from .calibrate_pair import load_saved
 
 ARMS = ('pretrained', 'random init')
 
@@ -91,6 +101,7 @@ def run_arm(
 
 
 def compute(
+    paths: Paths,
     a: Batch,
     b: Batch,
     ckpt: Path,
@@ -99,12 +110,13 @@ def compute(
     calib_steps: int = N_CALIB_STEPS,
 ) -> AblationResult:
     anchors = extract_anchors(a.chromas, b.chromas, a.tic_raw, b.tic_raw).anchors
+    saved = load_saved(paths, a.name, b.name, seed, ckpt, device, calib_steps, anchors)
     arms = {
-        'pretrained': run_arm(ckpt, a, b, anchors, device, seed, calib_steps),
+        'pretrained': Arm(saved.wt, saved.mags_pre, saved.mags),
         'random init': run_arm(None, a, b, anchors, device, seed, calib_steps),
     }
     return AblationResult(
-        a.name, b.name, seed, str(device), ckpt, anchors, evaluation.unaligned(a, b), arms
+        a.name, b.name, seed, device_label(device), ckpt, anchors, evaluation.unaligned(a, b), arms
     )
 
 
@@ -200,6 +212,7 @@ def run(
     calib_steps: int = N_CALIB_STEPS,
 ) -> AblationResult:
     res = compute(
+        paths,
         load_batch(name_a, paths.fish_oil),
         load_batch(name_b, paths.fish_oil),
         ckpt_or_default(ckpt, paths),

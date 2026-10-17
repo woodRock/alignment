@@ -15,12 +15,18 @@ turn and each method predicts q from r without it:
   Linear warp              the least-squares line q = a·r + b through the remaining anchors
                            (warps.anchor_line), as step 07's linear-warp baseline
   References               no alignment (q̂ = r) and a constant shift (median drift of the rest)
-Also reported: the WT's in-sample residual (calibrated on all anchors). Errors in minutes.
+Also reported: the WT's in-sample residual (calibrated on all anchors: step 06's saved warps at
+this seed, calibrate_pair.load_saved). Errors in minutes.
+
+Sharding: with --study-a/--study-b only that pair is computed and saved as a part file
+(per_pair/heldout_anchor_error_<A>_<B>.npz); --merge then writes the report and the combined
+npz from the evaluated pairs' part files, without computing anything.
 
 Note: the anchor set is step 06's pooled, outlier- and slope-filtered set; those filters ran
 with the held-out anchor included. Pairs with fewer than two anchors are skipped.
 
 Output: results/heldout_anchor_error.txt, results/per_pair/heldout_anchor_error.npz
+        (a pair alone: results/per_pair/heldout_anchor_error_<A>_<B>.npz)
 """
 
 from __future__ import annotations
@@ -42,7 +48,15 @@ from .._compat import (
     load_batch,
     predict_query_bin,
 )
-from ..calibration import batch_tensors, calibrate, free_warp, load_model, pick_device, predict
+from ..calibration import (
+    batch_tensors,
+    calibrate,
+    device_label,
+    free_warp,
+    load_model,
+    pick_device,
+    predict,
+)
 from ..config import (
     BIN_MIN,
     EVAL_PAIRS,
@@ -55,6 +69,7 @@ from ..config import (
 from ..warp_transformer import predict_query_bins
 from ._common import (
     add_model_args,
+    batch_name_of,
     ckpt_or_default,
     parser,
     save_npz,
@@ -63,6 +78,7 @@ from ._common import (
     title,
     write_report,
 )
+from .calibrate_pair import load_saved
 
 log = logging.getLogger('warpalign')
 FREE = 'Free warp (no network)'
@@ -108,7 +124,13 @@ class PairResult:
 
 
 def compute_pair(
-    a: Batch, b: Batch, ckpt: Path, device: torch.device, seed: int, calib_steps: int
+    paths: Paths,
+    a: Batch,
+    b: Batch,
+    ckpt: Path,
+    device: torch.device,
+    seed: int,
+    calib_steps: int,
 ) -> PairResult:
     anchors = extract_anchors(a.chromas, b.chromas, a.tic_raw, b.tic_raw).anchors
     res = PairResult(a.name, b.name, anchors)
@@ -125,7 +147,8 @@ def compute_pair(
 
     r_bins = [r for r, _ in anchors]
     q_obs = np.array([q for _, q in anchors], dtype=float)
-    res.in_sample = np.abs(warps_predict(calibrated_warps(anchors), n_a, r_bins) - q_obs) * BIN_MIN
+    w_all = load_saved(paths, a.name, b.name, seed, ckpt, device, calib_steps, anchors).warps
+    res.in_sample = np.abs(warps_predict(w_all, n_a, r_bins) - q_obs) * BIN_MIN
     cow_q = cow_predict(a, b, r_bins)
     err: dict[str, list[float]] = {m: [] for m in METHODS}
     for k, (r, q) in enumerate(anchors):
@@ -207,15 +230,46 @@ def format_report(results: list[PairResult], seed: int, device: str, ckpt: Path)
     return lines
 
 
+def pair_arrays(p: PairResult) -> dict[str, np.ndarray]:
+    """One pair's saved arrays, keyed <A>_<B>_<what>."""
+    key = f'{p.name_a}_{p.name_b}'
+    saved = {f'{key}_anchors': np.array(p.anchors).reshape(-1, 2)}
+    for m, e in p.errors.items():
+        saved[f'{key}_{m.replace(" ", "_")}'] = e
+    if p.in_sample is not None:
+        saved[f'{key}_wt_in_sample'] = p.in_sample
+    return saved
+
+
+def part_path(paths: Paths, name_a: str, name_b: str) -> Path:
+    return paths.per_pair / f'heldout_anchor_error_{name_a}_{name_b}.npz'
+
+
+def save_part(p: PairResult, seed: int, device: str, ckpt: Path, paths: Paths) -> None:
+    save_npz(
+        part_path(paths, p.name_a, p.name_b),
+        dict(pair_arrays(p), seed=seed, device=device, ckpt=str(ckpt)),
+    )
+
+
+def load_part(paths: Paths, name_a: str, name_b: str) -> tuple[PairResult, dict[str, str]]:
+    """A pair's part file → (PairResult, its run settings: seed, device, ckpt)."""
+    path = part_path(paths, name_a, name_b)
+    if not path.exists():
+        raise FileNotFoundError(f'{path} is missing: run step 10 with --study-a/--study-b first')
+    z = np.load(path)
+    key = f'{name_a}_{name_b}'
+    res = PairResult(name_a, name_b, [(int(r), int(q)) for r, q in z[f'{key}_anchors']])
+    if f'{key}_wt_in_sample' in z.files:
+        res.in_sample = z[f'{key}_wt_in_sample']
+        res.errors = {m: z[f'{key}_{m.replace(" ", "_")}'] for m in METHODS}
+    return res, {k: str(z[k]) for k in ('seed', 'device', 'ckpt')}
+
+
 def save(results: list[PairResult], lines: list[str], paths: Paths) -> None:
     saved: dict[str, np.ndarray] = {}
     for p in results:
-        key = f'{p.name_a}_{p.name_b}'
-        saved[f'{key}_anchors'] = np.array(p.anchors).reshape(-1, 2)
-        for m, e in p.errors.items():
-            saved[f'{key}_{m.replace(" ", "_")}'] = e
-        if p.in_sample is not None:
-            saved[f'{key}_wt_in_sample'] = p.in_sample
+        saved.update(pair_arrays(p))
     paths.ensure_results()
     save_npz(paths.per_pair / 'heldout_anchor_error.npz', saved)
     write_report(paths.results / 'heldout_anchor_error.txt', lines)
@@ -228,21 +282,59 @@ def run(
     device: str = 'cpu',
     calib_steps: int = N_CALIB_STEPS,
     pairs: tuple[tuple[str, str], ...] = EVAL_PAIRS,
+    part: bool = False,
 ) -> list[PairResult]:
+    """Every pair in pairs, then the report; part=True saves each pair's part file instead."""
     dev, ck = pick_device(device), ckpt_or_default(ckpt, paths)
-    results = [
-        compute_pair(
-            load_batch(a, paths.fish_oil), load_batch(b, paths.fish_oil), ck, dev, seed, calib_steps
+    results = []
+    for a, b in pairs:
+        p = compute_pair(
+            paths,
+            load_batch(a, paths.fish_oil),
+            load_batch(b, paths.fish_oil),
+            ck,
+            dev,
+            seed,
+            calib_steps,
         )
-        for a, b in pairs
-    ]
-    save(results, format_report(results, seed, str(dev), ck), paths)
+        if part:
+            save_part(p, seed, device_label(dev), ck, paths)
+        results.append(p)
+    if not part:
+        save(results, format_report(results, seed, device_label(dev), ck), paths)
+    return results
+
+
+def merge(paths: Paths, pairs: tuple[tuple[str, str], ...] = EVAL_PAIRS) -> list[PairResult]:
+    """The report and combined npz from the pairs' part files, which must share one run's
+    settings (seed, device, checkpoint)."""
+    loaded = [load_part(paths, a, b) for a, b in pairs]
+    settings = {tuple(sorted(s.items())) for _, s in loaded}
+    if len(settings) != 1:
+        raise ValueError(f'step 10 part files come from different runs: {sorted(settings)}')
+    s = loaded[0][1]
+    results = [p for p, _ in loaded]
+    save(results, format_report(results, int(s['seed']), s['device'], Path(s['ckpt'])), paths)
     return results
 
 
 def cli(argv: list[str] | None = None) -> None:
     ap = parser(__doc__)
     add_model_args(ap)
+    ap.add_argument('--study-a', default=None, help='with --study-b: compute this pair only')
+    ap.add_argument('--study-b', default=None)
+    ap.add_argument(
+        '--merge', action='store_true', help="write the report from the pairs' part files"
+    )
     args = ap.parse_args(argv)
     setup_logging()
-    run(Paths(args.root), args.seed, args.ckpt, args.device, args.calib_steps)
+    paths = Paths(args.root)
+    if args.merge:
+        merge(paths)
+    elif (args.study_a is None) != (args.study_b is None):
+        ap.error('--study-a and --study-b go together')
+    elif args.study_a is not None:
+        pair = ((batch_name_of(args.study_a), batch_name_of(args.study_b)),)
+        run(paths, args.seed, args.ckpt, args.device, args.calib_steps, pair, part=True)
+    else:
+        run(paths, args.seed, args.ckpt, args.device, args.calib_steps)
